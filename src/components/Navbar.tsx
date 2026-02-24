@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { Search, Bell, ChevronDown, Coins, Wallet } from "lucide-react";
 import { motion } from "framer-motion";
+import { useNavigate, Link } from "react-router-dom";
 import ThemeToggle from "./ThemeToggle";
 
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10);
@@ -23,9 +25,9 @@ const Navbar = () => {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
         {/* Logo */}
-        <span className="font-headline text-xl font-bold tracking-tight text-foreground select-none">
+        <Link to="/" className="font-headline text-xl font-bold tracking-tight text-foreground select-none">
           Callit
-        </span>
+        </Link>
 
         {/* Search */}
         <div className="hidden md:flex items-center mx-6 flex-1 max-w-md">
@@ -71,7 +73,10 @@ const Navbar = () => {
           </button>
 
           {/* Call It CTA */}
-          <button className="rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-gold-hover transition-colors">
+          <button
+            onClick={() => navigate("/call-it")}
+            className="rounded-full bg-gold px-4 py-1.5 text-sm font-semibold text-primary-foreground hover:bg-gold-hover transition-colors"
+          >
             Call It
           </button>
 
