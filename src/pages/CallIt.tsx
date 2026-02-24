@@ -67,26 +67,29 @@ const CallIt = () => {
           animate="visible"
           className="mb-10 text-center"
         >
-          <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-2">
-            Call It
+         <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-2">
+            Make Your Call
           </h1>
-          <p className="text-sm text-muted-foreground">
-            Put something real out there. Back it with conviction.
+          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+            Post your opinion as a question. Declare your answer. Let the world stake.
           </p>
         </motion.div>
 
         {/* SECTION 1 — Question Input */}
         <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible" className="mb-6">
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => {
-              setQuestion(e.target.value);
-              if (e.target.value.length > 10) setShowSuggestions(true);
-            }}
-            placeholder="What's your call? Ask it as a question..."
-            className="w-full rounded-lg border border-border bg-secondary px-4 py-4 text-base font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 focus:shadow-[0_0_16px_hsl(var(--gold)/0.15)] transition-all duration-200"
-          />
+          <div className="relative">
+            <textarea
+              value={question}
+              onChange={(e) => {
+                if (e.target.value.length <= 200) setQuestion(e.target.value);
+                if (e.target.value.length > 10) setShowSuggestions(true);
+              }}
+              placeholder="What's your call? Ask it as a question..."
+              rows={3}
+              className="w-full rounded-lg border border-border bg-secondary px-4 py-4 text-base font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 focus:shadow-[0_0_16px_hsl(var(--gold)/0.15)] transition-all duration-200 resize-none"
+            />
+            <span className="absolute bottom-3 right-3 text-xs text-muted-foreground">{question.length}/200</span>
+          </div>
         </motion.div>
 
         {/* SECTION 2 — AI Suggestion Strip */}
@@ -117,7 +120,7 @@ const CallIt = () => {
                       </div>
                     </div>
                     <button className="shrink-0 rounded-full border border-gold text-gold px-3 py-1 text-xs font-semibold hover:bg-gold hover:text-primary-foreground transition-all duration-200">
-                      Join this one
+                      Join this instead
                     </button>
                   </div>
                 ))}
@@ -210,7 +213,8 @@ const CallIt = () => {
 
         {/* SECTION 6 — Founding Stake */}
         <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-base font-semibold text-foreground mb-4">Back your opinion with coins</p>
+          <p className="text-base font-semibold text-foreground mb-2">Back your opinion with coins</p>
+          <p className="text-xs text-muted-foreground mb-4">You must stake coins to post. This seeds the pool.</p>
           <div className="relative">
             <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
             <input
@@ -238,7 +242,7 @@ const CallIt = () => {
 
         {/* SECTION 7 — Live Preview Card */}
         <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-xs font-medium text-muted-foreground mb-3">Your call will look like this:</p>
+          <p className="text-xs font-semibold text-muted-foreground mb-3">Preview</p>
           <div className="transition-all duration-150">
             <OpinionCard data={previewData} index={0} />
           </div>
@@ -246,13 +250,23 @@ const CallIt = () => {
 
         {/* SECTION 8 — Post It Button */}
         <motion.div custom={7} variants={sectionVariants} initial="hidden" animate="visible">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full rounded-full bg-gold py-4 text-base font-semibold text-primary-foreground hover:bg-gold-hover transition-colors duration-200 animate-gold-pulse"
-          >
-            Post It
-          </motion.button>
+          {(() => {
+            const isReady = question.trim().length > 0 && declared !== null && category !== null && duration !== null && stake !== "" && Number(stake) > 0;
+            return (
+              <motion.button
+                whileHover={isReady ? { scale: 1.02 } : {}}
+                whileTap={isReady ? { scale: 0.98 } : {}}
+                disabled={!isReady}
+                className={`w-full rounded-full py-4 text-base font-semibold transition-colors duration-200 ${
+                  isReady
+                    ? "bg-gold text-primary-foreground hover:bg-gold-hover animate-gold-pulse"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                }`}
+              >
+                Post It — Call It
+              </motion.button>
+            );
+          })()}
         </motion.div>
       </main>
     </div>
