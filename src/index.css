@@ -93,7 +93,20 @@
     --sidebar-accent-foreground: 0 0% 95%;
     --sidebar-border: 0 0% 15%;
     --sidebar-ring: 47 91% 52%;
+}
+
+@keyframes gold-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px hsl(47 91% 52% / 0.3);
   }
+  50% {
+    box-shadow: 0 0 24px hsl(47 91% 52% / 0.5);
+  }
+}
+
+.animate-gold-pulse {
+  animation: gold-pulse 2s ease-in-out infinite;
+}
 }
 
 @layer base {
