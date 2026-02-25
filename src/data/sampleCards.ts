@@ -10,6 +10,8 @@ export const sampleCards: OpinionCardData[] = [
     timeLeft: "3 days left",
     genre: "Music & Culture",
     creator: "vibecheck",
+    postedDaysAgo: 4,
+    stakerCount: 87,
   },
   {
     id: 2,
@@ -20,6 +22,10 @@ export const sampleCards: OpinionCardData[] = [
     timeLeft: "1 day left",
     genre: "Music & Culture",
     creator: "hiphophead",
+    postedDaysAgo: 6,
+    stakerCount: 214,
+    isResolved: true,
+    winner: "yes",
   },
   {
     id: 3,
@@ -30,6 +36,8 @@ export const sampleCards: OpinionCardData[] = [
     timeLeft: "7 days left",
     genre: "Crypto & Money",
     creator: "cryptobro",
+    postedDaysAgo: 2,
+    stakerCount: 45,
   },
   {
     id: 4,
@@ -40,6 +48,8 @@ export const sampleCards: OpinionCardData[] = [
     timeLeft: "2 days left",
     genre: "Sports",
     creator: "goatdebater",
+    postedDaysAgo: 5,
+    stakerCount: 312,
   },
   {
     id: 5,
@@ -50,6 +60,8 @@ export const sampleCards: OpinionCardData[] = [
     timeLeft: "18 hours left",
     genre: "Local",
     creator: "nairobiguide",
+    postedDaysAgo: 1,
+    stakerCount: 23,
   },
   {
     id: 6,
@@ -60,5 +72,7 @@ export const sampleCards: OpinionCardData[] = [
     timeLeft: "5 days left",
     genre: "Random",
     creator: "worklife",
+    postedDaysAgo: 3,
+    stakerCount: 56,
   },
 ];
