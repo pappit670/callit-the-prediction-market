@@ -12,6 +12,8 @@ export const sampleCards: OpinionCardData[] = [
     creator: "vibecheck",
     postedDaysAgo: 4,
     stakerCount: 87,
+    resolutionType: "event",
+    status: "open",
   },
   {
     id: 2,
@@ -26,6 +28,8 @@ export const sampleCards: OpinionCardData[] = [
     stakerCount: 214,
     isResolved: true,
     winner: "yes",
+    resolutionType: "crowd",
+    status: "resolved",
   },
   {
     id: 3,
@@ -38,6 +42,8 @@ export const sampleCards: OpinionCardData[] = [
     creator: "cryptobro",
     postedDaysAgo: 2,
     stakerCount: 45,
+    resolutionType: "event",
+    status: "open",
   },
   {
     id: 4,
@@ -50,6 +56,8 @@ export const sampleCards: OpinionCardData[] = [
     creator: "goatdebater",
     postedDaysAgo: 5,
     stakerCount: 312,
+    resolutionType: "crowd",
+    status: "open",
   },
   {
     id: 5,
@@ -62,6 +70,9 @@ export const sampleCards: OpinionCardData[] = [
     creator: "nairobiguide",
     postedDaysAgo: 1,
     stakerCount: 23,
+    resolutionType: "event",
+    status: "draw",
+    isResolved: true,
   },
   {
     id: 6,
@@ -74,5 +85,7 @@ export const sampleCards: OpinionCardData[] = [
     creator: "worklife",
     postedDaysAgo: 3,
     stakerCount: 56,
+    resolutionType: "crowd",
+    status: "open",
   },
 ];
