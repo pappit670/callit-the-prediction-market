@@ -1,96 +1,128 @@
 
 
-# Opinion Detail Page — Implementation Plan
+# Callit Core Logic & UX Upgrade — Implementation Plan
 
 ## Overview
 
-Create a new `/opinion/:id` route that displays the full detail view when any opinion card in the feed is clicked. The page includes staking mechanics, a return calculator, live countdown timer, activity feed, comment section, share functionality, and a resolution panel for closed opinions.
+This upgrade introduces opinion resolution types, lifecycle states, payout logic with early-entry multipliers, language changes from "Buy" to "Stake", enhanced card/detail displays, and a cinematic resolution screen. All changes stay within the existing design system.
 
-## Files to Create
+## Scope of Changes
 
-### 1. `src/pages/OpinionDetail.tsx`
-The main detail page component (~500 lines). Structured as follows:
+### 1. Data Model Updates — `src/components/OpinionCard.tsx` + `src/data/sampleCards.ts`
 
-**State & Data:**
-- Parse `:id` from URL params, look up the matching card from `sampleCards`
-- Local state for: stake input, selected side (yes/no), comment input, countdown timer
-- `useEffect` with `setInterval` for live countdown (parse `timeLeft` string into seconds, tick down every 1s)
-- Fake activity feed data (5 recent stakes) and fake comments data hardcoded in-file
-- A boolean `isResolved` flag on at least one sample card to demonstrate the resolution panel
+Add new fields to `OpinionCardData`:
 
-**Sections (each wrapped in `motion.div` with staggered fade-up):**
+- `resolutionType: "crowd" | "event" | "metric"` — defaults to `"crowd"`
+- `status: "open" | "locked" | "resolved" | "draw"` — defaults to `"open"`
 
-1. **Back arrow + Genre tag** — `ArrowLeft` icon from Lucide, links back to `/`. Genre pill in gold.
+Update sample cards with these fields. Mark card 2 (Kendrick) as `status: "resolved"`, `resolutionType: "crowd"`. Add one card or mark card 5 as `status: "draw"` for demo. All others `"open"`.
 
-2. **Question headline** — `font-headline` H1, large text. Creator chip below with 32px avatar circle, username, "Posted X days ago" muted text.
+### 2. OpinionCard Updates — `src/components/OpinionCard.tsx`
 
-3. **Staking section** — 16px tall yes/no bars animating width on mount (800ms). Large 32px bold percentages. Gold coin total below in Instrument Serif. Staker count and early entry pill.
+Add below the genre tag:
+- **Resolution type pill**: "Crowd Based" or "Event Based" in muted grey background, 11px
+- **Status pill**: color-coded — Open (green), Closing (gold), Resolved (muted), Draw (blue)
+- **"Weighted by coins staked"** label below percentages, 10px muted grey
 
-4. **Return calculator** — Coin input with gold focus border. Live output: `Stake X on Yes → potential win Y` using simple formula `Y = X * (100 / yesPercent)`. Output in gold Instrument Serif Bold.
+Replace button text:
+- "Buy Yes" → "Stake Yes"
+- "Buy No" → "Stake No"
 
-5. **Buy Yes / Buy No buttons** — Full width side by side, solid green/blue fills, white text, scale 1.02 on hover via Framer Motion.
+Add dynamic potential return line:
+- "Stake 100 → potential win 240" using the proportional formula, 12px muted text
 
-6. **Countdown timer** — 4 boxes (days, hours, minutes, seconds) with bg-secondary, Instrument Serif Bold 28px numbers, muted labels. Live ticking via `useEffect`. "Resolved by: Community Vote" label below.
+### 3. OpinionDetail Updates — `src/pages/OpinionDetail.tsx`
 
-7. **Activity feed** — "Recent Stakes" label. 5 rows with avatar, username, "staked Yes/No" colored text, coin amount in gold, timestamp. "View all activity" gold link at bottom.
+**Language changes:**
+- "Buy Yes" → "Stake Yes", "Buy No" → "Stake No" (lines 211-215)
+- "Coins are deducted immediately on stake" stays
 
-8. **Share button** — Outlined gold button with `Share2` icon and "Share this call" text. Shows a toast on click.
+**New elements:**
+- Resolution type info box below the question: icon + "How this resolves: The side with the most staked coins when the timer ends wins." for crowd type. Different text for event type.
+- Status pill next to genre tag in header
+- "Weighted by coins staked" label below percentage bars
+- User personal stake display (hardcoded demo): "Your stake: 200 coins on Yes" in gold
+- Early entry multiplier logic: display the correct multiplier based on time elapsed
 
-9. **Comment section** — "The Conversation" in Instrument Serif H3. Input with avatar + gold-bordered field + send button. 3-4 hardcoded comments with gold left border, like/reply actions.
+**Payout display updates:**
+- Show platform fee breakdown in resolution panel
+- Update the resolution panel to reflect the correct status
 
-10. **Resolution panel** — Conditionally rendered when `isResolved` is true. Replaces calculator and buy buttons. Gold background panel showing winner, pool distribution, Callit cut. User win/loss state.
+### 4. CallIt Page Updates — `src/pages/CallIt.tsx`
 
-### 2. `src/data/sampleCards.ts` (modify)
-- Add optional fields to `OpinionCardData`: `postedDaysAgo?: number`, `stakerCount?: number`, `isResolved?: boolean`, `winner?: "yes" | "no"`
-- Add `postedDaysAgo` and `stakerCount` values to existing cards
+Add a new **Resolution Type selector** section between the category selector and time limit:
+- Label: "How should this resolve?"
+- Three options as cards/pills:
+  - "Crowd Based" — selected by default, gold fill
+  - "Event Based" — selectable
+  - "Metric Based" — disabled, "Coming Soon" tag
+- Brief description under each option
 
-### 3. `src/components/OpinionCard.tsx` (modify)
-- Wrap the card in a `Link` (or use `useNavigate` + `onClick`) to navigate to `/opinion/${data.id}`
-- Add `cursor-pointer` class
+Update preview card to include the selected resolution type.
 
-### 4. `src/App.tsx` (modify)
-- Add route: `<Route path="/opinion/:id" element={<OpinionDetail />} />`
-- Import `OpinionDetail`
+### 5. Cinematic Resolution Screen — `src/components/ResolutionScreen.tsx` (new file)
+
+A full-screen overlay component triggered when viewing a resolved opinion:
+
+**Props:** `card data`, `userWon: boolean`, `userPayout: number`, `onDismiss: () => void`
+
+**Layout:**
+- Full viewport overlay with dark backdrop
+- Large question text in Instrument Serif H1, centered
+- Winning side revealed with scale-up animation (500ms): large "Yes" in green or "No" in blue
+- Pool breakdown: total pool, Callit cut (10%), distributed amount
+
+**Win state:**
+- Gold coin rain using Framer Motion animated particles (10-15 falling coin icons)
+- "You called it." in Instrument Serif H1 gold
+- Coin amount counting up animation
+- "Show the world you called it" share button
+
+**Loss state:**
+- Clean muted panel, no harsh visuals
+- "Tough call." in Instrument Serif H2
+- Amount lost in muted text
+- "Make another call" gold outlined CTA
+
+**Dismiss:** "Back to feed" button at bottom
+
+### 6. Integration in OpinionDetail
+
+- When a resolved opinion is opened, show a "View Result" button that triggers the `ResolutionScreen` overlay
+- Or auto-show the cinematic screen on first visit to a resolved opinion (with dismiss)
+
+## Files Modified
+
+| File | Action |
+|------|--------|
+| `src/components/OpinionCard.tsx` | Add resolution type pill, status pill, weighted label, rename Buy→Stake, add potential return |
+| `src/data/sampleCards.ts` | Add `resolutionType`, `status` fields to interface and data |
+| `src/pages/OpinionDetail.tsx` | Rename Buy→Stake, add resolution info box, status pill, weighted label, user stake display |
+| `src/pages/CallIt.tsx` | Add resolution type selector section |
+| `src/components/ResolutionScreen.tsx` | New — cinematic full-screen resolution overlay |
+| `src/index.css` | Add coin-rain keyframe animation |
 
 ## Technical Details
 
-**Countdown timer logic:**
-- Parse the `timeLeft` string (e.g. "3 days left") into total seconds on mount
-- `useEffect` with 1-second interval to decrement
-- Convert remaining seconds to `{ days, hours, minutes, seconds }` for display
-- Clear interval on unmount or when reaching 0
+**Payout formula displayed:**
+- `potentialWin = stakeAmount * (100 / sidePercent) * 0.9 - stakeAmount`
+- The 0.9 accounts for the 10% platform fee
 
-**Return calculator formula:**
-- Simple proportional: `potentialWin = stakeAmount * (100 / selectedPercent) - stakeAmount`
-- Updates live as user types via controlled input
+**Early entry multiplier tiers (display only):**
+- First 10% of time: 1.5x label
+- 10-40%: 1.25x label
+- 40-80%: 1.0x (no label)
+- Last 20%: 0.85x late penalty label
+- Calculated from `postedDaysAgo` vs total duration parsed from `timeLeft`
 
-**Activity feed data (hardcoded):**
-```text
-5 entries with: username, side (yes/no), amount, timestamp
-e.g. "cryptobro staked Yes · 120 coins · 2 min ago"
-```
+**Coin rain animation:**
+- 12-15 `motion.div` elements with coin icons
+- Random x positions, staggered delays, falling from top with rotation
+- Duration 2-3s, ease out, opacity fade at bottom
 
-**Comment data (hardcoded):**
-```text
-3-4 comments with: username, avatar initial, text, timestamp
-```
-
-**Resolution panel conditional:**
-- If card has `isResolved: true`, hide calculator + buy buttons, show resolution panel instead
-- One sample card (e.g. id 2, Kendrick question) marked as resolved for demo
-
-**Animations:**
-- Page entrance: `motion.div` fade up 400ms
-- Each section: staggered by 100ms using `custom` index on variants (same pattern as CallIt page)
-- Percentage bars: `motion.div` width animation 800ms on mount
-- Buy button hover: `whileHover={{ scale: 1.02 }}` via Framer Motion
-- Timer: CSS transitions on number changes
-
-## Routing & Navigation Flow
-
-```text
-Feed (/) → Click card → /opinion/:id (detail page)
-Detail page → Back arrow → / (feed)
-Detail page → Logo in navbar → / (feed)
-```
+**Status pill colors (Tailwind classes):**
+- Open: `bg-yes/15 text-yes`
+- Closing: `bg-gold/15 text-gold`
+- Resolved: `bg-muted text-muted-foreground`
+- Draw: `bg-no/15 text-no`
 
