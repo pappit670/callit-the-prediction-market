@@ -1,10 +1,11 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins } from "lucide-react";
+import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { sampleCards } from "@/data/sampleCards";
 import { toast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
+import ResolutionScreen from "@/components/ResolutionScreen";
 
 const activityFeed = [
   { user: "cryptobro", side: "yes" as const, amount: 120, time: "2 min ago" },
@@ -39,6 +40,29 @@ function formatCountdown(s: number) {
   return { d, h, m, s: sec };
 }
 
+function getEarlyEntryMultiplier(postedDaysAgo: number, timeLeft: string): { multiplier: number; label: string } | null {
+  const totalSeconds = parseTimeLeft(timeLeft) + postedDaysAgo * 86400;
+  const elapsed = postedDaysAgo * 86400;
+  const pct = totalSeconds > 0 ? elapsed / totalSeconds : 0;
+  if (pct <= 0.1) return { multiplier: 1.5, label: "1.5x" };
+  if (pct <= 0.4) return { multiplier: 1.25, label: "1.25x" };
+  if (pct <= 0.8) return null;
+  return { multiplier: 0.85, label: "0.85x late penalty" };
+}
+
+const resolutionDescriptions: Record<string, string> = {
+  crowd: "How this resolves: The side with the most staked coins when the timer ends wins.",
+  event: "How this resolves: Based on whether the real-world event occurs by the deadline.",
+  metric: "How this resolves: Based on predefined measurable metrics.",
+};
+
+const statusConfig: Record<string, { label: string; classes: string }> = {
+  open: { label: "Open", classes: "bg-yes/15 text-yes" },
+  locked: { label: "Closing", classes: "bg-gold/15 text-gold" },
+  resolved: { label: "Resolved", classes: "bg-muted text-muted-foreground" },
+  draw: { label: "Draw — Refunded", classes: "bg-no/15 text-no" },
+};
+
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
@@ -58,6 +82,7 @@ const OpinionDetail = () => {
   const [commentInput, setCommentInput] = useState("");
   const [comments, setComments] = useState(initialComments);
   const [secondsLeft, setSecondsLeft] = useState(0);
+  const [showResolution, setShowResolution] = useState(false);
 
   useEffect(() => {
     if (card) setSecondsLeft(parseTimeLeft(card.timeLeft));
@@ -79,9 +104,12 @@ const OpinionDetail = () => {
     );
   }
 
-  const { question, yesPercent, noPercent, coins, genre, creator, postedDaysAgo, stakerCount, isResolved, winner } = card;
+  const { question, yesPercent, noPercent, coins, genre, creator, postedDaysAgo, stakerCount, isResolved, winner, resolutionType = "crowd", status = "open" } = card;
   const percent = selectedSide === "yes" ? yesPercent : noPercent;
-  const potentialWin = stakeAmount && percent > 0 ? (parseFloat(stakeAmount) * (100 / percent) - parseFloat(stakeAmount)).toFixed(0) : "0";
+  const potentialWin = stakeAmount && percent > 0 ? (parseFloat(stakeAmount) * (100 / percent) * 0.9 - parseFloat(stakeAmount)).toFixed(0) : "0";
+  const earlyEntry = getEarlyEntryMultiplier(postedDaysAgo ?? 1, card.timeLeft);
+  const statusInfo = statusConfig[status] || statusConfig.open;
+  const isActive = status === "open" || status === "locked";
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -94,21 +122,51 @@ const OpinionDetail = () => {
     setCommentInput("");
   };
 
+  // Demo: user staked on yes for resolved opinions
+  const userStakedSide = isResolved ? "yes" : null;
+  const userStakeCoins = isResolved ? 200 : 0;
+  const userWon = isResolved && winner === userStakedSide;
+  const userPayout = userWon ? Math.round(userStakeCoins * (100 / yesPercent) * 0.9) : userStakeCoins;
+
+  if (showResolution && isResolved) {
+    return (
+      <ResolutionScreen
+        card={card}
+        userWon={!!userWon}
+        userPayout={userPayout}
+        onDismiss={() => {
+          setShowResolution(false);
+          navigate("/");
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="max-w-[780px] mx-auto px-4 sm:px-6 pt-8 pb-20">
-        {/* Back + Genre */}
+        {/* Back + Genre + Status */}
         <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible" className="flex items-center gap-3 mb-6">
           <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-gold transition-colors">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <span className="rounded bg-gold/10 px-3 py-1 text-[11px] font-medium text-gold font-body">{genre}</span>
+          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusInfo.classes}`}>
+            {statusInfo.label}
+          </span>
         </motion.div>
 
         {/* Question */}
         <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible" className="mb-6">
           <h1 className="font-headline text-3xl sm:text-4xl text-foreground leading-tight mb-4">{question}</h1>
+
+          {/* Resolution type info box */}
+          <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-secondary">
+            <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+            <p className="text-[13px] text-muted-foreground font-body">{resolutionDescriptions[resolutionType]}</p>
+          </div>
+
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-bold text-muted-foreground hover:ring-2 hover:ring-gold transition-all">
               {creator[0].toUpperCase()}
@@ -126,10 +184,11 @@ const OpinionDetail = () => {
             <motion.div className="h-full bg-yes rounded-l-full" initial={{ width: 0 }} animate={{ width: `${yesPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }} />
             <motion.div className="h-full bg-no rounded-r-full" initial={{ width: 0 }} animate={{ width: `${noPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }} />
           </div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-1">
             <span className="text-[32px] font-bold text-yes font-body">Yes {yesPercent}%</span>
             <span className="text-[32px] font-bold text-no font-body">No {noPercent}%</span>
           </div>
+          <p className="text-[10px] text-muted-foreground font-body mb-3">Weighted by coins staked</p>
           <div className="flex items-center gap-4 flex-wrap">
             <div>
               <span className="font-headline text-2xl font-bold text-gold">{coins.toLocaleString()}</span>
@@ -139,30 +198,69 @@ const OpinionDetail = () => {
               <span className="text-sm text-muted-foreground font-body">{stakerCount} people have staked</span>
             )}
           </div>
-          <div className="mt-3">
-            <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-medium text-gold font-body">Early Entry · 1.5x multiplier active</span>
-          </div>
+          {earlyEntry && isActive && (
+            <div className="mt-3">
+              <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-medium text-gold font-body">
+                Early Entry · {earlyEntry.label} multiplier active
+              </span>
+            </div>
+          )}
+          {/* User personal stake */}
+          {userStakedSide && (
+            <div className="mt-3 flex items-center gap-2">
+              <Coins className="h-4 w-4 text-gold" />
+              <span className="text-sm font-semibold text-gold font-body">
+                Your stake: {userStakeCoins} coins on {userStakedSide === "yes" ? "Yes" : "No"}
+              </span>
+            </div>
+          )}
         </motion.div>
 
-        {/* Resolution or Calculator + Buy */}
-        {isResolved ? (
+        {/* Resolution or Calculator + Stake */}
+        {isResolved || status === "resolved" || status === "draw" ? (
           <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8 space-y-4">
-            <div className="rounded-2xl bg-gold p-6">
-              <p className="font-headline text-xl font-bold text-primary-foreground mb-3">
-                This call is closed · {winner === "yes" ? "Yes" : "No"} Won
-              </p>
-              <div className="space-y-1 font-body text-sm text-primary-foreground/80">
-                <p>Total pool: {coins.toLocaleString()} coins</p>
-                <p>Callit cut (10%): {Math.round(coins * 0.1).toLocaleString()} coins</p>
-                <p>Winner payout: {Math.round(coins * 0.9).toLocaleString()} coins distributed</p>
+            {status === "draw" ? (
+              <div className="rounded-2xl bg-no/15 p-6">
+                <p className="font-headline text-xl font-bold text-no mb-3">
+                  This call is a draw — All stakes refunded
+                </p>
+                <div className="space-y-1 font-body text-sm text-muted-foreground">
+                  <p>Total pool: {coins.toLocaleString()} coins</p>
+                  <p>All stakes returned to participants</p>
+                </div>
               </div>
-            </div>
-            <div className="rounded-xl bg-muted p-4 text-center">
-              <p className="text-sm text-muted-foreground font-body">Tough call. Better luck next time.</p>
-              <button onClick={() => navigate("/call-it")} className="mt-2 text-sm font-medium text-gold hover:text-gold-hover transition-colors font-body">
-                Make another call →
-              </button>
-            </div>
+            ) : (
+              <>
+                <div className="rounded-2xl bg-gold p-6">
+                  <p className="font-headline text-xl font-bold text-primary-foreground mb-3">
+                    This call is closed · {winner === "yes" ? "Yes" : "No"} Won
+                  </p>
+                  <div className="space-y-1 font-body text-sm text-primary-foreground/80">
+                    <p>Total pool: {coins.toLocaleString()} coins</p>
+                    <p>Callit cut (10%): {Math.round(coins * 0.1).toLocaleString()} coins</p>
+                    <p>Winner payout: {Math.round(coins * 0.9).toLocaleString()} coins distributed</p>
+                  </div>
+                </div>
+                {userWon ? (
+                  <div className="rounded-xl bg-yes/15 p-4 text-center">
+                    <p className="font-headline text-lg text-yes font-bold">You called it. +{userPayout} coins added to your wallet</p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-muted p-4 text-center">
+                    <p className="text-sm text-muted-foreground font-body">Tough call. {userStakeCoins} coins lost.</p>
+                    <button onClick={() => navigate("/call-it")} className="mt-2 text-sm font-medium text-gold hover:text-gold-hover transition-colors font-body">
+                      Make another call →
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={() => setShowResolution(true)}
+                  className="w-full rounded-xl border border-gold text-gold font-body text-sm font-semibold py-3 hover:bg-gold hover:text-primary-foreground transition-all duration-200"
+                >
+                  View Full Result
+                </button>
+              </>
+            )}
           </motion.div>
         ) : (
           <>
@@ -178,7 +276,7 @@ const OpinionDetail = () => {
                   value={stakeAmount}
                   onChange={(e) => setStakeAmount(e.target.value)}
                   placeholder="Enter coins"
-                  className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-3 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                  className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-3 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
               <div className="flex gap-2 mb-3">
@@ -188,9 +286,7 @@ const OpinionDetail = () => {
                     onClick={() => setSelectedSide(s)}
                     className={`flex-1 rounded-lg py-2 text-sm font-semibold font-body border transition-all duration-200 ${
                       selectedSide === s
-                        ? s === "yes"
-                          ? "bg-yes border-yes text-white"
-                          : "bg-no border-no text-white"
+                        ? s === "yes" ? "bg-yes border-yes text-white" : "bg-no border-no text-white"
                         : "border-border text-muted-foreground hover:border-gold"
                     }`}
                   >
@@ -205,14 +301,14 @@ const OpinionDetail = () => {
               )}
             </motion.div>
 
-            {/* Buy buttons */}
+            {/* Stake buttons */}
             <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
               <div className="flex gap-3">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 rounded-xl bg-yes py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all">
-                  Buy Yes
+                  Stake Yes
                 </motion.button>
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 rounded-xl bg-no py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all">
-                  Buy No
+                  Stake No
                 </motion.button>
               </div>
               <p className="text-[11px] text-muted-foreground text-center mt-2 font-body">Coins are deducted immediately on stake</p>
@@ -235,7 +331,9 @@ const OpinionDetail = () => {
               </div>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground font-body">Resolved by: Community Vote</p>
+          <p className="text-xs text-muted-foreground font-body">
+            Resolved by: {resolutionType === "crowd" ? "Community Stake" : resolutionType === "event" ? "Event Outcome" : "Metrics"}
+          </p>
         </motion.div>
 
         {/* Activity */}

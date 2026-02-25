@@ -18,6 +18,12 @@ const durationToTimeLeft: Record<string, string> = {
   "14 Days": "14 days left",
 };
 
+const resolutionTypes = [
+  { value: "crowd" as const, label: "Crowd Based", desc: "The side with the most staked coins wins when the timer ends.", disabled: false },
+  { value: "event" as const, label: "Event Based", desc: "Resolved by a real-world event outcome on a set date.", disabled: false },
+  { value: "metric" as const, label: "Metric Based", desc: "Resolved by predefined measurable metrics.", disabled: true },
+];
+
 const fakeSuggestions = [
   { question: "Will Drake drop a new album this year?", yesPercent: 62, noPercent: 38, coins: 980 },
   { question: "Is hip hop the biggest genre right now?", yesPercent: 74, noPercent: 26, coins: 1540 },
@@ -40,6 +46,7 @@ const CallIt = () => {
   const [stake, setStake] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [dismissedSuggestions, setDismissedSuggestions] = useState(false);
+  const [resolutionType, setResolutionType] = useState<"crowd" | "event" | "metric">("crowd");
 
   const shouldShowSuggestions = question.length > 10 && showSuggestions && !dismissedSuggestions;
 
@@ -52,7 +59,9 @@ const CallIt = () => {
     timeLeft: duration ? durationToTimeLeft[duration] : "—",
     genre: category || "Category",
     creator: "you",
-  }), [question, declared, category, duration, stake]);
+    resolutionType,
+    status: "open" as const,
+  }), [question, declared, category, duration, stake, resolutionType]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -60,18 +69,10 @@ const CallIt = () => {
 
       <main className="mx-auto max-w-[600px] px-4 md:px-6 py-10 pb-20">
         {/* Page title */}
-        <motion.div
-          custom={0}
-          variants={sectionVariants}
-          initial="hidden"
-          animate="visible"
-          className="mb-10 text-center"
-        >
-         <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-2">
-            Make Your Call
-          </h1>
+        <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible" className="mb-10 text-center">
+          <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-2">Make Your Call</h1>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            Post your opinion as a question. Declare your answer. Let the world stake.
+            Post your opinion as a question. Declare your answer. Let the crowd decide.
           </p>
         </motion.div>
 
@@ -102,15 +103,10 @@ const CallIt = () => {
               transition={{ duration: 0.3, ease: "easeOut" }}
               className="mb-6 overflow-hidden"
             >
-              <p className="text-xs font-medium text-muted-foreground mb-3">
-                Similar opinions already live:
-              </p>
+              <p className="text-xs font-medium text-muted-foreground mb-3">Similar opinions already live:</p>
               <div className="flex flex-col gap-3">
                 {fakeSuggestions.map((s, i) => (
-                  <div
-                    key={i}
-                    className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-4"
-                  >
+                  <div key={i} className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{s.question}</p>
                       <div className="flex items-center gap-3 mt-1">
@@ -125,10 +121,7 @@ const CallIt = () => {
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => setDismissedSuggestions(true)}
-                className="mt-3 text-xs font-medium text-gold hover:text-gold-hover transition-colors"
-              >
+              <button onClick={() => setDismissedSuggestions(true)} className="mt-3 text-xs font-medium text-gold hover:text-gold-hover transition-colors">
                 Mine is different, continue →
               </button>
             </motion.div>
@@ -152,16 +145,10 @@ const CallIt = () => {
                   transition={{ duration: 0.2 }}
                   className={`rounded-xl border-2 py-8 text-center font-bold text-2xl transition-all duration-200 ${
                     selected
-                      ? isYes
-                        ? "border-yes bg-yes text-primary-foreground shadow-lg"
-                        : "border-no bg-no text-primary-foreground shadow-lg"
+                      ? isYes ? "border-yes bg-yes text-white shadow-lg" : "border-no bg-no text-white shadow-lg"
                       : otherSelected
-                        ? isYes
-                          ? "border-yes/30 bg-yes-faded text-yes/40"
-                          : "border-no/30 bg-no-faded text-no/40"
-                        : isYes
-                          ? "border-yes bg-yes-faded text-yes hover:bg-yes/20"
-                          : "border-no bg-no-faded text-no hover:bg-no/20"
+                        ? isYes ? "border-yes/30 bg-yes-faded text-yes/40" : "border-no/30 bg-no-faded text-no/40"
+                        : isYes ? "border-yes bg-yes-faded text-yes hover:bg-yes/20" : "border-no bg-no-faded text-no hover:bg-no/20"
                   }`}
                 >
                   {isYes ? "Yes" : "No"}
@@ -186,6 +173,37 @@ const CallIt = () => {
                 }`}
               >
                 {c}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* SECTION 4.5 — Resolution Type Selector */}
+        <motion.div custom={3.5} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
+          <p className="text-base font-semibold text-foreground mb-4">How should this resolve?</p>
+          <div className="flex flex-col gap-3">
+            {resolutionTypes.map((rt) => (
+              <button
+                key={rt.value}
+                onClick={() => !rt.disabled && setResolutionType(rt.value)}
+                disabled={rt.disabled}
+                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
+                  rt.disabled
+                    ? "border-border opacity-50 cursor-not-allowed"
+                    : resolutionType === rt.value
+                      ? "border-gold bg-gold/10"
+                      : "border-border hover:border-gold/50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-semibold font-body ${resolutionType === rt.value && !rt.disabled ? "text-gold" : "text-foreground"}`}>
+                    {rt.label}
+                  </span>
+                  {rt.disabled && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">Coming Soon</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1 font-body">{rt.desc}</p>
               </button>
             ))}
           </div>
@@ -227,11 +245,7 @@ const CallIt = () => {
             />
           </div>
           {stake && declared && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-2 text-sm text-muted-foreground"
-            >
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 text-sm text-muted-foreground">
               You're staking <span className="text-gold font-semibold">{Number(stake).toLocaleString()}</span> coins on{" "}
               <span className={declared === "yes" ? "text-yes font-semibold" : "text-no font-semibold"}>
                 {declared === "yes" ? "Yes" : "No"}
