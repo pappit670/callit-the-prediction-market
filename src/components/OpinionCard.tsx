@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Share2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 export interface OpinionCardData {
   id: number;
@@ -10,14 +11,20 @@ export interface OpinionCardData {
   timeLeft: string;
   genre: string;
   creator: string;
+  postedDaysAgo?: number;
+  stakerCount?: number;
+  isResolved?: boolean;
+  winner?: "yes" | "no";
 }
 
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
   const { question, yesPercent, noPercent, coins, timeLeft, genre, creator } = data;
+  const navigate = useNavigate();
 
   return (
     <motion.div
-      className="card-gold bg-card p-6 relative"
+      className="card-gold bg-card p-6 relative cursor-pointer"
+      onClick={() => navigate(`/opinion/${data.id}`)}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.08 }}
