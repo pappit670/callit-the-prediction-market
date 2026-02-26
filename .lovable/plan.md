@@ -1,128 +1,178 @@
 
 
-# Callit Core Logic & UX Upgrade — Implementation Plan
+# Parimutuel Pool System & UX Upgrade
 
 ## Overview
 
-This upgrade introduces opinion resolution types, lifecycle states, payout logic with early-entry multipliers, language changes from "Buy" to "Stake", enhanced card/detail displays, and a cinematic resolution screen. All changes stay within the existing design system.
+This upgrade introduces a proper parimutuel payout model, anti-manipulation safeguards, crowd context labels, refined language ("Call Yes / Call No"), and several new UX elements across the card, detail page, calculator, and creation flow.
 
-## Scope of Changes
+## Files to Modify
 
-### 1. Data Model Updates — `src/components/OpinionCard.tsx` + `src/data/sampleCards.ts`
+| File | Changes |
+|------|---------|
+| `src/components/OpinionCard.tsx` | Language to "Call Yes/No", crowd context labels, net result display, minimum 10 coins, whale cap indicator, void warning, pool pulse class |
+| `src/data/sampleCards.ts` | Add `callerCount` field to all cards, ensure data supports void/whale scenarios |
+| `src/pages/OpinionDetail.tsx` | Language updates, net result calculator, crowd context section, whale cap notice, void warning, early caller badge, minimum 10 coin enforcement, pool pulse animation |
+| `src/pages/CallIt.tsx` | Minimum 10 coins, language to "Call Yes/No", whale cap mention |
+| `src/components/ResolutionScreen.tsx` | Net result (not total payout), calm loss handling, void/refund state |
+| `src/index.css` | Pool pulse keyframe animation |
+| `tailwind.config.ts` | Pool pulse animation entry |
 
-Add new fields to `OpinionCardData`:
+---
 
-- `resolutionType: "crowd" | "event" | "metric"` — defaults to `"crowd"`
-- `status: "open" | "locked" | "resolved" | "draw"` — defaults to `"open"`
+## Detailed Changes
 
-Update sample cards with these fields. Mark card 2 (Kendrick) as `status: "resolved"`, `resolutionType: "crowd"`. Add one card or mark card 5 as `status: "draw"` for demo. All others `"open"`.
+### 1. Language — "Call Yes / Call No" Throughout
 
-### 2. OpinionCard Updates — `src/components/OpinionCard.tsx`
+Replace across all files:
+- "Stake Yes" → "Call Yes"
+- "Stake No" → "Call No"
+- "staked Yes/No" → "called Yes/No" (activity feed)
+- "people have staked" → "people have called"
+- "Coins are deducted immediately on stake" → "Coins are committed when you call"
+- "Stake your belief" language in subtext
+- "You're staking X coins" → "You're calling X coins"
+- Keep "stake" only when referring to the coin amount itself (e.g., "Your call: 200 coins on Yes")
 
-Add below the genre tag:
-- **Resolution type pill**: "Crowd Based" or "Event Based" in muted grey background, 11px
-- **Status pill**: color-coded — Open (green), Closing (gold), Resolved (muted), Draw (blue)
-- **"Weighted by coins staked"** label below percentages, 10px muted grey
+### 2. Net Result Display (Not Total Payout)
 
-Replace button text:
-- "Buy Yes" → "Stake Yes"
-- "Buy No" → "Stake No"
+**Current:** Calculator shows total payout including original stake.
+**New:** Show net profit only.
 
-Add dynamic potential return line:
-- "Stake 100 → potential win 240" using the proportional formula, 12px muted text
+Formula change in OpinionDetail calculator output:
+- Current: `potentialWin = stakeAmount * (100 / percent) * 0.9 - stakeAmount`
+- This is already net. Rename the label to be explicit:
+  - "Call 100 on Yes → net win **140** coins" (green text for positive)
+  - On card: "Call 100 → net win **140**" (not "potential win")
 
-### 3. OpinionDetail Updates — `src/pages/OpinionDetail.tsx`
+In ResolutionScreen:
+- Win: "+X coins" should show net profit (payout minus original stake)
+- Loss: show "X coins lost" (already correct)
 
-**Language changes:**
-- "Buy Yes" → "Stake Yes", "Buy No" → "Stake No" (lines 211-215)
-- "Coins are deducted immediately on stake" stays
+### 3. Crowd Context Labels
 
-**New elements:**
-- Resolution type info box below the question: icon + "How this resolves: The side with the most staked coins when the timer ends wins." for crowd type. Different text for event type.
-- Status pill next to genre tag in header
-- "Weighted by coins staked" label below percentage bars
-- User personal stake display (hardcoded demo): "Your stake: 200 coins on Yes" in gold
-- Early entry multiplier logic: display the correct multiplier based on time elapsed
+Add a contextual label on every card and detail page based on the vote split:
 
-**Payout display updates:**
-- Show platform fee breakdown in resolution panel
-- Update the resolution panel to reflect the correct status
+Logic (add as a utility function):
+```
+if (yesPercent >= 75 || noPercent >= 75) → "High Confidence" (bold color of leading side)
+if (Math.abs(yesPercent - noPercent) <= 10) → "Balanced" (muted grey)
+if (yesPercent <= 25 || noPercent <= 25) → "Contrarian Opportunity" (gold)
+else → "Leaning [Yes/No]" (lighter shade of leading side)
+```
 
-### 4. CallIt Page Updates — `src/pages/CallIt.tsx`
+**On OpinionCard:** Small pill below the "Weighted by coins staked" label.
+**On OpinionDetail:** Larger label next to the percentage display.
 
-Add a new **Resolution Type selector** section between the category selector and time limit:
-- Label: "How should this resolve?"
-- Three options as cards/pills:
-  - "Crowd Based" — selected by default, gold fill
-  - "Event Based" — selectable
-  - "Metric Based" — disabled, "Coming Soon" tag
-- Brief description under each option
+### 4. Minimum Call Amount — 10 Coins
 
-Update preview card to include the selected resolution type.
+**CallIt page:** Change `min` on input from 0 to 10. Validation: `Number(stake) >= 10` in `isReady` check. Show helper text: "Minimum call: 10 coins".
 
-### 5. Cinematic Resolution Screen — `src/components/ResolutionScreen.tsx` (new file)
+**OpinionDetail calculator:** Set `min="10"` on the coin input. Show validation message if under 10.
 
-A full-screen overlay component triggered when viewing a resolved opinion:
+### 5. Whale Manipulation Cap — 20% of Pool Max
 
-**Props:** `card data`, `userWon: boolean`, `userPayout: number`, `onDismiss: () => void`
+**OpinionDetail:** Below the coin input, show a notice:
+"Max call: **[20% of pool]** coins (20% cap to keep it fair)"
+Inter Regular 12px, muted grey, with an info icon.
 
-**Layout:**
-- Full viewport overlay with dark backdrop
-- Large question text in Instrument Serif H1, centered
-- Winning side revealed with scale-up animation (500ms): large "Yes" in green or "No" in blue
-- Pool breakdown: total pool, Callit cut (10%), distributed amount
+Enforce in UI: if `stakeAmount > pool * 0.2`, show a warning and disable the Call buttons. For the detail page, calculate `maxCall = Math.floor(coins * 0.2)`.
 
-**Win state:**
-- Gold coin rain using Framer Motion animated particles (10-15 falling coin icons)
-- "You called it." in Instrument Serif H1 gold
-- Coin amount counting up animation
-- "Show the world you called it" share button
+**On cards:** No change needed (cards don't have input).
 
-**Loss state:**
-- Clean muted panel, no harsh visuals
-- "Tough call." in Instrument Serif H2
-- Amount lost in muted text
-- "Make another call" gold outlined CTA
+### 6. Void Under 10 Callers — Full Refund
 
-**Dismiss:** "Back to feed" button at bottom
+**Data model:** Rename `stakerCount` to `callerCount` in `OpinionCardData` interface (or add `callerCount` as alias). Update sample data.
 
-### 6. Integration in OpinionDetail
+**On OpinionCard:** If `callerCount < 10` and status is open, show a small warning pill:
+"Needs X more callers to be valid" in muted orange/gold, 10px.
 
-- When a resolved opinion is opened, show a "View Result" button that triggers the `ResolutionScreen` overlay
-- Or auto-show the cinematic screen on first visit to a resolved opinion (with dismiss)
+**On OpinionDetail:** Show an info box:
+"This call needs at least 10 callers to resolve. Under 10 = void and full refund."
+Inter Regular 12px, muted, with info icon.
 
-## Files Modified
+**In ResolutionScreen:** Add a void state alongside win/loss/draw:
+If callerCount < 10 at resolution → show "Void — Not enough callers. Full refund." in muted panel.
 
-| File | Action |
-|------|--------|
-| `src/components/OpinionCard.tsx` | Add resolution type pill, status pill, weighted label, rename Buy→Stake, add potential return |
-| `src/data/sampleCards.ts` | Add `resolutionType`, `status` fields to interface and data |
-| `src/pages/OpinionDetail.tsx` | Rename Buy→Stake, add resolution info box, status pill, weighted label, user stake display |
-| `src/pages/CallIt.tsx` | Add resolution type selector section |
-| `src/components/ResolutionScreen.tsx` | New — cinematic full-screen resolution overlay |
-| `src/index.css` | Add coin-rain keyframe animation |
+### 7. Single Wallet / Verified ID Notice
 
-## Technical Details
+**OpinionDetail:** Small text below the Call buttons:
+"One wallet per verified account. Duplicate accounts are banned."
+Inter Regular 10px, muted grey.
 
-**Payout formula displayed:**
-- `potentialWin = stakeAmount * (100 / sidePercent) * 0.9 - stakeAmount`
-- The 0.9 accounts for the 10% platform fee
+### 8. Projected Return Live Calculator Updates
 
-**Early entry multiplier tiers (display only):**
-- First 10% of time: 1.5x label
-- 10-40%: 1.25x label
-- 40-80%: 1.0x (no label)
-- Last 20%: 0.85x late penalty label
-- Calculated from `postedDaysAgo` vs total duration parsed from `timeLeft`
+Already exists but needs refinement:
+- Show the early entry multiplier in the calculation: `netWin = stakeAmount * (100 / percent) * 0.9 * multiplier - stakeAmount`
+- Display: "Call X on Yes → net win **Y** coins (1.5x early bonus)" with the multiplier in a gold badge
+- The multiplier badge: `rounded-full bg-gold/10 px-2 py-0.5 text-[11px] text-gold`
 
-**Coin rain animation:**
-- 12-15 `motion.div` elements with coin icons
-- Random x positions, staggered delays, falling from top with rotation
-- Duration 2-3s, ease out, opacity fade at bottom
+### 9. Pool Pulse Animation
 
-**Status pill colors (Tailwind classes):**
-- Open: `bg-yes/15 text-yes`
-- Closing: `bg-gold/15 text-gold`
-- Resolved: `bg-muted text-muted-foreground`
-- Draw: `bg-no/15 text-no`
+**New CSS keyframe** in `src/index.css`:
+```css
+@keyframes pool-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); opacity: 0.85; }
+}
+.animate-pool-pulse {
+  animation: pool-pulse 1.5s ease-in-out;
+}
+```
+
+**On OpinionCard:** Add `animate-pool-pulse` class to the coin count element. Since there's no real-time data, apply it on mount with a slight delay for visual effect.
+
+**On OpinionDetail:** Same pulse on the large gold coin total.
+
+### 10. Early Caller Gold Pill Badge
+
+**On OpinionDetail activity feed:** For the first 2-3 entries in the activity feed (simulating early callers), add a gold pill badge: "Early Caller" in `bg-gold/10 text-gold text-[10px] rounded-full px-2 py-0.5`.
+
+**On OpinionCard:** Not shown (too crowded).
+
+### 11. Loss Handling — Calm, Non-Punitive
+
+**ResolutionScreen loss state** is already calm ("Tough call."). Refine:
+- Change "X coins lost" to "X coins committed to this call"
+- Add: "Every call sharpens your instinct." Inter Regular 13px muted grey, below the amount
+- Keep "Make another call" CTA
+
+### 12. Minimum Win Floor +3%
+
+In the return calculator, enforce a minimum net return of 3% on any winning call:
+```
+rawNet = stakeAmount * (100 / percent) * 0.9 * multiplier - stakeAmount
+minNet = stakeAmount * 0.03
+netWin = Math.max(rawNet, minNet)
+```
+
+Display: if the minimum floor kicks in, show "(+3% minimum guaranteed)" in muted text next to the result.
+
+---
+
+## Technical Notes
+
+**Payout formula (complete):**
+```
+earlyMultiplier = getEarlyEntryMultiplier(...)
+rawReturn = stakeAmount * (100 / sidePercent) * 0.9 * earlyMultiplier
+rawNet = rawReturn - stakeAmount
+minNet = stakeAmount * 0.03
+netWin = Math.max(rawNet, minNet)
+```
+
+**Crowd context function:**
+```typescript
+function getCrowdContext(yesPercent: number, noPercent: number): { label: string; classes: string } {
+  const diff = Math.abs(yesPercent - noPercent);
+  if (yesPercent >= 75 || noPercent >= 75) return { label: "High Confidence", classes: "text-yes font-semibold" or "text-no" };
+  if (diff <= 10) return { label: "Balanced", classes: "text-muted-foreground" };
+  if (yesPercent <= 25 || noPercent <= 25) return { label: "Contrarian Opportunity", classes: "text-gold" };
+  return { label: `Leaning ${yesPercent > noPercent ? "Yes" : "No"}`, classes: yesPercent > noPercent ? "text-yes/70" : "text-no/70" };
+}
+```
+
+**Whale cap:** `maxCall = Math.floor(coins * 0.2)` — enforce client-side only for now.
+
+**callerCount vs stakerCount:** Update the interface to use `callerCount`. Keep `stakerCount` as optional alias for backward compat, map it in sample data.
 
