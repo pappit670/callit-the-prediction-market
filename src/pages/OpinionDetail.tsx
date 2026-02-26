@@ -1,11 +1,12 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info } from "lucide-react";
+import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { sampleCards } from "@/data/sampleCards";
 import { toast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import ResolutionScreen from "@/components/ResolutionScreen";
+import { getCrowdContext, calculateNetWin, getMaxCall } from "@/lib/callit";
 
 const activityFeed = [
   { user: "cryptobro", side: "yes" as const, amount: 120, time: "2 min ago" },
@@ -18,7 +19,7 @@ const activityFeed = [
 const initialComments = [
   { user: "hiphophead", text: "This is a no-brainer. The evidence speaks for itself.", time: "3 hrs ago" },
   { user: "cryptobro", text: "I'm not so sure honestly. Could go either way.", time: "5 hrs ago" },
-  { user: "vibecheck", text: "Staked big on Yes. Let's see how this plays out 🔥", time: "8 hrs ago" },
+  { user: "vibecheck", text: "Called big on Yes. Let's see how this plays out 🔥", time: "8 hrs ago" },
 ];
 
 function parseTimeLeft(timeLeft: string): number {
@@ -51,7 +52,7 @@ function getEarlyEntryMultiplier(postedDaysAgo: number, timeLeft: string): { mul
 }
 
 const resolutionDescriptions: Record<string, string> = {
-  crowd: "How this resolves: The side with the most staked coins when the timer ends wins.",
+  crowd: "How this resolves: The side with the most called coins when the timer ends wins.",
   event: "How this resolves: Based on whether the real-world event occurs by the deadline.",
   metric: "How this resolves: Based on predefined measurable metrics.",
 };
@@ -104,12 +105,19 @@ const OpinionDetail = () => {
     );
   }
 
-  const { question, yesPercent, noPercent, coins, genre, creator, postedDaysAgo, stakerCount, isResolved, winner, resolutionType = "crowd", status = "open" } = card;
+  const { question, yesPercent, noPercent, coins, genre, creator, postedDaysAgo, callerCount, isResolved, winner, resolutionType = "crowd", status = "open" } = card;
   const percent = selectedSide === "yes" ? yesPercent : noPercent;
-  const potentialWin = stakeAmount && percent > 0 ? (parseFloat(stakeAmount) * (100 / percent) * 0.9 - parseFloat(stakeAmount)).toFixed(0) : "0";
   const earlyEntry = getEarlyEntryMultiplier(postedDaysAgo ?? 1, card.timeLeft);
+  const multiplier = earlyEntry?.multiplier ?? 1;
+  const stakeNum = parseFloat(stakeAmount) || 0;
+  const { netWin, floorApplied } = calculateNetWin(stakeNum, percent, multiplier);
   const statusInfo = statusConfig[status] || statusConfig.open;
   const isActive = status === "open" || status === "locked";
+  const crowdContext = getCrowdContext(yesPercent, noPercent);
+  const maxCall = getMaxCall(coins);
+  const isOverWhaleLimit = stakeNum > maxCall;
+  const isUnderMinimum = stakeNum > 0 && stakeNum < 10;
+  const needsMoreCallers = (callerCount ?? 0) < 10;
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -122,18 +130,19 @@ const OpinionDetail = () => {
     setCommentInput("");
   };
 
-  // Demo: user staked on yes for resolved opinions
-  const userStakedSide = isResolved ? "yes" : null;
-  const userStakeCoins = isResolved ? 200 : 0;
-  const userWon = isResolved && winner === userStakedSide;
-  const userPayout = userWon ? Math.round(userStakeCoins * (100 / yesPercent) * 0.9) : userStakeCoins;
+  // Demo: user called on yes for resolved opinions
+  const userCalledSide = isResolved ? "yes" : null;
+  const userCallCoins = isResolved ? 200 : 0;
+  const userWon = isResolved && winner === userCalledSide;
+  // Show net result, not total payout
+  const userNetPayout = userWon ? Math.round(userCallCoins * (100 / yesPercent) * 0.9 - userCallCoins) : userCallCoins;
 
   if (showResolution && isResolved) {
     return (
       <ResolutionScreen
         card={card}
         userWon={!!userWon}
-        userPayout={userPayout}
+        userPayout={userNetPayout}
         onDismiss={() => {
           setShowResolution(false);
           navigate("/");
@@ -167,6 +176,16 @@ const OpinionDetail = () => {
             <p className="text-[13px] text-muted-foreground font-body">{resolutionDescriptions[resolutionType]}</p>
           </div>
 
+          {/* Void warning */}
+          {needsMoreCallers && isActive && (
+            <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-gold/10">
+              <AlertTriangle className="h-4 w-4 text-gold mt-0.5 shrink-0" />
+              <p className="text-[12px] text-muted-foreground font-body">
+                This call needs at least 10 callers to resolve. Under 10 = void and full refund. Currently {callerCount ?? 0} callers.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-bold text-muted-foreground hover:ring-2 hover:ring-gold transition-all">
               {creator[0].toUpperCase()}
@@ -178,7 +197,7 @@ const OpinionDetail = () => {
           </div>
         </motion.div>
 
-        {/* Staking bars */}
+        {/* Percentage bars */}
         <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
           <div className="flex h-4 w-full rounded-full overflow-hidden bg-secondary mb-4">
             <motion.div className="h-full bg-yes rounded-l-full" initial={{ width: 0 }} animate={{ width: `${yesPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }} />
@@ -188,14 +207,19 @@ const OpinionDetail = () => {
             <span className="text-[32px] font-bold text-yes font-body">Yes {yesPercent}%</span>
             <span className="text-[32px] font-bold text-no font-body">No {noPercent}%</span>
           </div>
-          <p className="text-[10px] text-muted-foreground font-body mb-3">Weighted by coins staked</p>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] text-muted-foreground font-body">Weighted by coins called</p>
+            <span className={`rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium ${crowdContext.classes}`}>
+              {crowdContext.label}
+            </span>
+          </div>
           <div className="flex items-center gap-4 flex-wrap">
             <div>
-              <span className="font-headline text-2xl font-bold text-gold">{coins.toLocaleString()}</span>
+              <span className="font-headline text-2xl font-bold text-gold animate-pool-pulse inline-block">{coins.toLocaleString()}</span>
               <span className="text-sm text-muted-foreground ml-2 font-body">coins in pool</span>
             </div>
-            {stakerCount && (
-              <span className="text-sm text-muted-foreground font-body">{stakerCount} people have staked</span>
+            {callerCount !== undefined && (
+              <span className="text-sm text-muted-foreground font-body">{callerCount} people have called</span>
             )}
           </div>
           {earlyEntry && isActive && (
@@ -205,28 +229,28 @@ const OpinionDetail = () => {
               </span>
             </div>
           )}
-          {/* User personal stake */}
-          {userStakedSide && (
+          {/* User personal call */}
+          {userCalledSide && (
             <div className="mt-3 flex items-center gap-2">
               <Coins className="h-4 w-4 text-gold" />
               <span className="text-sm font-semibold text-gold font-body">
-                Your stake: {userStakeCoins} coins on {userStakedSide === "yes" ? "Yes" : "No"}
+                Your call: {userCallCoins} coins on {userCalledSide === "yes" ? "Yes" : "No"}
               </span>
             </div>
           )}
         </motion.div>
 
-        {/* Resolution or Calculator + Stake */}
+        {/* Resolution or Calculator + Call */}
         {isResolved || status === "resolved" || status === "draw" ? (
           <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8 space-y-4">
             {status === "draw" ? (
               <div className="rounded-2xl bg-no/15 p-6">
                 <p className="font-headline text-xl font-bold text-no mb-3">
-                  This call is a draw — All stakes refunded
+                  This call is a draw — All calls refunded
                 </p>
                 <div className="space-y-1 font-body text-sm text-muted-foreground">
                   <p>Total pool: {coins.toLocaleString()} coins</p>
-                  <p>All stakes returned to participants</p>
+                  <p>All calls returned to participants</p>
                 </div>
               </div>
             ) : (
@@ -243,11 +267,12 @@ const OpinionDetail = () => {
                 </div>
                 {userWon ? (
                   <div className="rounded-xl bg-yes/15 p-4 text-center">
-                    <p className="font-headline text-lg text-yes font-bold">You called it. +{userPayout} coins added to your wallet</p>
+                    <p className="font-headline text-lg text-yes font-bold">You called it. +{userNetPayout} coins net profit</p>
                   </div>
                 ) : (
                   <div className="rounded-xl bg-muted p-4 text-center">
-                    <p className="text-sm text-muted-foreground font-body">Tough call. {userStakeCoins} coins lost.</p>
+                    <p className="text-sm text-muted-foreground font-body">Tough call. {userCallCoins} coins committed to this call.</p>
+                    <p className="text-[13px] text-muted-foreground font-body mt-1">Every call sharpens your instinct.</p>
                     <button onClick={() => navigate("/call-it")} className="mt-2 text-sm font-medium text-gold hover:text-gold-hover transition-colors font-body">
                       Make another call →
                     </button>
@@ -267,18 +292,31 @@ const OpinionDetail = () => {
             {/* Calculator */}
             <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible" className="mb-6">
               <h3 className="font-body text-base font-semibold text-foreground mb-1">Calculate your return</h3>
-              <p className="text-[13px] text-muted-foreground font-body mb-3">Enter how many coins you want to stake and see your potential win</p>
-              <div className="relative mb-3">
+              <p className="text-[13px] text-muted-foreground font-body mb-3">Enter how many coins you want to call and see your net win</p>
+              <div className="relative mb-1">
                 <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
                 <input
                   type="number"
-                  min="1"
+                  min="10"
                   value={stakeAmount}
                   onChange={(e) => setStakeAmount(e.target.value)}
-                  placeholder="Enter coins"
+                  placeholder="Min 10 coins"
                   className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-3 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                 />
               </div>
+              {isUnderMinimum && (
+                <p className="text-[11px] text-destructive font-body mb-2">Minimum call: 10 coins</p>
+              )}
+              {/* Whale cap notice */}
+              <div className="flex items-center gap-1.5 mb-3">
+                <Info className="h-3 w-3 text-muted-foreground shrink-0" />
+                <p className="text-[12px] text-muted-foreground font-body">
+                  Max call: <span className="font-semibold">{maxCall.toLocaleString()}</span> coins (20% cap to keep it fair)
+                </p>
+              </div>
+              {isOverWhaleLimit && (
+                <p className="text-[11px] text-destructive font-body mb-2">Exceeds whale cap — reduce your call amount</p>
+              )}
               <div className="flex gap-2 mb-3">
                 {(["yes", "no"] as const).map((s) => (
                   <button
@@ -294,24 +332,45 @@ const OpinionDetail = () => {
                   </button>
                 ))}
               </div>
-              {stakeAmount && (
-                <p className="font-headline text-lg text-gold font-bold">
-                  Stake {stakeAmount} on {selectedSide === "yes" ? "Yes" : "No"} → potential win {potentialWin} coins
-                </p>
+              {stakeNum >= 10 && !isOverWhaleLimit && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-headline text-lg text-gold font-bold">
+                    Call {stakeAmount} on {selectedSide === "yes" ? "Yes" : "No"} → net win {Math.round(netWin)} coins
+                  </p>
+                  {earlyEntry && earlyEntry.multiplier > 1 && (
+                    <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[11px] text-gold font-medium">
+                      {earlyEntry.label} early bonus
+                    </span>
+                  )}
+                  {floorApplied && (
+                    <span className="text-[11px] text-muted-foreground">(+3% minimum guaranteed)</span>
+                  )}
+                </div>
               )}
             </motion.div>
 
-            {/* Stake buttons */}
+            {/* Call buttons */}
             <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
               <div className="flex gap-3">
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 rounded-xl bg-yes py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all">
-                  Stake Yes
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={isOverWhaleLimit || isUnderMinimum}
+                  className="flex-1 rounded-xl bg-yes py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Call Yes
                 </motion.button>
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className="flex-1 rounded-xl bg-no py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all">
-                  Stake No
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={isOverWhaleLimit || isUnderMinimum}
+                  className="flex-1 rounded-xl bg-no py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Call No
                 </motion.button>
               </div>
-              <p className="text-[11px] text-muted-foreground text-center mt-2 font-body">Coins are deducted immediately on stake</p>
+              <p className="text-[11px] text-muted-foreground text-center mt-2 font-body">Coins are committed when you call</p>
+              <p className="text-[10px] text-muted-foreground text-center mt-1 font-body">One wallet per verified account. Duplicate accounts are banned.</p>
             </motion.div>
           </>
         )}
@@ -332,13 +391,13 @@ const OpinionDetail = () => {
             ))}
           </div>
           <p className="text-xs text-muted-foreground font-body">
-            Resolved by: {resolutionType === "crowd" ? "Community Stake" : resolutionType === "event" ? "Event Outcome" : "Metrics"}
+            Resolved by: {resolutionType === "crowd" ? "Community Call" : resolutionType === "event" ? "Event Outcome" : "Metrics"}
           </p>
         </motion.div>
 
         {/* Activity */}
         <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <h3 className="font-body text-base font-semibold text-foreground mb-3">Recent Stakes</h3>
+          <h3 className="font-body text-base font-semibold text-foreground mb-3">Recent Calls</h3>
           <div className="space-y-0">
             {activityFeed.map((a, i) => (
               <div key={i} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
@@ -347,9 +406,12 @@ const OpinionDetail = () => {
                 </div>
                 <span className="text-[13px] font-medium text-foreground font-body">@{a.user}</span>
                 <span className={`text-[13px] font-medium font-body ${a.side === "yes" ? "text-yes" : "text-no"}`}>
-                  staked {a.side === "yes" ? "Yes" : "No"}
+                  called {a.side === "yes" ? "Yes" : "No"}
                 </span>
                 <span className="text-[13px] font-semibold text-gold font-body">{a.amount}</span>
+                {i < 2 && (
+                  <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] text-gold font-medium">Early Caller</span>
+                )}
                 <span className="text-[11px] text-muted-foreground ml-auto font-body">{a.time}</span>
               </div>
             ))}
