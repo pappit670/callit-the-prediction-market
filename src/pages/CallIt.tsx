@@ -19,7 +19,7 @@ const durationToTimeLeft: Record<string, string> = {
 };
 
 const resolutionTypes = [
-  { value: "crowd" as const, label: "Crowd Based", desc: "The side with the most staked coins wins when the timer ends.", disabled: false },
+  { value: "crowd" as const, label: "Crowd Based", desc: "The side with the most called coins wins when the timer ends.", disabled: false },
   { value: "event" as const, label: "Event Based", desc: "Resolved by a real-world event outcome on a set date.", disabled: false },
   { value: "metric" as const, label: "Metric Based", desc: "Resolved by predefined measurable metrics.", disabled: true },
 ];
@@ -62,6 +62,8 @@ const CallIt = () => {
     resolutionType,
     status: "open" as const,
   }), [question, declared, category, duration, stake, resolutionType]);
+
+  const isReady = question.trim().length > 0 && declared !== null && category !== null && duration !== null && stake !== "" && Number(stake) >= 10;
 
   return (
     <div className="min-h-screen bg-background">
@@ -229,24 +231,27 @@ const CallIt = () => {
           </div>
         </motion.div>
 
-        {/* SECTION 6 — Founding Stake */}
+        {/* SECTION 6 — Founding Call */}
         <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
           <p className="text-base font-semibold text-foreground mb-2">Back your opinion with coins</p>
-          <p className="text-xs text-muted-foreground mb-4">You must stake coins to post. This seeds the pool.</p>
+          <p className="text-xs text-muted-foreground mb-4">You must call coins to post. This seeds the pool. Minimum call: 10 coins.</p>
           <div className="relative">
             <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
             <input
               type="number"
-              min={0}
+              min={10}
               value={stake}
               onChange={(e) => setStake(e.target.value)}
-              placeholder="0"
+              placeholder="Min 10"
               className="w-full rounded-lg border border-border bg-secondary pl-10 pr-4 py-3 text-base font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 focus:shadow-[0_0_16px_hsl(var(--gold)/0.15)] transition-all duration-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
           </div>
-          {stake && declared && (
+          {stake && Number(stake) > 0 && Number(stake) < 10 && (
+            <p className="mt-1 text-[11px] text-destructive font-body">Minimum call: 10 coins</p>
+          )}
+          {stake && declared && Number(stake) >= 10 && (
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 text-sm text-muted-foreground">
-              You're staking <span className="text-gold font-semibold">{Number(stake).toLocaleString()}</span> coins on{" "}
+              You're calling <span className="text-gold font-semibold">{Number(stake).toLocaleString()}</span> coins on{" "}
               <span className={declared === "yes" ? "text-yes font-semibold" : "text-no font-semibold"}>
                 {declared === "yes" ? "Yes" : "No"}
               </span>
@@ -264,23 +269,18 @@ const CallIt = () => {
 
         {/* SECTION 8 — Post It Button */}
         <motion.div custom={7} variants={sectionVariants} initial="hidden" animate="visible">
-          {(() => {
-            const isReady = question.trim().length > 0 && declared !== null && category !== null && duration !== null && stake !== "" && Number(stake) > 0;
-            return (
-              <motion.button
-                whileHover={isReady ? { scale: 1.02 } : {}}
-                whileTap={isReady ? { scale: 0.98 } : {}}
-                disabled={!isReady}
-                className={`w-full rounded-full py-4 text-base font-semibold transition-colors duration-200 ${
-                  isReady
-                    ? "bg-gold text-primary-foreground hover:bg-gold-hover animate-gold-pulse"
-                    : "bg-muted text-muted-foreground cursor-not-allowed"
-                }`}
-              >
-                Post It — Call It
-              </motion.button>
-            );
-          })()}
+          <motion.button
+            whileHover={isReady ? { scale: 1.02 } : {}}
+            whileTap={isReady ? { scale: 0.98 } : {}}
+            disabled={!isReady}
+            className={`w-full rounded-full py-4 text-base font-semibold transition-colors duration-200 ${
+              isReady
+                ? "bg-gold text-primary-foreground hover:bg-gold-hover animate-gold-pulse"
+                : "bg-muted text-muted-foreground cursor-not-allowed"
+            }`}
+          >
+            Post It — Call It
+          </motion.button>
         </motion.div>
       </main>
     </div>

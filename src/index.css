@@ -107,6 +107,14 @@
 .animate-gold-pulse {
   animation: gold-pulse 2s ease-in-out infinite;
 }
+
+@keyframes pool-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); opacity: 0.85; }
+}
+.animate-pool-pulse {
+  animation: pool-pulse 1.5s ease-in-out;
+}
 }
 
 @layer base {

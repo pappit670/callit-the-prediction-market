@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Share2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { getCrowdContext, calculateNetWin } from "@/lib/callit";
 
 export interface OpinionCardData {
   id: number;
@@ -12,7 +13,7 @@ export interface OpinionCardData {
   genre: string;
   creator: string;
   postedDaysAgo?: number;
-  stakerCount?: number;
+  callerCount?: number;
   isResolved?: boolean;
   winner?: "yes" | "no";
   resolutionType?: "crowd" | "event" | "metric";
@@ -33,12 +34,14 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
 };
 
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
-  const { question, yesPercent, noPercent, coins, timeLeft, genre, creator, resolutionType = "crowd", status = "open" } = data;
+  const { question, yesPercent, noPercent, coins, timeLeft, genre, creator, resolutionType = "crowd", status = "open", callerCount } = data;
   const navigate = useNavigate();
 
-  const potentialWin = Math.round(100 * (100 / yesPercent) * 0.9 - 100);
+  const { netWin } = calculateNetWin(100, yesPercent);
   const statusInfo = statusConfig[status] || statusConfig.open;
   const isActive = status === "open" || status === "locked";
+  const crowdContext = getCrowdContext(yesPercent, noPercent);
+  const needsMoreCallers = callerCount !== undefined && callerCount < 10 && isActive;
 
   return (
     <motion.div
@@ -108,18 +111,30 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       </div>
 
       {/* Weighted label */}
-      <p className="text-[10px] text-muted-foreground mb-3">Weighted by coins staked</p>
+      <p className="text-[10px] text-muted-foreground mb-1">Weighted by coins called</p>
 
-      {/* Coins */}
+      {/* Crowd context label */}
+      <span className={`inline-block rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-medium mb-3 ${crowdContext.classes}`}>
+        {crowdContext.label}
+      </span>
+
+      {/* Void warning */}
+      {needsMoreCallers && (
+        <p className="text-[10px] text-gold mb-3">
+          Needs {10 - (callerCount ?? 0)} more callers to be valid
+        </p>
+      )}
+
+      {/* Coins with pool pulse */}
       <div className="mb-3">
-        <span className="text-sm font-semibold text-gold">{coins.toLocaleString()}</span>
+        <span className="text-sm font-semibold text-gold animate-pool-pulse inline-block">{coins.toLocaleString()}</span>
         <span className="text-xs text-muted-foreground ml-1">in pool</span>
       </div>
 
-      {/* Potential return */}
+      {/* Net return */}
       {isActive && (
         <p className="text-xs text-muted-foreground mb-3">
-          Stake 100 → potential win <span className="text-gold font-semibold">{potentialWin}</span> coins
+          Call 100 → net win <span className="text-gold font-semibold">{Math.round(netWin)}</span> coins
         </p>
       )}
 
@@ -130,18 +145,18 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             className="flex-1 rounded-lg border border-yes bg-yes-faded py-2 text-sm font-semibold text-yes hover:bg-yes hover:text-white transition-all duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            Stake Yes
+            Call Yes
           </button>
           <button
             className="flex-1 rounded-lg border border-no bg-no-faded py-2 text-sm font-semibold text-no hover:bg-no hover:text-white transition-all duration-200"
             onClick={(e) => e.stopPropagation()}
           >
-            Stake No
+            Call No
           </button>
         </div>
       ) : (
         <div className="rounded-lg bg-muted py-2 text-center text-sm font-medium text-muted-foreground">
-          {status === "resolved" ? `${data.winner === "yes" ? "Yes" : "No"} Won` : "Draw — Stakes Refunded"}
+          {status === "resolved" ? `${data.winner === "yes" ? "Yes" : "No"} Won` : "Draw — Calls Refunded"}
         </div>
       )}
     </motion.div>
