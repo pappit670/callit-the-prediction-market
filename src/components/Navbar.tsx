@@ -45,9 +45,9 @@ const Navbar = () => {
         <div className="flex items-center gap-3">
           <ThemeToggle />
 
-          <span className="hidden lg:inline text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+          <Link to="/portfolio" className="hidden lg:inline text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
             Portfolio
-          </span>
+          </Link>
 
           {/* Coin balance */}
           <div className="hidden sm:flex items-center gap-1.5 text-gold font-semibold text-sm">
