@@ -23,17 +23,17 @@ export interface OpinionCardData {
 const resolutionTypeLabels: Record<string, string> = {
   crowd: "Crowd Based",
   event: "Event Based",
-  metric: "Metric Based",
+  metric: "Metric Based"
 };
 
-const statusConfig: Record<string, { label: string; classes: string }> = {
+const statusConfig: Record<string, {label: string;classes: string;}> = {
   open: { label: "Open", classes: "bg-yes/15 text-yes" },
   locked: { label: "Closing", classes: "bg-gold/15 text-gold" },
   resolved: { label: "Resolved", classes: "bg-muted text-muted-foreground" },
-  draw: { label: "Draw — Refunded", classes: "bg-no/15 text-no" },
+  draw: { label: "Draw — Refunded", classes: "bg-no/15 text-no" }
 };
 
-const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
+const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) => {
   const { question, yesPercent, noPercent, coins, timeLeft, genre, creator, resolutionType = "crowd", status = "open", callerCount } = data;
   const navigate = useNavigate();
 
@@ -49,8 +49,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       onClick={() => navigate(`/opinion/${data.id}`)}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.08 }}
-    >
+      transition={{ duration: 0.4, delay: index * 0.08 }}>
+
       {/* Top row */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
@@ -68,8 +68,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           <span className="text-xs text-muted-foreground">{timeLeft}</span>
           <button
             className="text-muted-foreground hover:text-gold transition-colors"
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
+
             <Share2 className="h-4 w-4" />
           </button>
         </div>
@@ -94,14 +94,14 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           className="h-full bg-yes rounded-l-full"
           initial={{ width: 0 }}
           animate={{ width: `${yesPercent}%` }}
-          transition={{ duration: 0.6, delay: index * 0.08 + 0.2, ease: "easeOut" }}
-        />
+          transition={{ duration: 0.6, delay: index * 0.08 + 0.2, ease: "easeOut" }} />
+
         <motion.div
           className="h-full bg-no rounded-r-full"
           initial={{ width: 0 }}
           animate={{ width: `${noPercent}%` }}
-          transition={{ duration: 0.6, delay: index * 0.08 + 0.2, ease: "easeOut" }}
-        />
+          transition={{ duration: 0.6, delay: index * 0.08 + 0.2, ease: "easeOut" }} />
+
       </div>
 
       {/* Percentages */}
@@ -111,7 +111,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       </div>
 
       {/* Weighted label */}
-      <p className="text-[10px] text-muted-foreground mb-1">Weighted by coins called</p>
+      <p className="text-[10px] text-muted-foreground mb-1">
+      </p>
 
       {/* Crowd context label */}
       <span className={`inline-block rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-medium mb-3 ${crowdContext.classes}`}>
@@ -119,11 +120,10 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       </span>
 
       {/* Void warning */}
-      {needsMoreCallers && (
-        <p className="text-[10px] text-gold mb-3">
+      {needsMoreCallers && <p className="text-[10px] text-gold mb-3">
           Needs {10 - (callerCount ?? 0)} more callers to be valid
         </p>
-      )}
+      }
 
       {/* Coins with pool pulse */}
       <div className="mb-3">
@@ -132,35 +132,35 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       </div>
 
       {/* Net return */}
-      {isActive && (
-        <p className="text-xs text-muted-foreground mb-3">
+      {isActive &&
+      <p className="text-xs text-muted-foreground mb-3">
           Call 100 → net win <span className="text-gold font-semibold">{Math.round(netWin)}</span> coins
         </p>
-      )}
+      }
 
       {/* Action buttons */}
-      {isActive ? (
-        <div className="flex gap-3">
+      {isActive ?
+      <div className="flex gap-3">
           <button
-            className="flex-1 rounded-lg border border-yes bg-yes-faded py-2 text-sm font-semibold text-yes hover:bg-yes hover:text-white transition-all duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
+          className="flex-1 rounded-lg border border-yes bg-yes-faded py-2 text-sm font-semibold text-yes hover:bg-yes hover:text-white transition-all duration-200"
+          onClick={(e) => e.stopPropagation()}>
+
             Call Yes
           </button>
           <button
-            className="flex-1 rounded-lg border border-no bg-no-faded py-2 text-sm font-semibold text-no hover:bg-no hover:text-white transition-all duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
+          className="flex-1 rounded-lg border border-no bg-no-faded py-2 text-sm font-semibold text-no hover:bg-no hover:text-white transition-all duration-200"
+          onClick={(e) => e.stopPropagation()}>
+
             Call No
           </button>
-        </div>
-      ) : (
-        <div className="rounded-lg bg-muted py-2 text-center text-sm font-medium text-muted-foreground">
+        </div> :
+
+      <div className="rounded-lg bg-muted py-2 text-center text-sm font-medium text-muted-foreground">
           {status === "resolved" ? `${data.winner === "yes" ? "Yes" : "No"} Won` : "Draw — Calls Refunded"}
         </div>
-      )}
-    </motion.div>
-  );
+      }
+    </motion.div>);
+
 };
 
 export default OpinionCard;
