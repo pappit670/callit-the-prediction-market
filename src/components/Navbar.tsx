@@ -50,21 +50,21 @@ const Navbar = () => {
           </Link>
 
           {/* Coin balance */}
-          <div className="hidden sm:flex items-center gap-1.5 text-gold font-semibold text-sm">
+          <Link to="/wallet" className="hidden sm:flex items-center gap-1.5 text-gold font-semibold text-sm hover:opacity-80 transition-opacity">
             <Coins className="h-4 w-4" />
             <span>2,500</span>
-          </div>
+          </Link>
 
           {/* Deposit */}
-          <div className="hidden lg:flex items-center gap-1.5 relative">
-            <button className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <Link to="/wallet" className="hidden lg:flex items-center gap-1.5 relative">
+            <span className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <Wallet className="h-3.5 w-3.5" />
               Deposit
-            </button>
+            </span>
             <span className="absolute -top-2 -right-3 rounded-full bg-secondary px-1.5 py-0.5 text-[9px] font-semibold text-muted-foreground leading-none">
               Soon
             </span>
-          </div>
+          </Link>
 
           {/* Bell */}
           <button className="relative p-1.5 text-muted-foreground hover:text-foreground transition-colors">
