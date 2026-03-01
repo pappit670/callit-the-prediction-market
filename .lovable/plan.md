@@ -1,42 +1,37 @@
 
 
-# Portfolio Page Implementation
+# Wallet Page Implementation
 
 ## Files to Create/Modify
 
-### 1. Create `src/pages/Portfolio.tsx`
-New page with the following structure:
+| File | Action |
+|------|--------|
+| `src/pages/Wallet.tsx` | Create — full wallet page |
+| `src/App.tsx` | Add `/wallet` route |
+| `src/components/Navbar.tsx` | Make coin balance + Deposit button link to `/wallet`, add Wallet to avatar dropdown or nav |
 
-**Header:** "Your Calls" H1 in Instrument Serif + muted subtext.
+## `src/pages/Wallet.tsx`
 
-**Performance Strip:** 4 stat cards in a responsive grid (2x2 on mobile, 4x1 on desktop). Each card has `bg-card border border-[#B8860B] rounded-xl p-5` with gold numbers using `font-headline`.
+**Balance Card:** Centered dark card (`bg-card border border-[#B8860B] rounded-[20px] p-10`). Gold `Coins` icon top center. "Available Coins" Inter Medium 14px muted. Balance: `font-headline text-[56px] font-bold text-gold` — hardcoded 2,500. Two chips below in a flex row: "In active calls: 1,240" and "Total won: 3,420" — `bg-secondary rounded-full px-4 py-1.5 text-xs`.
 
-Hardcoded demo stats:
-- Total Coins: 2,500
-- Position Value: 1,240
-- Win Rate: 68%
-- Biggest Win: 840
+**Action Buttons:** Two buttons side by side below balance card. Deposit: gold fill, black text, `rounded-full`. Withdraw: outlined muted border. Both have a "Coming Soon" gold pill tag positioned above. On click either: open a Dialog modal — "Real money deposits coming soon. Enjoy your free coins and keep calling." with a gold "Got it" dismiss button.
 
-**Tabs:** Using a custom tab bar with gold underline (same `motion.div layoutId` pattern as GenreTabs). Three tabs: Active Calls, Call History, Performance.
+**Signup Coin Gift:** A `showGift` state (default false, triggered by a demo button or `useState(true)` for first-time demo). Full-screen dark overlay with coin rain (reuse `CoinParticle` pattern from ResolutionScreen). "You're in." Instrument Serif H1 white. Gold count-up number (500 or 1000). "Make My First Call" full-width gold button navigates to `/call-it`.
 
-**Tab 1 — Active Calls:**
-Filter `sampleCards` for `status === "open" || status === "locked"`. Each card shows question, called side (hardcoded "Yes"/"No"), coins called, status pill, projected return via `calculateNetWin`, crowd context label, time remaining. Cards use `card-gold` class with click → navigate to `/opinion/:id`. Empty state with "Call It" CTA.
+**Transaction History:** Below action buttons. Filter pills: All / Called / Won / Lost / Refunded — gold fill on selected. Hardcoded ~10 transaction rows. Each row: left gold icon circle (Trophy for wins, ArrowUp for calls, Star for refunds), center label + timestamp muted 12px, right amount — green `text-yes` for wins, muted for losses, blue `text-no` for refunds. "Load more" outlined gold button centered at bottom.
 
-**Tab 2 — Call History:**
-Filter for resolved/draw cards. Show result badge: won (green +X), lost (muted "0 returned"), draw (blue "Refunded"). Filter pills (All/Won/Lost/Draw/Voided) with gold fill on selected.
+## `src/App.tsx`
 
-**Tab 3 — Performance:**
-Large 48px gold win rate centered. Stats grid below. Recent activity feed — 10 hardcoded entries with gold for wins, muted for losses.
+Add: `<Route path="/wallet" element={<Wallet />} />` and import.
 
-### 2. Modify `src/App.tsx`
-Add route: `<Route path="/portfolio" element={<Portfolio />} />`
+## `src/components/Navbar.tsx`
 
-### 3. Modify `src/components/Navbar.tsx`
-Make "Portfolio" link clickable — wrap in `Link to="/portfolio"` or use `onClick={() => navigate("/portfolio")}`.
+- Wrap the coin balance `div` in a `Link to="/wallet"` so clicking balance navigates to wallet.
+- Change the Deposit button to also `Link to="/wallet"`.
 
 ## Technical Notes
-- Reuse `calculateNetWin`, `getCrowdContext` from `src/lib/callit.ts`
-- Reuse `sampleCards` data with hardcoded user positions
-- Same staggered `motion.div` fade-up animation pattern as other pages
-- Same status pill config as OpinionCard (`bg-yes/15 text-yes`, etc.)
+
+- Reuse `CoinParticle` and `CountUpNumber` patterns from `ResolutionScreen.tsx` (duplicate locally or extract to shared util).
+- Same staggered `motion.div` fade-up animations as Portfolio page.
+- Dialog for "Coming Soon" modals uses existing `@radix-ui/react-dialog` components from `src/components/ui/dialog.tsx`.
 
