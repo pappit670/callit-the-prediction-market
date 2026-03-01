@@ -8,6 +8,7 @@ import CallIt from "./pages/CallIt";
 import OpinionDetail from "./pages/OpinionDetail";
 import Portfolio from "./pages/Portfolio";
 import Wallet from "./pages/Wallet";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/opinion/:id" element={<OpinionDetail />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/wallet" element={<Wallet />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
