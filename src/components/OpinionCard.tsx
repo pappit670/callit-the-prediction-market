@@ -104,10 +104,10 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
 
       </div>
 
-      {/* Percentages */}
+      {/* Percentages inline with bar */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-bold text-yes">Yes {yesPercent}%</span>
-        <span className="text-sm font-bold text-no">No {noPercent}%</span>
+        <span className="text-[11px] font-medium text-yes">{yesPercent}%</span>
+        <span className="text-[11px] font-medium text-no">{noPercent}%</span>
       </div>
 
       {/* Weighted label */}
@@ -144,14 +144,12 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
           <button
           className="flex-1 rounded-lg border border-yes bg-yes-faded py-2 text-sm font-semibold text-yes hover:bg-yes hover:text-white transition-all duration-200"
           onClick={(e) => e.stopPropagation()}>
-
-            Call Yes
+            Call Yes · {yesPercent}%
           </button>
           <button
           className="flex-1 rounded-lg border border-no bg-no-faded py-2 text-sm font-semibold text-no hover:bg-no hover:text-white transition-all duration-200"
           onClick={(e) => e.stopPropagation()}>
-
-            Call No
+            Call No · {noPercent}%
           </button>
         </div> :
 
