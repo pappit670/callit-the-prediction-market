@@ -48,9 +48,6 @@ const Navbar = () => {
           <Link to="/portfolio" className="hidden lg:inline text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
             Portfolio
           </Link>
-          <Link to="/leaderboard" className="hidden lg:inline text-sm font-medium text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
-            Leaderboard
-          </Link>
 
           {/* Coin balance */}
           <Link to="/wallet" className="hidden sm:flex items-center gap-1.5 text-gold font-semibold text-sm hover:opacity-80 transition-opacity">
