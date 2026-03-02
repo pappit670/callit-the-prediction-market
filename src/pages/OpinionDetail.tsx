@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -186,7 +186,7 @@ const OpinionDetail = () => {
             </div>
           )}
 
-          <div className="flex items-center gap-3">
+          <Link to={`/user/${creator}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-bold text-muted-foreground hover:ring-2 hover:ring-gold transition-all">
               {creator[0].toUpperCase()}
             </div>
@@ -194,7 +194,7 @@ const OpinionDetail = () => {
               <span className="font-body text-sm font-semibold text-foreground">@{creator}</span>
               <span className="text-xs text-muted-foreground ml-2">Posted {postedDaysAgo ?? 1} days ago</span>
             </div>
-          </div>
+          </Link>
         </motion.div>
 
         {/* Percentage bars */}

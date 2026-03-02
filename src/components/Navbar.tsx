@@ -84,12 +84,12 @@ const Navbar = () => {
           </button>
 
           {/* Avatar */}
-          <button className="flex items-center gap-1">
+          <Link to="/profile" className="flex items-center gap-1">
             <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-semibold text-muted-foreground">
               JD
             </div>
             <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
+          </Link>
         </div>
       </div>
     </motion.nav>

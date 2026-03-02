@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Share2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { getCrowdContext, calculateNetWin } from "@/lib/callit";
 
 export interface OpinionCardData {
@@ -81,12 +81,12 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
       </h3>
 
       {/* Creator */}
-      <div className="flex items-center gap-2 mb-4">
+      <Link to={`/user/${creator}`} className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity" onClick={(e) => e.stopPropagation()}>
         <div className="h-5 w-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground">
           {creator[0].toUpperCase()}
         </div>
         <span className="text-xs text-muted-foreground">@{creator}</span>
-      </div>
+      </Link>
 
       {/* Progress bar */}
       <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mb-3">
