@@ -1,37 +1,68 @@
 
 
-# Wallet Page Implementation
+# Kenya-First Local Feed & Breaking News
 
-## Files to Create/Modify
+## Files to Modify/Create
 
 | File | Action |
 |------|--------|
-| `src/pages/Wallet.tsx` | Create — full wallet page |
-| `src/App.tsx` | Add `/wallet` route |
-| `src/components/Navbar.tsx` | Make coin balance + Deposit button link to `/wallet`, add Wallet to avatar dropdown or nav |
+| `src/components/GenreTabs.tsx` | Reorder tabs, Local first with 🇰🇪 emoji |
+| `src/components/BreakingNewsTicker.tsx` | Create — scrolling news strip |
+| `src/components/OpinionCard.tsx` | Add `cardType` badge support (Breaking / Callit Pick / Community) |
+| `src/data/sampleCards.ts` | Add Kenya-specific local cards with `cardType` field |
+| `src/pages/Index.tsx` | Default to "Local 🇰🇪", insert BreakingNewsTicker, update filtering logic |
 
-## `src/pages/Wallet.tsx`
+## `src/components/GenreTabs.tsx`
 
-**Balance Card:** Centered dark card (`bg-card border border-[#B8860B] rounded-[20px] p-10`). Gold `Coins` icon top center. "Available Coins" Inter Medium 14px muted. Balance: `font-headline text-[56px] font-bold text-gold` — hardcoded 2,500. Two chips below in a flex row: "In active calls: 1,240" and "Total won: 3,420" — `bg-secondary rounded-full px-4 py-1.5 text-xs`.
+Reorder genres array:
+```
+"Local 🇰🇪", "Trending 🔥", "Sports", "Music & Culture", "Entertainment", "Crypto & Money", "Politics & Society", "Random"
+```
 
-**Action Buttons:** Two buttons side by side below balance card. Deposit: gold fill, black text, `rounded-full`. Withdraw: outlined muted border. Both have a "Coming Soon" gold pill tag positioned above. On click either: open a Dialog modal — "Real money deposits coming soon. Enjoy your free coins and keep calling." with a gold "Got it" dismiss button.
+No other changes — existing gold underline + scroll behavior stays.
 
-**Signup Coin Gift:** A `showGift` state (default false, triggered by a demo button or `useState(true)` for first-time demo). Full-screen dark overlay with coin rain (reuse `CoinParticle` pattern from ResolutionScreen). "You're in." Instrument Serif H1 white. Gold count-up number (500 or 1000). "Make My First Call" full-width gold button navigates to `/call-it`.
+## `src/components/BreakingNewsTicker.tsx`
 
-**Transaction History:** Below action buttons. Filter pills: All / Called / Won / Lost / Refunded — gold fill on selected. Hardcoded ~10 transaction rows. Each row: left gold icon circle (Trophy for wins, ArrowUp for calls, Star for refunds), center label + timestamp muted 12px, right amount — green `text-yes` for wins, muted for losses, blue `text-no` for refunds. "Load more" outlined gold button centered at bottom.
+New component. Full-width strip, height 44px, `bg-[#0A0A0A] dark:bg-[#1C1C1C]`.
 
-## `src/App.tsx`
+Left: Red pulsing dot + "Breaking" pill (`animate-pulse` on the dot, Inter Semibold 12px white).
 
-Add: `<Route path="/wallet" element={<Wallet />} />` and import.
+Right: CSS `@keyframes ticker` infinite horizontal scroll of hardcoded headlines separated by " · ". Headlines array:
+- "Harambee Stars confirm squad for AFCON qualifiers"
+- "CBK holds interest rates steady"
+- "Nairobi traffic: major jam on Mombasa Road"
+- "KPL matchday results in"
 
-## `src/components/Navbar.tsx`
+Clicking a headline navigates to `/call-it` with a toast "Be first to call this".
 
-- Wrap the coin balance `div` in a `Link to="/wallet"` so clicking balance navigates to wallet.
-- Change the Deposit button to also `Link to="/wallet"`.
+## `src/components/OpinionCard.tsx`
+
+Add optional `cardType` to `OpinionCardData`: `"breaking" | "callit-pick" | "community"`.
+
+Render badge in top row before genre pill:
+- **breaking**: Red pulsing dot + "Breaking" `text-[#EF4444]` 10px
+- **callit-pick**: ⭐ + "Callit Pick" `text-gold` 10px
+- **community**: Person icon + "Community" `text-muted-foreground` 10px
+
+## `src/data/sampleCards.ts`
+
+Add ~4 Kenya-specific Local cards with various `cardType` values:
+- "Will Harambee Stars qualify for AFCON 2026?" (breaking, event)
+- "Is Nairobi the best city in East Africa?" (callit-pick, crowd)
+- "Will KES hit 150 against USD this year?" (breaking, metric)
+- "Is gengetone dead?" (community, crowd)
+
+Update existing Nairobi rain card to have `cardType: "community"`.
+
+## `src/pages/Index.tsx`
+
+- Default `activeGenre` to `"Local 🇰🇪"`.
+- Insert `<BreakingNewsTicker />` between `<Navbar />` and `<main>`.
+- Update filtering: when `"Local 🇰🇪"` is active, filter by `genre === "Local"`. When `"Trending 🔥"`, show all. Otherwise match genre name (strip emoji for comparison).
+- Local tab empty state: "Nothing local yet — be first to call it" with gold "Make a Local Call" button linking to `/call-it`.
 
 ## Technical Notes
-
-- Reuse `CoinParticle` and `CountUpNumber` patterns from `ResolutionScreen.tsx` (duplicate locally or extract to shared util).
-- Same staggered `motion.div` fade-up animations as Portfolio page.
-- Dialog for "Coming Soon" modals uses existing `@radix-ui/react-dialog` components from `src/components/ui/dialog.tsx`.
+- Ticker uses CSS animation (`translateX`) for smooth continuous scroll, duplicated content for seamless loop.
+- No backend needed — all hardcoded sample data.
+- Card type badges use existing design tokens (gold, muted-foreground, #EF4444).
 
