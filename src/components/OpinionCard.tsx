@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Share2 } from "lucide-react";
+import { Share2, User } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { getCrowdContext, calculateNetWin } from "@/lib/callit";
 
@@ -18,6 +18,7 @@ export interface OpinionCardData {
   winner?: "yes" | "no";
   resolutionType?: "crowd" | "event" | "metric";
   status?: "open" | "locked" | "resolved" | "draw";
+  cardType?: "breaking" | "callit-pick" | "community";
 }
 
 const resolutionTypeLabels: Record<string, string> = {
@@ -54,6 +55,23 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
       {/* Top row */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
+          {data.cardType === "breaking" && (
+            <span className="flex items-center gap-1 text-[10px] font-medium text-[hsl(0,84%,60%)]">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(0,84%,60%)] opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[hsl(0,84%,60%)]" />
+              </span>
+              Breaking
+            </span>
+          )}
+          {data.cardType === "callit-pick" && (
+            <span className="text-[10px] font-medium text-gold">⭐ Callit Pick</span>
+          )}
+          {data.cardType === "community" && (
+            <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+              <User className="h-3 w-3" /> Community
+            </span>
+          )}
           <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">
             {genre}
           </span>
