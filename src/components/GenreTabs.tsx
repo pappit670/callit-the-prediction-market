@@ -2,14 +2,14 @@ import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 
 const genres = [
-  "Trending",
+  "Local 🇰🇪",
+  "Trending 🔥",
   "Sports",
   "Music & Culture",
   "Entertainment",
   "Crypto & Money",
   "Politics & Society",
   "Random",
-  "Local",
 ];
 
 const GenreTabs = ({ active, onSelect }: { active: string; onSelect: (g: string) => void }) => {
