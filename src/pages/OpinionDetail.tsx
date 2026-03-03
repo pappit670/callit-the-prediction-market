@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info, AlertTriangle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { sampleCards } from "@/data/sampleCards";
+import { systemGeneratedCards } from "@/data/systemGeneratedCards";
 import { toast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import ResolutionScreen from "@/components/ResolutionScreen";
@@ -76,7 +77,8 @@ const sectionVariants = {
 const OpinionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const card = sampleCards.find((c) => c.id === Number(id));
+  const allCards = [...sampleCards, ...systemGeneratedCards];
+  const card = allCards.find((c) => c.id === Number(id));
 
   const [stakeAmount, setStakeAmount] = useState("");
   const [selectedSide, setSelectedSide] = useState<"yes" | "no">("yes");
@@ -432,8 +434,31 @@ const OpinionDetail = () => {
           </button>
         </motion.div>
 
+        {/* System-generated source attribution */}
+        {card.isSystemGenerated && (
+          <motion.div custom={8} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
+            <div className="h-[1px] w-full bg-border mb-4" />
+            <p className="text-[11px] text-muted-foreground font-body mb-1">
+              Generated from {card.generatedFrom}
+            </p>
+            {card.socialSource?.url && (
+              <a
+                href={card.socialSource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-medium text-gold hover:text-gold/80 transition-colors font-body"
+              >
+                View original source →
+              </a>
+            )}
+            <p className="text-[11px] text-muted-foreground font-body mt-1">
+              System seeded · 50 coins founding stake
+            </p>
+          </motion.div>
+        )}
+
         {/* Comments */}
-        <motion.div custom={8} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
+        <motion.div custom={9} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
           <h3 className="font-headline text-xl mb-1">The Conversation</h3>
           <p className="text-xs text-muted-foreground font-body mb-4">Keep it respectful. AI moderation active.</p>
 
