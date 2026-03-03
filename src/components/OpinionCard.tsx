@@ -19,6 +19,9 @@ export interface OpinionCardData {
   resolutionType?: "crowd" | "event" | "metric";
   status?: "open" | "locked" | "resolved" | "draw";
   cardType?: "breaking" | "callit-pick" | "community";
+  socialSource?: { platform: "twitter" | "instagram" | "tiktok" | "news"; label: string; url?: string };
+  isSystemGenerated?: boolean;
+  generatedFrom?: string;
 }
 
 const resolutionTypeLabels: Record<string, string> = {
@@ -99,12 +102,35 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
       </h3>
 
       {/* Creator */}
-      <Link to={`/user/${creator}`} className="flex items-center gap-2 mb-4 hover:opacity-80 transition-opacity" onClick={(e) => e.stopPropagation()}>
-        <div className="h-5 w-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground">
-          {creator[0].toUpperCase()}
-        </div>
+      <Link to={`/user/${creator}`} className="flex items-center gap-2 mb-2 hover:opacity-80 transition-opacity" onClick={(e) => e.stopPropagation()}>
+        {data.isSystemGenerated ? (
+          <div className="h-5 w-5 rounded-full bg-gold flex items-center justify-center text-[8px] font-bold text-primary-foreground">
+            ★
+          </div>
+        ) : (
+          <div className="h-5 w-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground">
+            {creator[0].toUpperCase()}
+          </div>
+        )}
         <span className="text-xs text-muted-foreground">@{creator}</span>
+        {data.isSystemGenerated && (
+          <span className="text-[9px] text-gold">✓</span>
+        )}
       </Link>
+
+      {/* Social source tag */}
+      {data.socialSource && (
+        <div className="flex items-center gap-1 mb-4">
+          <span className="text-[10px] text-muted-foreground">
+            {data.socialSource.platform === "twitter" && "𝕏 "}
+            {data.socialSource.platform === "instagram" && "📸 "}
+            {data.socialSource.platform === "tiktok" && "🎵 "}
+            {data.socialSource.platform === "news" && "📰 "}
+            {data.socialSource.label}
+          </span>
+        </div>
+      )}
+      {!data.socialSource && <div className="mb-2" />}
 
       {/* Progress bar */}
       <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mb-3">

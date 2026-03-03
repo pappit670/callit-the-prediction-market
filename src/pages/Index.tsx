@@ -1,29 +1,34 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import GenreTabs from "@/components/GenreTabs";
 import BreakingNewsTicker from "@/components/BreakingNewsTicker";
+import FeaturedStrip from "@/components/FeaturedStrip";
 import OpinionCard from "@/components/OpinionCard";
 import { sampleCards } from "@/data/sampleCards";
+import { systemGeneratedCards, getTopPicks } from "@/data/systemGeneratedCards";
 
 const Index = () => {
   const [activeGenre, setActiveGenre] = useState("Local 🇰🇪");
   const [mode, setMode] = useState<"overrated" | "underrated">("overrated");
   const navigate = useNavigate();
 
+  const allCards = useMemo(() => [...sampleCards, ...systemGeneratedCards], []);
+  const topPicks = useMemo(() => getTopPicks(5), []);
+
   const filteredCards = (() => {
-    if (activeGenre === "Trending 🔥") return sampleCards;
-    if (activeGenre === "Local 🇰🇪") return sampleCards.filter((c) => c.genre === "Local");
-    // Strip emoji for other tabs
+    if (activeGenre === "Trending 🔥") return allCards;
+    if (activeGenre === "Local 🇰🇪") return allCards.filter((c) => c.genre === "Local");
     const genreName = activeGenre.replace(/\s*[\u{1F000}-\u{1FFFF}]/u, "").trim();
-    return sampleCards.filter((c) => c.genre === genreName);
+    return allCards.filter((c) => c.genre === genreName);
   })();
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <BreakingNewsTicker />
+      <FeaturedStrip cards={topPicks} />
 
       <main className="mx-auto max-w-3xl px-4 md:px-6">
         <GenreTabs active={activeGenre} onSelect={setActiveGenre} />
