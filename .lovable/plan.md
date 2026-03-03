@@ -1,68 +1,88 @@
 
 
-# Kenya-First Local Feed & Breaking News
+# System Generated Calls & Social Media Sourcing
 
-## Files to Modify/Create
+## Files to Create/Modify
 
 | File | Action |
 |------|--------|
-| `src/components/GenreTabs.tsx` | Reorder tabs, Local first with 🇰🇪 emoji |
-| `src/components/BreakingNewsTicker.tsx` | Create — scrolling news strip |
-| `src/components/OpinionCard.tsx` | Add `cardType` badge support (Breaking / Callit Pick / Community) |
-| `src/data/sampleCards.ts` | Add Kenya-specific local cards with `cardType` field |
-| `src/pages/Index.tsx` | Default to "Local 🇰🇪", insert BreakingNewsTicker, update filtering logic |
+| `src/data/systemGeneratedCards.ts` | Create — system-generated "Callit Pick" calls with source metadata |
+| `src/components/FeaturedStrip.tsx` | Create — horizontal scrollable strip of top picks |
+| `src/components/OpinionCard.tsx` | Add `socialSource` and `isSystemGenerated` fields to interface, render social source tag |
+| `src/data/sampleCards.ts` | Merge system cards into exports |
+| `src/pages/Index.tsx` | Insert FeaturedStrip below BreakingNewsTicker, merge system cards into feed |
+| `src/pages/OpinionDetail.tsx` | Show source attribution section at bottom for system-generated calls |
 
-## `src/components/GenreTabs.tsx`
+## `src/data/systemGeneratedCards.ts`
 
-Reorder genres array:
-```
-"Local 🇰🇪", "Trending 🔥", "Sports", "Music & Culture", "Entertainment", "Crypto & Money", "Politics & Society", "Random"
-```
+New file with ~8 system-generated cards. Each card has additional fields:
+- `isSystemGenerated: true`
+- `cardType: "callit-pick"`
+- `creator: "callit"` (system account)
+- `socialSource?: { platform: "twitter" | "instagram" | "tiktok" | "news"; label: string; url?: string }`
+- `generatedFrom?: string` (e.g. "Twitter Kenya Trends", "Nation.co.ke", "CoinGecko")
+- All seeded with 50 coins (system founding stake)
 
-No other changes — existing gold underline + scroll behavior stays.
+Sample cards:
+1. "Will Gor Mahia win the SPL title this season?" — Event, Local, source: KPL
+2. "Is Bien the best Kenyan artist right now?" — Crowd, Local, source: Twitter Kenya
+3. "Will Bitcoin hit $100k before June?" — Metric, Crypto, source: CoinGecko
+4. "Will Harambee Stars qualify for AFCON 2025?" — Event, Local, source: Nation
+5. "Is Nairobi the best city to live in East Africa?" — Crowd, Local, source: Instagram Kenya
+6. "Will Ethic Entertainment drop a new album this year?" — Event, Local, source: TikTok Kenya
+7. "Will M-Pesa transaction fees go down?" — Event, Local, source: Standard Digital
+8. "Is Nyashinski Kenya's greatest comeback story?" — Crowd, Local, source: Twitter Kenya
 
-## `src/components/BreakingNewsTicker.tsx`
-
-New component. Full-width strip, height 44px, `bg-[#0A0A0A] dark:bg-[#1C1C1C]`.
-
-Left: Red pulsing dot + "Breaking" pill (`animate-pulse` on the dot, Inter Semibold 12px white).
-
-Right: CSS `@keyframes ticker` infinite horizontal scroll of hardcoded headlines separated by " · ". Headlines array:
-- "Harambee Stars confirm squad for AFCON qualifiers"
-- "CBK holds interest rates steady"
-- "Nairobi traffic: major jam on Mombasa Road"
-- "KPL matchday results in"
-
-Clicking a headline navigates to `/call-it` with a toast "Be first to call this".
+Export both the array and a helper to get top 5 by activity (coins + callerCount).
 
 ## `src/components/OpinionCard.tsx`
 
-Add optional `cardType` to `OpinionCardData`: `"breaking" | "callit-pick" | "community"`.
+Extend `OpinionCardData` interface:
+```ts
+socialSource?: { platform: "twitter" | "instagram" | "tiktok" | "news"; label: string; url?: string };
+isSystemGenerated?: boolean;
+generatedFrom?: string;
+```
 
-Render badge in top row before genre pill:
-- **breaking**: Red pulsing dot + "Breaking" `text-[#EF4444]` 10px
-- **callit-pick**: ⭐ + "Callit Pick" `text-gold` 10px
-- **community**: Person icon + "Community" `text-muted-foreground` 10px
+Below the creator row, if `socialSource` exists, render a small tag:
+- Twitter: `𝕏` icon + "Trending on X Kenya" — `text-[10px] text-muted-foreground`
+- Instagram: IG icon + "Trending on Instagram"
+- TikTok: TikTok icon + "Trending on TikTok"
+- News: newspaper icon + label text
 
-## `src/data/sampleCards.ts`
+For system-generated cards, show "callit" as creator with a gold verified-style checkmark instead of avatar letter.
 
-Add ~4 Kenya-specific Local cards with various `cardType` values:
-- "Will Harambee Stars qualify for AFCON 2026?" (breaking, event)
-- "Is Nairobi the best city in East Africa?" (callit-pick, crowd)
-- "Will KES hit 150 against USD this year?" (breaking, metric)
-- "Is gengetone dead?" (community, crowd)
+## `src/components/FeaturedStrip.tsx`
 
-Update existing Nairobi rain card to have `cardType: "community"`.
+New component. Horizontal scrollable strip:
+- Header row: "Callit's Top Picks" left (Inter Semibold 13px gold), "See all" right (gold link, navigates to feed with Trending tab)
+- Horizontal scroll container with 5 compact cards
+- Each compact card: `w-[260px]` fixed width, gold border, 16px padding
+  - Question truncated to 2 lines
+  - Resolution type pill + genre pill
+  - Coins in pool + time left
+  - "Callit Pick" badge
+  - Click navigates to `/opinion/:id`
+- Snap scroll with `scroll-snap-type: x mandatory`
 
 ## `src/pages/Index.tsx`
 
-- Default `activeGenre` to `"Local 🇰🇪"`.
-- Insert `<BreakingNewsTicker />` between `<Navbar />` and `<main>`.
-- Update filtering: when `"Local 🇰🇪"` is active, filter by `genre === "Local"`. When `"Trending 🔥"`, show all. Otherwise match genre name (strip emoji for comparison).
-- Local tab empty state: "Nothing local yet — be first to call it" with gold "Make a Local Call" button linking to `/call-it`.
+- Import `FeaturedStrip` and system cards
+- Merge system-generated cards with `sampleCards` into a combined `allCards` array
+- Insert `<FeaturedStrip cards={topPicks} />` between `<BreakingNewsTicker />` and `<main>`
+- `topPicks` = top 5 system cards sorted by `coins + (callerCount * 10)` descending
+- Feed filtering works on combined array
+
+## `src/pages/OpinionDetail.tsx`
+
+At bottom of detail page, if card has `isSystemGenerated`:
+- Separator line
+- "Generated from [generatedFrom]" — muted grey 11px
+- If `socialSource.url`: "View original source →" gold link
+- "System seeded · 50 coins founding stake" muted 11px
 
 ## Technical Notes
-- Ticker uses CSS animation (`translateX`) for smooth continuous scroll, duplicated content for seamless loop.
-- No backend needed — all hardcoded sample data.
-- Card type badges use existing design tokens (gold, muted-foreground, #EF4444).
+- No backend — all hardcoded sample data simulating what real API sources would provide
+- Social platform icons use simple text/emoji markers (𝕏, 📸, 🎵, 📰) to avoid icon library additions
+- System cards use `creator: "callit"` with special avatar treatment (gold background, "C" letter or star)
 
