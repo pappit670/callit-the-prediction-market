@@ -452,7 +452,7 @@ const OpinionDetail = () => {
               </a>
             )}
             <p className="text-[11px] text-muted-foreground font-body mt-1">
-              System seeded · 50 coins founding stake
+              System seeded · 50 coins founding call
             </p>
           </motion.div>
         )}

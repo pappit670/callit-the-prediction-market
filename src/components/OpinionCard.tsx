@@ -3,6 +3,7 @@ import { Share2, User } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { getCrowdContext, calculateNetWin } from "@/lib/callit";
 import MiniGraph from "./MiniGraph";
+import AnswerOptions, { type SuggestedAnswer } from "./AnswerOptions";
 
 export interface OpinionCardData {
   id: number;
@@ -23,6 +24,8 @@ export interface OpinionCardData {
   socialSource?: { platform: "twitter" | "instagram" | "tiktok" | "news"; label: string; url?: string };
   isSystemGenerated?: boolean;
   generatedFrom?: string;
+  suggestedAnswers?: SuggestedAnswer[];
+  optionsLocked?: boolean;
 }
 
 const resolutionTypeLabels: Record<string, string> = {
@@ -136,8 +139,19 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
       )}
       {!data.socialSource && <div className="mb-2" />}
 
-      {/* Progress bar */}
-      <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mb-3">
+      {/* Suggested answers */}
+      {data.suggestedAnswers && data.suggestedAnswers.length > 0 && (
+        <AnswerOptions
+          answers={data.suggestedAnswers}
+          optionsLocked={data.optionsLocked ?? false}
+          index={index}
+        />
+      )}
+
+      {/* Progress bar — only show for simple yes/no cards */}
+      {(!data.suggestedAnswers || data.suggestedAnswers.length === 0) && (
+        <>
+          <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-secondary mb-3">
         <motion.div
           className="h-full bg-yes rounded-l-full"
           initial={{ width: 0 }}
@@ -164,8 +178,10 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
 
       {/* Crowd context label */}
       <span className={`inline-block rounded-full bg-secondary px-2.5 py-0.5 text-[10px] font-medium mb-3 ${crowdContext.classes}`}>
-        {crowdContext.label}
+      {crowdContext.label}
       </span>
+        </>
+      )}
 
       {/* Void warning */}
       {needsMoreCallers && <p className="text-[10px] text-gold mb-3">

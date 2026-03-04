@@ -136,6 +136,10 @@ const ResolutionScreen = ({ card, userWon, userPayout, onDismiss }: ResolutionSc
                     <p className="font-headline text-4xl sm:text-5xl text-gold font-bold">
                       +<CountUpNumber target={userPayout} /> coins
                     </p>
+                    {/* Min win floor label */}
+                    <p className="text-[11px] text-muted-foreground font-body">
+                      Minimum win guarantee applied
+                    </p>
                     <button className="mt-4 rounded-full border border-gold text-gold px-6 py-2.5 text-sm font-semibold font-body hover:bg-gold hover:text-primary-foreground transition-all duration-200 inline-flex items-center gap-2">
                       <Share2 className="h-4 w-4" />
                       Show the world you called it
