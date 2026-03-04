@@ -1,88 +1,57 @@
 
 
-# System Generated Calls & Social Media Sourcing
+# Layout & Visual Upgrades
 
-## Files to Create/Modify
+## 1. Navbar Restructure — Move Breaking News Inline
+
+**`src/components/Navbar.tsx`**
+- Increase height from `h-16` to `h-[68px]`
+- After the search bar, add a compact inline breaking news ticker (max-w-[280px]) with red pulse dot + scrolling headline text using the same `animate-ticker` CSS
+- Remove Portfolio, Coin balance, and Deposit links to simplify right side
+- Final layout: Logo | Search | Inline Ticker | ThemeToggle, Bell, Call It, Avatar
+
+**`src/pages/Index.tsx`**
+- Remove `<BreakingNewsTicker />` import and usage from the page
+
+**`src/components/BreakingNewsTicker.tsx`**
+- Keep file but repurpose as `NavbarTicker` — or inline the ticker logic directly into Navbar and delete this file
+
+## 2. Mini Line Graph on Each Opinion Card
+
+**`src/components/MiniGraph.tsx`** (new)
+- SVG-based component, height 48px, full width
+- Takes `yesPercent` and `noPercent` as props
+- Generates fake historical data points (8-10 points) using a seeded random walk from ~50% converging to current percentages
+- Two smooth cubic bezier paths (green `#22C55E` for Yes, blue `#3B82F6` for No)
+- Area fills below each line at 10% opacity
+- Right side: current Yes% (green) and No% (blue) stacked vertically, Inter Bold 13px
+- Animate line drawing with Framer Motion `pathLength` from 0 to 1 over 600ms
+
+**`src/components/OpinionCard.tsx`**
+- Insert `<MiniGraph>` between the question text and the progress bar (after line ~102, before line ~136)
+
+## 3. Floating Comment Bubbles Between Cards
+
+**`src/components/FloatingComments.tsx`** (new)
+- Component that renders a single floating comment bubble at a time
+- Uses `useState` + `useEffect` with a 4-6s interval to cycle through sample comments
+- Framer Motion: `y: [0, -40]`, `opacity: [0, 1, 1, 0]` over 3s
+- Pill shape: bg-card, 1px gold border, border-radius 999px, padding 6px 12px
+- Contains: 20px avatar circle, username (gold 11px), comment text (11px, max 40 chars)
+- Sample comments: "Called it weeks ago 🔥", "No way this happens", "Easy call Yes on this one", etc.
+
+**`src/pages/Index.tsx`**
+- In the cards loop, insert `<FloatingComments />` between every 2-3 cards (e.g., after index 1, 3, 5)
+- Each instance gets a different delay offset so they stagger
+
+## Files Summary
 
 | File | Action |
 |------|--------|
-| `src/data/systemGeneratedCards.ts` | Create — system-generated "Callit Pick" calls with source metadata |
-| `src/components/FeaturedStrip.tsx` | Create — horizontal scrollable strip of top picks |
-| `src/components/OpinionCard.tsx` | Add `socialSource` and `isSystemGenerated` fields to interface, render social source tag |
-| `src/data/sampleCards.ts` | Merge system cards into exports |
-| `src/pages/Index.tsx` | Insert FeaturedStrip below BreakingNewsTicker, merge system cards into feed |
-| `src/pages/OpinionDetail.tsx` | Show source attribution section at bottom for system-generated calls |
-
-## `src/data/systemGeneratedCards.ts`
-
-New file with ~8 system-generated cards. Each card has additional fields:
-- `isSystemGenerated: true`
-- `cardType: "callit-pick"`
-- `creator: "callit"` (system account)
-- `socialSource?: { platform: "twitter" | "instagram" | "tiktok" | "news"; label: string; url?: string }`
-- `generatedFrom?: string` (e.g. "Twitter Kenya Trends", "Nation.co.ke", "CoinGecko")
-- All seeded with 50 coins (system founding stake)
-
-Sample cards:
-1. "Will Gor Mahia win the SPL title this season?" — Event, Local, source: KPL
-2. "Is Bien the best Kenyan artist right now?" — Crowd, Local, source: Twitter Kenya
-3. "Will Bitcoin hit $100k before June?" — Metric, Crypto, source: CoinGecko
-4. "Will Harambee Stars qualify for AFCON 2025?" — Event, Local, source: Nation
-5. "Is Nairobi the best city to live in East Africa?" — Crowd, Local, source: Instagram Kenya
-6. "Will Ethic Entertainment drop a new album this year?" — Event, Local, source: TikTok Kenya
-7. "Will M-Pesa transaction fees go down?" — Event, Local, source: Standard Digital
-8. "Is Nyashinski Kenya's greatest comeback story?" — Crowd, Local, source: Twitter Kenya
-
-Export both the array and a helper to get top 5 by activity (coins + callerCount).
-
-## `src/components/OpinionCard.tsx`
-
-Extend `OpinionCardData` interface:
-```ts
-socialSource?: { platform: "twitter" | "instagram" | "tiktok" | "news"; label: string; url?: string };
-isSystemGenerated?: boolean;
-generatedFrom?: string;
-```
-
-Below the creator row, if `socialSource` exists, render a small tag:
-- Twitter: `𝕏` icon + "Trending on X Kenya" — `text-[10px] text-muted-foreground`
-- Instagram: IG icon + "Trending on Instagram"
-- TikTok: TikTok icon + "Trending on TikTok"
-- News: newspaper icon + label text
-
-For system-generated cards, show "callit" as creator with a gold verified-style checkmark instead of avatar letter.
-
-## `src/components/FeaturedStrip.tsx`
-
-New component. Horizontal scrollable strip:
-- Header row: "Callit's Top Picks" left (Inter Semibold 13px gold), "See all" right (gold link, navigates to feed with Trending tab)
-- Horizontal scroll container with 5 compact cards
-- Each compact card: `w-[260px]` fixed width, gold border, 16px padding
-  - Question truncated to 2 lines
-  - Resolution type pill + genre pill
-  - Coins in pool + time left
-  - "Callit Pick" badge
-  - Click navigates to `/opinion/:id`
-- Snap scroll with `scroll-snap-type: x mandatory`
-
-## `src/pages/Index.tsx`
-
-- Import `FeaturedStrip` and system cards
-- Merge system-generated cards with `sampleCards` into a combined `allCards` array
-- Insert `<FeaturedStrip cards={topPicks} />` between `<BreakingNewsTicker />` and `<main>`
-- `topPicks` = top 5 system cards sorted by `coins + (callerCount * 10)` descending
-- Feed filtering works on combined array
-
-## `src/pages/OpinionDetail.tsx`
-
-At bottom of detail page, if card has `isSystemGenerated`:
-- Separator line
-- "Generated from [generatedFrom]" — muted grey 11px
-- If `socialSource.url`: "View original source →" gold link
-- "System seeded · 50 coins founding stake" muted 11px
-
-## Technical Notes
-- No backend — all hardcoded sample data simulating what real API sources would provide
-- Social platform icons use simple text/emoji markers (𝕏, 📸, 🎵, 📰) to avoid icon library additions
-- System cards use `creator: "callit"` with special avatar treatment (gold background, "C" letter or star)
+| `src/components/Navbar.tsx` | Add inline ticker, increase height, simplify right side |
+| `src/components/BreakingNewsTicker.tsx` | Delete (moved into navbar) |
+| `src/components/MiniGraph.tsx` | Create — SVG line graph with animated paths |
+| `src/components/FloatingComments.tsx` | Create — floating comment bubbles |
+| `src/components/OpinionCard.tsx` | Insert MiniGraph between question and progress bar |
+| `src/pages/Index.tsx` | Remove BreakingNewsTicker, add FloatingComments between cards |
 
