@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Share2, User } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { getCrowdContext, calculateNetWin } from "@/lib/callit";
+import MiniGraph from "./MiniGraph";
 
 export interface OpinionCardData {
   id: number;
@@ -100,6 +101,9 @@ const OpinionCard = ({ data, index }: {data: OpinionCardData;index: number;}) =>
       <h3 className="font-body text-base font-semibold text-foreground mb-3 leading-snug">
         {question}
       </h3>
+
+      {/* Mini Graph */}
+      <MiniGraph yesPercent={yesPercent} noPercent={noPercent} seed={data.id} />
 
       {/* Creator */}
       <Link to={`/user/${creator}`} className="flex items-center gap-2 mb-2 hover:opacity-80 transition-opacity" onClick={(e) => e.stopPropagation()}>
