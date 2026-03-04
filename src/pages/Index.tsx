@@ -3,9 +3,9 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import GenreTabs from "@/components/GenreTabs";
-import BreakingNewsTicker from "@/components/BreakingNewsTicker";
 import FeaturedStrip from "@/components/FeaturedStrip";
 import OpinionCard from "@/components/OpinionCard";
+import FloatingComments from "@/components/FloatingComments";
 import { sampleCards } from "@/data/sampleCards";
 import { systemGeneratedCards, getTopPicks } from "@/data/systemGeneratedCards";
 
@@ -27,7 +27,7 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <BreakingNewsTicker />
+      <FeaturedStrip cards={topPicks} />
       <FeaturedStrip cards={topPicks} />
 
       <main className="mx-auto max-w-3xl px-4 md:px-6">
@@ -59,7 +59,12 @@ const Index = () => {
         <div className="flex flex-col gap-5 pb-16">
           {filteredCards.length > 0 ? (
             filteredCards.map((card, i) => (
-              <OpinionCard key={card.id} data={card} index={i} />
+              <div key={card.id}>
+                <OpinionCard data={card} index={i} />
+                {(i === 1 || i === 3 || i === 5) && (
+                  <FloatingComments delayOffset={i * 1500} />
+                )}
+              </div>
             ))
           ) : activeGenre === "Local 🇰🇪" ? (
             <motion.div
