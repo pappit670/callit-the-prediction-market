@@ -56,7 +56,7 @@ const Index = () => {
         </div>
 
         {/* Cards */}
-        <div className="flex flex-col gap-5 pb-16">
+        <div className="flex flex-col gap-2 pb-16">
           {filteredCards.length > 0 ? (
             filteredCards.map((card, i) => (
               <div key={card.id}>
