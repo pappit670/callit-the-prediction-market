@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info, AlertTriangle } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info, AlertTriangle, ChevronDown, TrendingUp, TrendingDown } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { sampleCards } from "@/data/sampleCards";
 import { systemGeneratedCards } from "@/data/systemGeneratedCards";
@@ -8,7 +8,9 @@ import { toast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import ResolutionScreen from "@/components/ResolutionScreen";
 import { getCrowdContext, calculateNetWin, getMaxCall } from "@/lib/callit";
+import type { SuggestedAnswer } from "@/components/AnswerOptions";
 
+// --- Data ---
 const activityFeed = [
   { user: "cryptobro", side: "yes" as const, amount: 120, time: "2 min ago" },
   { user: "vibecheck", side: "no" as const, amount: 85, time: "5 min ago" },
@@ -23,6 +25,12 @@ const initialComments = [
   { user: "vibecheck", text: "Called big on Yes. Let's see how this plays out 🔥", time: "8 hrs ago" },
 ];
 
+const OPTION_COLORS = ["hsl(var(--gold))", "hsl(var(--yes))", "hsl(var(--no))", "hsl(0, 84%, 60%)", "hsl(270, 60%, 60%)"];
+const OPTION_COLOR_CLASSES = ["text-gold", "text-yes", "text-no", "text-destructive", "text-[hsl(270,60%,60%)]"];
+
+const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
+
+// --- Helpers ---
 function parseTimeLeft(timeLeft: string): number {
   const match = timeLeft.match(/(\d+)\s*(day|hour|hr|min)/i);
   if (!match) return 0;
@@ -39,7 +47,7 @@ function formatCountdown(s: number) {
   const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  return { d, h, m, s: sec };
+  return `${d}d ${h}h ${m}m ${sec}s`;
 }
 
 function getEarlyEntryMultiplier(postedDaysAgo: number, timeLeft: string): { multiplier: number; label: string } | null {
@@ -53,9 +61,9 @@ function getEarlyEntryMultiplier(postedDaysAgo: number, timeLeft: string): { mul
 }
 
 const resolutionDescriptions: Record<string, string> = {
-  crowd: "How this resolves: The side with the most called coins when the timer ends wins.",
-  event: "How this resolves: Based on whether the real-world event occurs by the deadline.",
-  metric: "How this resolves: Based on predefined measurable metrics.",
+  crowd: "The side with the most called coins when the timer ends wins.",
+  event: "Based on whether the real-world event occurs by the deadline.",
+  metric: "Based on predefined measurable metrics.",
 };
 
 const statusConfig: Record<string, { label: string; classes: string }> = {
@@ -65,15 +73,65 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
   draw: { label: "Draw — Refunded", classes: "bg-no/15 text-no" },
 };
 
-const sectionVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, delay: i * 0.1, ease: [0.25, 0.1, 0.25, 1] as const },
-  }),
+const resolutionTypeLabels: Record<string, string> = {
+  crowd: "Crowd Based",
+  event: "Event Based",
+  metric: "Metric Based",
 };
 
+// Generate fake chart data for an option
+function generateChartData(currentPercent: number, seed: number, points: number = 30) {
+  const data: { x: number; y: number }[] = [];
+  let val = 40 + (seed % 20);
+  for (let i = 0; i < points; i++) {
+    const progress = i / (points - 1);
+    const target = currentPercent;
+    const noise = (Math.sin(seed * 13.37 + i * 2.1) * 8) + (Math.cos(seed * 7.53 + i * 3.7) * 5);
+    val = val + (target - val) * 0.15 + noise * (1 - progress * 0.7);
+    val = Math.max(2, Math.min(98, val));
+    if (i === points - 1) val = currentPercent;
+    data.push({ x: i, y: Math.round(val * 10) / 10 });
+  }
+  return data;
+}
+
+// Generate date labels
+function generateDateLabels(count: number): string[] {
+  const labels: string[] = [];
+  const now = new Date();
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    labels.push(d.toLocaleDateString("en-US", { month: "short", day: "numeric" }));
+  }
+  return labels;
+}
+
+// SVG path from data
+function dataToSmoothPath(data: { x: number; y: number }[], width: number, height: number, padding: number = 0): string {
+  if (data.length < 2) return "";
+  const xScale = (i: number) => padding + (i / (data.length - 1)) * (width - padding * 2);
+  const yScale = (val: number) => height - padding - (val / 100) * (height - padding * 2);
+
+  let path = `M ${xScale(0)} ${yScale(data[0].y)}`;
+  for (let i = 1; i < data.length; i++) {
+    const prev = data[i - 1];
+    const curr = data[i];
+    const cpx1 = xScale(i - 1) + (xScale(i) - xScale(i - 1)) * 0.4;
+    const cpy1 = yScale(prev.y);
+    const cpx2 = xScale(i) - (xScale(i) - xScale(i - 1)) * 0.4;
+    const cpy2 = yScale(curr.y);
+    path += ` C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${xScale(i)} ${yScale(curr.y)}`;
+  }
+  return path;
+}
+
+function dataToAreaPath(data: { x: number; y: number }[], width: number, height: number, padding: number = 0): string {
+  const linePath = dataToSmoothPath(data, width, height, padding);
+  const xScale = (i: number) => padding + (i / (data.length - 1)) * (width - padding * 2);
+  return `${linePath} L ${xScale(data.length - 1)} ${height} L ${xScale(0)} ${height} Z`;
+}
+
+// --- Component ---
 const OpinionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -82,13 +140,20 @@ const OpinionDetail = () => {
 
   const [stakeAmount, setStakeAmount] = useState("");
   const [selectedSide, setSelectedSide] = useState<"yes" | "no">("yes");
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [commentInput, setCommentInput] = useState("");
   const [comments, setComments] = useState(initialComments);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [showResolution, setShowResolution] = useState(false);
+  const [activeTimeFilter, setActiveTimeFilter] = useState<typeof TIME_FILTERS[number]>("1W");
 
   useEffect(() => {
-    if (card) setSecondsLeft(parseTimeLeft(card.timeLeft));
+    if (card) {
+      setSecondsLeft(parseTimeLeft(card.timeLeft));
+      if (card.suggestedAnswers?.length) {
+        setSelectedOption(card.suggestedAnswers[0].id);
+      }
+    }
   }, [card]);
 
   useEffect(() => {
@@ -96,8 +161,6 @@ const OpinionDetail = () => {
     const interval = setInterval(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(interval);
   }, [secondsLeft]);
-
-  const countdown = useMemo(() => formatCountdown(secondsLeft), [secondsLeft]);
 
   if (!card) {
     return (
@@ -108,18 +171,35 @@ const OpinionDetail = () => {
   }
 
   const { question, yesPercent, noPercent, coins, genre, creator, postedDaysAgo, callerCount, isResolved, winner, resolutionType = "crowd", status = "open" } = card;
-  const percent = selectedSide === "yes" ? yesPercent : noPercent;
+  const hasMultipleOptions = card.suggestedAnswers && card.suggestedAnswers.length > 0;
+  const options: { id: string; label: string; percent: number; coins: number; callerCount: number; change: number }[] = hasMultipleOptions
+    ? card.suggestedAnswers!.map((a, i) => ({
+        id: a.id,
+        label: a.label,
+        percent: a.yesPercent,
+        coins: a.coins,
+        callerCount: a.callerCount,
+        change: Math.round((Math.sin(i * 3.7 + (a.yesPercent ?? 50)) * 4) * 10) / 10,
+      }))
+    : [
+        { id: "yes", label: "Yes", percent: yesPercent, coins: Math.round(coins * yesPercent / 100), callerCount: Math.round((callerCount ?? 0) * 0.6), change: 2.3 },
+        { id: "no", label: "No", percent: noPercent, coins: Math.round(coins * noPercent / 100), callerCount: Math.round((callerCount ?? 0) * 0.4), change: -1.8 },
+      ];
+
+  const currentSelectedOption = selectedOption || options[0]?.id;
+  const selectedOpt = options.find(o => o.id === currentSelectedOption) || options[0];
+
   const earlyEntry = getEarlyEntryMultiplier(postedDaysAgo ?? 1, card.timeLeft);
   const multiplier = earlyEntry?.multiplier ?? 1;
   const stakeNum = parseFloat(stakeAmount) || 0;
-  const { netWin, floorApplied } = calculateNetWin(stakeNum, percent, multiplier);
+  const sidePercent = selectedSide === "yes" ? selectedOpt.percent : (100 - selectedOpt.percent);
+  const { netWin, floorApplied } = calculateNetWin(stakeNum, sidePercent, multiplier);
   const statusInfo = statusConfig[status] || statusConfig.open;
   const isActive = status === "open" || status === "locked";
   const crowdContext = getCrowdContext(yesPercent, noPercent);
   const maxCall = getMaxCall(coins);
   const isOverWhaleLimit = stakeNum > maxCall;
   const isUnderMinimum = stakeNum > 0 && stakeNum < 10;
-  const needsMoreCallers = (callerCount ?? 0) < 10;
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -132,11 +212,9 @@ const OpinionDetail = () => {
     setCommentInput("");
   };
 
-  // Demo: user called on yes for resolved opinions
   const userCalledSide = isResolved ? "yes" : null;
   const userCallCoins = isResolved ? 200 : 0;
   const userWon = isResolved && winner === userCalledSide;
-  // Show net result, not total payout
   const userNetPayout = userWon ? Math.round(userCallCoins * (100 / yesPercent) * 0.9 - userCallCoins) : userCallCoins;
 
   if (showResolution && isResolved) {
@@ -145,363 +223,433 @@ const OpinionDetail = () => {
         card={card}
         userWon={!!userWon}
         userPayout={userNetPayout}
-        onDismiss={() => {
-          setShowResolution(false);
-          navigate("/");
-        }}
+        onDismiss={() => { setShowResolution(false); navigate("/"); }}
       />
     );
   }
 
+  // Chart dimensions
+  const chartW = 700;
+  const chartH = 200;
+  const chartPad = 24;
+  const dateLabels = generateDateLabels(7);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="max-w-[780px] mx-auto px-4 sm:px-6 pt-8 pb-20">
-        {/* Back + Genre + Status */}
-        <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible" className="flex items-center gap-3 mb-6">
-          <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-gold transition-colors">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <span className="rounded bg-gold/10 px-3 py-1 text-[11px] font-medium text-gold font-body">{genre}</span>
-          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusInfo.classes}`}>
-            {statusInfo.label}
-          </span>
-        </motion.div>
+      <div className="max-w-[1200px] px-4 sm:px-6 pt-6 pb-20" style={{ marginLeft: "max(1.5rem, calc((100vw - 1200px) / 6))" }}>
+        <div className="flex gap-8">
+          {/* ============ LEFT COLUMN ============ */}
+          <div className="flex-1 min-w-0" style={{ maxWidth: "65%" }}>
+            {/* Breadcrumb */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 mb-4">
+              <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-gold transition-colors">
+                <ArrowLeft className="h-4 w-4" />
+              </button>
+              <span className="text-[13px] text-muted-foreground font-body">
+                Feed › {genre} › Opinion
+              </span>
+            </motion.div>
 
-        {/* Question */}
-        <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible" className="mb-6">
-          <h1 className="font-headline text-3xl sm:text-4xl text-foreground leading-tight mb-4">{question}</h1>
+            {/* Tags row */}
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="flex items-center gap-2 flex-wrap mb-3">
+              <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold font-body">{genre}</span>
+              <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-medium text-muted-foreground font-body">
+                {resolutionTypeLabels[resolutionType]}
+              </span>
+              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${statusInfo.classes}`}>
+                {statusInfo.label}
+              </span>
+            </motion.div>
 
-          {/* Resolution type info box */}
-          <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-secondary">
-            <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-            <p className="text-[13px] text-muted-foreground font-body">{resolutionDescriptions[resolutionType]}</p>
-          </div>
+            {/* Question */}
+            <motion.h1 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="font-headline text-2xl sm:text-3xl text-foreground leading-tight mb-3">
+              {question}
+            </motion.h1>
 
-          {/* Void warning */}
-          {needsMoreCallers && isActive && (
-            <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-gold/10">
-              <AlertTriangle className="h-4 w-4 text-gold mt-0.5 shrink-0" />
-              <p className="text-[12px] text-muted-foreground font-body">
-                This call needs at least 10 callers to resolve. Under 10 = void and full refund. Currently {callerCount ?? 0} callers.
+            {/* Resolution info */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }} className="flex items-center gap-2 mb-2">
+              <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <p className="text-[13px] text-muted-foreground font-body">
+                How this resolves: {resolutionDescriptions[resolutionType]}
               </p>
-            </div>
-          )}
+            </motion.div>
 
-          <Link to={`/user/${creator}`} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-            <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-bold text-muted-foreground hover:ring-2 hover:ring-gold transition-all">
-              {creator[0].toUpperCase()}
-            </div>
-            <div>
-              <span className="font-body text-sm font-semibold text-foreground">@{creator}</span>
-              <span className="text-xs text-muted-foreground ml-2">Posted {postedDaysAgo ?? 1} days ago</span>
-            </div>
-          </Link>
-        </motion.div>
+            {/* Creator chip */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }}>
+              <Link to={`/user/${creator}`} className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity mb-6">
+                <div className="h-6 w-6 rounded-full bg-secondary border border-border flex items-center justify-center text-[9px] font-bold text-muted-foreground">
+                  {creator[0].toUpperCase()}
+                </div>
+                <span className="text-[12px] text-muted-foreground font-body">@{creator} · Posted {postedDaysAgo ?? 1} days ago</span>
+              </Link>
+            </motion.div>
 
-        {/* Percentage bars */}
-        <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <div className="flex h-4 w-full rounded-full overflow-hidden bg-secondary mb-4">
-            <motion.div className="h-full bg-yes rounded-l-full" initial={{ width: 0 }} animate={{ width: `${yesPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }} />
-            <motion.div className="h-full bg-no rounded-r-full" initial={{ width: 0 }} animate={{ width: `${noPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }} />
-          </div>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[32px] font-bold text-yes font-body">Yes {yesPercent}%</span>
-            <span className="text-[32px] font-bold text-no font-body">No {noPercent}%</span>
-          </div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] text-muted-foreground font-body">Weighted by coins called</p>
-            <span className={`rounded-full bg-secondary px-2.5 py-0.5 text-[11px] font-medium ${crowdContext.classes}`}>
-              {crowdContext.label}
-            </span>
-          </div>
-          <div className="flex items-center gap-4 flex-wrap">
-            <div>
-              <span className="font-headline text-2xl font-bold text-gold animate-pool-pulse inline-block">{coins.toLocaleString()}</span>
-              <span className="text-sm text-muted-foreground ml-2 font-body">coins in pool</span>
-            </div>
-            {callerCount !== undefined && (
-              <span className="text-sm text-muted-foreground font-body">{callerCount} people have called</span>
-            )}
-          </div>
-          {earlyEntry && isActive && (
-            <div className="mt-3">
-              <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-medium text-gold font-body">
-                Early Entry · {earlyEntry.label} multiplier active
-              </span>
-            </div>
-          )}
-          {/* User personal call */}
-          {userCalledSide && (
-            <div className="mt-3 flex items-center gap-2">
-              <Coins className="h-4 w-4 text-gold" />
-              <span className="text-sm font-semibold text-gold font-body">
-                Your call: {userCallCoins} coins on {userCalledSide === "yes" ? "Yes" : "No"}
-              </span>
-            </div>
-          )}
-        </motion.div>
+            {/* ========== CHART ========== */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="mb-6">
+              {/* Legend */}
+              <div className="flex items-center gap-4 flex-wrap mb-3">
+                {options.map((opt, i) => (
+                  <div key={opt.id} className="flex items-center gap-1.5">
+                    <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: OPTION_COLORS[i % OPTION_COLORS.length] }} />
+                    <span className="text-[12px] text-foreground font-body">{opt.label}</span>
+                    <span className="text-[12px] font-semibold font-body" style={{ color: OPTION_COLORS[i % OPTION_COLORS.length] }}>{opt.percent}%</span>
+                  </div>
+                ))}
+              </div>
 
-        {/* Resolution or Calculator + Call */}
-        {isResolved || status === "resolved" || status === "draw" ? (
-          <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8 space-y-4">
-            {status === "draw" ? (
-              <div className="rounded-2xl bg-no/15 p-6">
-                <p className="font-headline text-xl font-bold text-no mb-3">
-                  This call is a draw — All calls refunded
-                </p>
-                <div className="space-y-1 font-body text-sm text-muted-foreground">
-                  <p>Total pool: {coins.toLocaleString()} coins</p>
-                  <p>All calls returned to participants</p>
+              {/* SVG Chart */}
+              <div className="w-full relative" style={{ height: chartH }}>
+                <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full h-full" preserveAspectRatio="none">
+                  {/* Grid lines */}
+                  {[0, 25, 50, 75, 100].map(v => {
+                    const y = chartH - chartPad - (v / 100) * (chartH - chartPad * 2);
+                    return <line key={v} x1={chartPad} y1={y} x2={chartW - chartPad} y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="4 4" />;
+                  })}
+
+                  {/* Lines per option */}
+                  {options.map((opt, i) => {
+                    const chartData = generateChartData(opt.percent, i * 17 + (card.id ?? 0) * 7, 30);
+                    const color = OPTION_COLORS[i % OPTION_COLORS.length];
+                    const linePath = dataToSmoothPath(chartData, chartW, chartH, chartPad);
+                    const areaPath = dataToAreaPath(chartData, chartW, chartH, chartPad);
+                    return (
+                      <g key={opt.id}>
+                        <path d={areaPath} fill={color} opacity={0.08} />
+                        <motion.path
+                          d={linePath}
+                          fill="none"
+                          stroke={color}
+                          strokeWidth="2"
+                          initial={{ pathLength: 0 }}
+                          animate={{ pathLength: 1 }}
+                          transition={{ duration: 0.8, delay: 0.3 + i * 0.1 }}
+                        />
+                      </g>
+                    );
+                  })}
+                </svg>
+
+                {/* Y-axis labels */}
+                <div className="absolute right-0 top-0 h-full flex flex-col justify-between py-[24px] pr-1">
+                  {[100, 75, 50, 25, 0].map(v => (
+                    <span key={v} className="text-[11px] text-muted-foreground font-body">{v}%</span>
+                  ))}
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="rounded-2xl bg-gold p-6">
-                  <p className="font-headline text-xl font-bold text-primary-foreground mb-3">
-                    This call is closed · {winner === "yes" ? "Yes" : "No"} Won
-                  </p>
-                  <div className="space-y-1 font-body text-sm text-primary-foreground/80">
-                    <p>Total pool: {coins.toLocaleString()} coins</p>
-                    <p>Callit cut (10%): {Math.round(coins * 0.1).toLocaleString()} coins</p>
-                    <p>Winner payout: {Math.round(coins * 0.9).toLocaleString()} coins distributed</p>
-                  </div>
-                </div>
-                {userWon ? (
-                  <div className="rounded-xl bg-yes/15 p-4 text-center">
-                    <p className="font-headline text-lg text-yes font-bold">You called it. +{userNetPayout} coins net profit</p>
-                  </div>
-                ) : (
-                  <div className="rounded-xl bg-muted p-4 text-center">
-                    <p className="text-sm text-muted-foreground font-body">Tough call. {userCallCoins} coins committed to this call.</p>
-                    <p className="text-[13px] text-muted-foreground font-body mt-1">Every call sharpens your instinct.</p>
-                    <button onClick={() => navigate("/call-it")} className="mt-2 text-sm font-medium text-gold hover:text-gold-hover transition-colors font-body">
-                      Make another call →
-                    </button>
-                  </div>
-                )}
-                <button
-                  onClick={() => setShowResolution(true)}
-                  className="w-full rounded-xl border border-gold text-gold font-body text-sm font-semibold py-3 hover:bg-gold hover:text-primary-foreground transition-all duration-200"
-                >
-                  View Full Result
-                </button>
-              </>
-            )}
-          </motion.div>
-        ) : (
-          <>
-            {/* Calculator */}
-            <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible" className="mb-6">
-              <h3 className="font-body text-base font-semibold text-foreground mb-1">Calculate your return</h3>
-              <p className="text-[13px] text-muted-foreground font-body mb-3">Enter how many coins you want to call and see your net win</p>
-              <div className="relative mb-1">
-                <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
-                <input
-                  type="number"
-                  min="10"
-                  value={stakeAmount}
-                  onChange={(e) => setStakeAmount(e.target.value)}
-                  placeholder="Min 10 coins"
-                  className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-3 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
+
+              {/* X-axis labels */}
+              <div className="flex justify-between px-6 mt-1">
+                {dateLabels.map((label, i) => (
+                  <span key={i} className="text-[11px] text-muted-foreground font-body">{label}</span>
+                ))}
               </div>
-              {isUnderMinimum && (
-                <p className="text-[11px] text-destructive font-body mb-2">Minimum call: 10 coins</p>
-              )}
-              {/* Whale cap notice */}
-              <div className="flex items-center gap-1.5 mb-3">
-                <Info className="h-3 w-3 text-muted-foreground shrink-0" />
-                <p className="text-[12px] text-muted-foreground font-body">
-                  Max call: <span className="font-semibold">{maxCall.toLocaleString()}</span> coins (20% cap to keep it fair)
-                </p>
-              </div>
-              {isOverWhaleLimit && (
-                <p className="text-[11px] text-destructive font-body mb-2">Exceeds whale cap — reduce your call amount</p>
-              )}
-              <div className="flex gap-2 mb-3">
-                {(["yes", "no"] as const).map((s) => (
+
+              {/* Time filter tabs */}
+              <div className="flex items-center gap-1 mt-3">
+                {TIME_FILTERS.map(tf => (
                   <button
-                    key={s}
-                    onClick={() => setSelectedSide(s)}
-                    className={`flex-1 rounded-lg py-2 text-sm font-semibold font-body border transition-all duration-200 ${
-                      selectedSide === s
-                        ? s === "yes" ? "bg-yes border-yes text-white" : "bg-no border-no text-white"
-                        : "border-border text-muted-foreground hover:border-gold"
+                    key={tf}
+                    onClick={() => setActiveTimeFilter(tf)}
+                    className={`px-2.5 py-1 text-[12px] font-medium font-body rounded transition-colors ${
+                      activeTimeFilter === tf
+                        ? "text-gold border-b-2 border-gold"
+                        : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {s === "yes" ? "Yes" : "No"}
+                    {tf}
                   </button>
                 ))}
               </div>
-              {stakeNum >= 10 && !isOverWhaleLimit && (
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-headline text-lg text-gold font-bold">
-                    Call {stakeAmount} on {selectedSide === "yes" ? "Yes" : "No"} → net win {Math.round(netWin)} coins
-                  </p>
-                  {earlyEntry && earlyEntry.multiplier > 1 && (
-                    <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[11px] text-gold font-medium">
-                      {earlyEntry.label} early bonus
-                    </span>
-                  )}
-                  {floorApplied && (
-                    <span className="text-[11px] text-muted-foreground">(+3% minimum guaranteed)</span>
-                  )}
-                </div>
+            </motion.div>
+
+            {/* ========== ANSWER OPTIONS LIST ========== */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-8">
+              <div className="space-y-0">
+                {options.map((opt, i) => {
+                  const isPositiveChange = opt.change >= 0;
+                  return (
+                    <div
+                      key={opt.id}
+                      className={`flex items-center gap-4 py-4 border-b border-border cursor-pointer transition-colors hover:bg-secondary/50 ${currentSelectedOption === opt.id ? "bg-secondary/30" : ""}`}
+                      onClick={() => setSelectedOption(opt.id)}
+                    >
+                      {/* Name + volume */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold text-foreground font-body">{opt.label}</p>
+                        <p className="text-[12px] text-muted-foreground font-body">{opt.coins.toLocaleString()} coins Vol.</p>
+                      </div>
+
+                      {/* Percentage + change */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold font-body" style={{ color: OPTION_COLORS[i % OPTION_COLORS.length] }}>
+                          {opt.percent}%
+                        </span>
+                        <span className={`flex items-center gap-0.5 text-[12px] font-medium font-body ${isPositiveChange ? "text-yes" : "text-destructive"}`}>
+                          {isPositiveChange ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                          {isPositiveChange ? "+" : ""}{opt.change}%
+                        </span>
+                      </div>
+
+                      {/* Call buttons */}
+                      {isActive && (
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedOption(opt.id); setSelectedSide("yes"); }}
+                            className="rounded-lg bg-yes px-4 py-2 text-[13px] font-semibold text-white font-body hover:brightness-90 transition-all"
+                          >
+                            Call Yes {opt.percent}%
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setSelectedOption(opt.id); setSelectedSide("no"); }}
+                            className="rounded-lg border border-destructive bg-destructive/10 px-4 py-2 text-[13px] font-semibold text-destructive font-body hover:bg-destructive/20 transition-all"
+                          >
+                            Call No {100 - opt.percent}%
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Summary stats */}
+              <div className="flex items-center gap-6 mt-4 flex-wrap">
+                <span className="text-[13px] text-muted-foreground font-body">{coins.toLocaleString()} coins Vol.</span>
+                <span className="text-[13px] text-muted-foreground font-body">Ends {card.timeLeft}</span>
+                <span className="text-[13px] text-muted-foreground font-body">{callerCount ?? 0} people have called</span>
+              </div>
+            </motion.div>
+
+            {/* Resolved status */}
+            {(isResolved || status === "resolved" || status === "draw") && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8">
+                {status === "draw" ? (
+                  <div className="rounded-2xl bg-no/15 p-6">
+                    <p className="font-headline text-xl font-bold text-no mb-2">Draw — All calls refunded</p>
+                    <p className="text-sm text-muted-foreground font-body">Total pool: {coins.toLocaleString()} coins</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl bg-gold p-6">
+                      <p className="font-headline text-xl font-bold text-primary-foreground mb-2">Resolved · {winner === "yes" ? "Yes" : "No"} Won</p>
+                      <p className="text-sm text-primary-foreground/80 font-body">Total pool: {coins.toLocaleString()} · Winner payout: {Math.round(coins * 0.9).toLocaleString()} coins</p>
+                    </div>
+                    <button onClick={() => setShowResolution(true)} className="w-full rounded-xl border border-gold text-gold font-body text-sm font-semibold py-3 hover:bg-gold hover:text-primary-foreground transition-all">
+                      View Full Result
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* ========== COMMENTS ========== */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-8">
+              <h3 className="font-headline text-xl mb-4">The Conversation</h3>
+
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">Y</div>
+                <input
+                  value={commentInput}
+                  onChange={(e) => setCommentInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleComment()}
+                  placeholder="Drop your take..."
+                  className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
+                />
+                <button onClick={handleComment} className="h-9 w-9 rounded-lg bg-gold flex items-center justify-center hover:bg-gold-hover transition-colors shrink-0">
+                  <Send className="h-4 w-4 text-primary-foreground" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {comments.slice(0, 3).map((c, i) => (
+                  <div key={i} className="rounded-lg bg-secondary p-4 border-l-2 border-gold">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
+                        {c.user[0].toUpperCase()}
+                      </div>
+                      <span className="text-[13px] font-semibold text-foreground font-body">@{c.user}</span>
+                      <span className="text-[11px] text-muted-foreground font-body">{c.time}</span>
+                    </div>
+                    <p className="text-sm text-foreground font-body mb-2">{c.text}</p>
+                    <div className="flex items-center gap-4">
+                      <button className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body">
+                        <ThumbsUp className="h-3 w-3" /> Like
+                      </button>
+                      <button className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body">
+                        <MessageCircle className="h-3 w-3" /> Reply
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {comments.length > 3 && (
+                <button className="mt-4 text-[13px] font-medium text-gold hover:text-gold-hover transition-colors font-body">
+                  Load more comments
+                </button>
               )}
             </motion.div>
 
-            {/* Call buttons */}
-            <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-              <div className="flex gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={isOverWhaleLimit || isUnderMinimum}
-                  className="flex-1 rounded-xl bg-yes py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Call Yes
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  disabled={isOverWhaleLimit || isUnderMinimum}
-                  className="flex-1 rounded-xl bg-no py-3 text-base font-semibold text-white font-body hover:brightness-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Call No
-                </motion.button>
-              </div>
-              <p className="text-[11px] text-muted-foreground text-center mt-2 font-body">Coins are committed when you call</p>
-              <p className="text-[10px] text-muted-foreground text-center mt-1 font-body">One wallet per verified account. Duplicate accounts are banned.</p>
-            </motion.div>
-          </>
-        )}
-
-        {/* Countdown */}
-        <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <div className="grid grid-cols-4 gap-3 mb-2">
-            {[
-              { val: countdown.d, label: "Days" },
-              { val: countdown.h, label: "Hours" },
-              { val: countdown.m, label: "Minutes" },
-              { val: countdown.s, label: "Seconds" },
-            ].map((u) => (
-              <div key={u.label} className="rounded-lg bg-secondary p-3 text-center">
-                <div className="font-headline text-[28px] font-bold text-foreground">{String(u.val).padStart(2, "0")}</div>
-                <div className="text-[11px] text-muted-foreground font-body">{u.label}</div>
-              </div>
-            ))}
-          </div>
-          <p className="text-xs text-muted-foreground font-body">
-            Resolved by: {resolutionType === "crowd" ? "Community Call" : resolutionType === "event" ? "Event Outcome" : "Metrics"}
-          </p>
-        </motion.div>
-
-        {/* Activity */}
-        <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <h3 className="font-body text-base font-semibold text-foreground mb-3">Recent Calls</h3>
-          <div className="space-y-0">
-            {activityFeed.map((a, i) => (
-              <div key={i} className="flex items-center gap-3 py-3 border-b border-border last:border-0">
-                <div className="h-7 w-7 rounded-full bg-secondary flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                  {a.user[0].toUpperCase()}
-                </div>
-                <span className="text-[13px] font-medium text-foreground font-body">@{a.user}</span>
-                <span className={`text-[13px] font-medium font-body ${a.side === "yes" ? "text-yes" : "text-no"}`}>
-                  called {a.side === "yes" ? "Yes" : "No"}
+            {/* Share + source */}
+            <div className="flex items-center gap-3 mb-8">
+              <button onClick={handleShare} className="rounded-xl border border-gold text-gold font-body text-sm font-semibold py-2.5 px-6 flex items-center gap-2 hover:bg-gold hover:text-primary-foreground transition-all">
+                <Share2 className="h-4 w-4" /> Share
+              </button>
+              {card.isSystemGenerated && (
+                <span className="text-[11px] text-muted-foreground font-body">
+                  Generated from {card.generatedFrom}
+                  {card.socialSource?.url && (
+                    <a href={card.socialSource.url} target="_blank" rel="noopener noreferrer" className="text-gold hover:text-gold-hover ml-1">View source →</a>
+                  )}
                 </span>
-                <span className="text-[13px] font-semibold text-gold font-body">{a.amount}</span>
-                {i < 2 && (
-                  <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] text-gold font-medium">Early Caller</span>
-                )}
-                <span className="text-[11px] text-muted-foreground ml-auto font-body">{a.time}</span>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
-          <button className="mt-2 text-[13px] font-medium text-gold hover:text-gold-hover transition-colors font-body">
-            View all activity
-          </button>
-        </motion.div>
 
-        {/* Share */}
-        <motion.div custom={7} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <button
-            onClick={handleShare}
-            className="w-full rounded-xl border border-gold text-gold font-body text-sm font-semibold py-3 flex items-center justify-center gap-2 hover:bg-gold hover:text-primary-foreground transition-all duration-200"
-          >
-            <Share2 className="h-4 w-4" />
-            Share this call
-          </button>
-        </motion.div>
-
-        {/* System-generated source attribution */}
-        {card.isSystemGenerated && (
-          <motion.div custom={8} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-            <div className="h-[1px] w-full bg-border mb-4" />
-            <p className="text-[11px] text-muted-foreground font-body mb-1">
-              Generated from {card.generatedFrom}
-            </p>
-            {card.socialSource?.url && (
-              <a
-                href={card.socialSource.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] font-medium text-gold hover:text-gold/80 transition-colors font-body"
+          {/* ============ RIGHT COLUMN — STICKY STAKE PANEL ============ */}
+          <div className="hidden lg:block" style={{ width: "35%", minWidth: 320 }}>
+            <div className="sticky top-24">
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
+                className="rounded-2xl border border-gold-border bg-card p-6"
+                style={{ boxShadow: "0 4px 24px hsl(var(--gold-glow))" }}
               >
-                View original source →
-              </a>
-            )}
-            <p className="text-[11px] text-muted-foreground font-body mt-1">
-              System seeded · 50 coins founding call
-            </p>
-          </motion.div>
-        )}
-
-        {/* Comments */}
-        <motion.div custom={9} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <h3 className="font-headline text-xl mb-1">The Conversation</h3>
-          <p className="text-xs text-muted-foreground font-body mb-4">Keep it respectful. AI moderation active.</p>
-
-          <div className="flex items-center gap-3 mb-6">
-            <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">Y</div>
-            <input
-              value={commentInput}
-              onChange={(e) => setCommentInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleComment()}
-              placeholder="Drop your take..."
-              className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors"
-            />
-            <button onClick={handleComment} className="h-9 w-9 rounded-lg bg-gold flex items-center justify-center hover:bg-gold-hover transition-colors shrink-0">
-              <Send className="h-4 w-4 text-primary-foreground" />
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {comments.map((c, i) => (
-              <div key={i} className="rounded-lg bg-secondary p-4 border-l-2 border-gold">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">
-                    {c.user[0].toUpperCase()}
+                {/* Selected option header */}
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="h-10 w-10 rounded-full bg-secondary border border-border flex items-center justify-center text-sm font-bold text-foreground">
+                    {selectedOpt.label[0]}
                   </div>
-                  <span className="text-[13px] font-semibold text-foreground font-body">@{c.user}</span>
-                  <span className="text-[11px] text-muted-foreground font-body">{c.time}</span>
+                  <div>
+                    <p className="text-base font-semibold text-foreground font-body">{selectedOpt.label}</p>
+                    <p className="font-headline text-3xl font-bold" style={{ color: OPTION_COLORS[options.indexOf(selectedOpt) % OPTION_COLORS.length] }}>
+                      {selectedOpt.percent}%
+                    </p>
+                  </div>
                 </div>
-                <p className="text-sm text-foreground font-body mb-2">{c.text}</p>
-                <div className="flex items-center gap-4">
-                  <button className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body">
-                    <ThumbsUp className="h-3 w-3" /> Like
+
+                {/* Call Yes / Call No tabs */}
+                <div className="flex rounded-lg overflow-hidden border border-border mb-5">
+                  <button
+                    onClick={() => setSelectedSide("yes")}
+                    className={`flex-1 py-2.5 text-sm font-semibold font-body transition-all ${
+                      selectedSide === "yes" ? "bg-yes text-white" : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Call Yes
                   </button>
-                  <button className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body">
-                    <MessageCircle className="h-3 w-3" /> Reply
+                  <button
+                    onClick={() => setSelectedSide("no")}
+                    className={`flex-1 py-2.5 text-sm font-semibold font-body transition-all ${
+                      selectedSide === "no" ? "bg-no text-white" : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Call No
                   </button>
                 </div>
-              </div>
-            ))}
+
+                {/* Amount input */}
+                <p className="text-sm font-semibold text-foreground font-body mb-2">Amount</p>
+                <div className="relative mb-3">
+                  <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
+                  <input
+                    type="number"
+                    min="10"
+                    value={stakeAmount}
+                    onChange={(e) => setStakeAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    className="w-full rounded-lg border border-border bg-background pl-10 pr-4 py-3 text-base font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+
+                {/* Quick add buttons */}
+                <div className="flex gap-1.5 mb-4 flex-wrap">
+                  {[50, 100, 500, 1000].map(amt => (
+                    <button
+                      key={amt}
+                      onClick={() => setStakeAmount(String((parseFloat(stakeAmount) || 0) + amt))}
+                      className="rounded-full border border-border px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:border-gold hover:text-gold transition-colors font-body"
+                    >
+                      +{amt}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setStakeAmount(String(maxCall))}
+                    className="rounded-full border border-border px-2.5 py-1 text-[12px] font-medium text-muted-foreground hover:border-gold hover:text-gold transition-colors font-body"
+                  >
+                    Max
+                  </button>
+                </div>
+
+                {/* Validation */}
+                {isUnderMinimum && <p className="text-[11px] text-destructive font-body mb-2">Minimum call: 10 coins</p>}
+                {isOverWhaleLimit && <p className="text-[11px] text-destructive font-body mb-2">Exceeds whale cap ({maxCall.toLocaleString()} max)</p>}
+
+                {/* Return preview */}
+                {stakeNum >= 10 && !isOverWhaleLimit && (
+                  <div className="mb-4 space-y-1">
+                    <p className="text-[13px] font-medium text-gold font-body">Projected win: +{Math.round(netWin + stakeNum)} coins</p>
+                    <p className="text-[12px] font-medium text-yes font-body">Net profit: +{Math.round(netWin)} coins</p>
+                    {earlyEntry && earlyEntry.multiplier > 1 && (
+                      <p className="text-[11px] text-gold font-body">Early caller bonus: +{Math.round((earlyEntry.multiplier - 1) * 100)}%</p>
+                    )}
+                    {floorApplied && (
+                      <p className="text-[11px] text-muted-foreground font-body">+3% minimum guaranteed</p>
+                    )}
+                    <p className="text-[11px] text-muted-foreground font-body">{crowdContext.label}</p>
+                  </div>
+                )}
+
+                {/* Confirm button */}
+                {isActive ? (
+                  <>
+                    <motion.button
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={isOverWhaleLimit || isUnderMinimum || stakeNum < 10}
+                      className="w-full rounded-xl bg-gold py-3.5 text-base font-semibold text-primary-foreground font-body hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gold-pulse"
+                    >
+                      Confirm Call
+                    </motion.button>
+                    <p className="text-[11px] text-muted-foreground text-center mt-2 font-body">Coins deducted immediately on call</p>
+
+                    {earlyEntry && earlyEntry.multiplier > 1 && (
+                      <div className="mt-3 text-center">
+                        <span className="inline-block rounded-full bg-gold/10 px-3 py-1 text-[11px] font-medium text-gold font-body">
+                          Early Caller · {earlyEntry.label} bonus active
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="rounded-xl bg-muted py-3 text-center text-sm font-medium text-muted-foreground font-body">
+                    {status === "resolved" ? `${winner === "yes" ? "Yes" : "No"} Won` : "Draw — Calls Refunded"}
+                  </div>
+                )}
+
+                {/* Void warning */}
+                {(callerCount ?? 0) < 10 && isActive && (
+                  <div className="flex items-start gap-2 mt-4 p-3 rounded-lg bg-gold/10">
+                    <AlertTriangle className="h-3.5 w-3.5 text-gold mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-muted-foreground font-body">
+                      Needs {10 - (callerCount ?? 0)} more callers. Under 10 = void & full refund.
+                    </p>
+                  </div>
+                )}
+
+                {/* Countdown */}
+                <div className="mt-4 pt-4 border-t border-border">
+                  <p className="text-[12px] text-muted-foreground font-body mb-1">Time remaining</p>
+                  <p className="text-sm font-semibold text-foreground font-body">{formatCountdown(secondsLeft)}</p>
+                  <p className="text-[11px] text-muted-foreground font-body mt-1">
+                    Resolved by: {resolutionType === "crowd" ? "Community Call" : resolutionType === "event" ? "Event Outcome" : "Metrics"}
+                  </p>
+                </div>
+              </motion.div>
+            </div>
           </div>
-          <button className="mt-4 w-full rounded-xl border border-gold text-gold font-body text-sm font-medium py-2.5 hover:bg-gold hover:text-primary-foreground transition-all">
-            Load more comments
-          </button>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
