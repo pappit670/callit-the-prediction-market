@@ -29,6 +29,7 @@ const OPTION_COLORS = ["hsl(var(--gold))", "hsl(var(--yes))", "hsl(var(--no))", 
 const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
 
 const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
+const COMMENT_TABS = ["Comments", "Top Callers", "Positions", "Activity"] as const;
 const CHART_W = 800;
 const CHART_H = 220;
 const CHART_PAD = 32;
