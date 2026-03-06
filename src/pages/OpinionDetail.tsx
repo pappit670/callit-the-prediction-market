@@ -223,16 +223,9 @@ const OpinionDetail = () => {
   const isOverWhaleLimit = stakeNum > maxCall;
   const isUnderMinimum = stakeNum > 0 && stakeNum < 10;
 
-  // Generate chart data for all options
-  const chartW = 800;
-  const chartH = 220;
-  const chartPad = 32;
   const dateLabels = generateDateLabels(7);
 
-  const allChartData = useMemo(() =>
-    options.map((opt, i) => generateChartData(opt.percent, i * 17 + (card.id ?? 0) * 7, 30)),
-    [options, card.id]
-  );
+  const allChartData = options.map((opt, i) => generateChartData(opt.percent, i * 17 + (card.id ?? 0) * 7, 30));
 
   const handleShare = () => {
     navigator.clipboard.writeText(window.location.href);
