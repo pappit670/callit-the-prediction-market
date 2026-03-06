@@ -176,8 +176,8 @@ const OpinionDetail = () => {
   const handleChartMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!chartRef.current) return;
     const rect = chartRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * chartW;
-    setHoverX(Math.max(chartPad, Math.min(chartW - chartPad, x)));
+    const x = ((e.clientX - rect.left) / rect.width) * CHART_W;
+    setHoverX(Math.max(CHART_PAD, Math.min(CHART_W - CHART_PAD, x)));
   }, []);
 
   const handleChartMouseLeave = useCallback(() => setHoverX(null), []);
