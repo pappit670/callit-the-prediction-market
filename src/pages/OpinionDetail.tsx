@@ -1,7 +1,7 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Coins, Info, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { sampleCards } from "@/data/sampleCards";
 import { systemGeneratedCards } from "@/data/systemGeneratedCards";
 import { toast } from "@/hooks/use-toast";
