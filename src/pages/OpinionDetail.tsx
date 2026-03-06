@@ -328,27 +328,27 @@ const OpinionDetail = () => {
               </div>
 
               {/* SVG Chart */}
-              <div className="w-full relative rounded-xl bg-card border border-border" style={{ height: chartH + 40 }}>
+              <div className="w-full relative rounded-xl bg-card border border-border" style={{ height: CHART_H + 40 }}>
                 <svg
                   ref={chartRef}
-                  viewBox={`0 0 ${chartW} ${chartH}`}
+                  viewBox={`0 0 ${CHART_W} ${CHART_H}`}
                   className="w-full"
-                  style={{ height: chartH }}
+                  style={{ height: CHART_H }}
                   preserveAspectRatio="none"
                   onMouseMove={handleChartMouseMove}
                   onMouseLeave={handleChartMouseLeave}
                 >
                   {/* Grid lines */}
                   {[0, 25, 50, 75, 100].map(v => {
-                    const y = chartH - chartPad - (v / 100) * (chartH - chartPad * 2);
-                    return <line key={v} x1={chartPad} y1={y} x2={chartW - chartPad} y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="4 4" />;
+                    const y = CHART_H - CHART_PAD - (v / 100) * (CHART_H - CHART_PAD * 2);
+                    return <line key={v} x1={CHART_PAD} y1={y} x2={CHART_W - CHART_PAD} y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="4 4" />;
                   })}
 
                   {/* Lines per option */}
                   {allChartData.map((chartData, i) => {
                     const color = OPTION_HEX[i % OPTION_HEX.length];
-                    const linePath = dataToSmoothPath(chartData, chartW, chartH, chartPad);
-                    const areaPath = dataToAreaPath(chartData, chartW, chartH, chartPad);
+                    const linePath = dataToSmoothPath(chartData, CHART_W, CHART_H, CHART_PAD);
+                    const areaPath = dataToAreaPath(chartData, CHART_W, CHART_H, CHART_PAD);
                     return (
                       <g key={options[i]?.id || i}>
                         <path d={areaPath} fill={color} opacity={0.08} />
@@ -369,9 +369,9 @@ const OpinionDetail = () => {
                   {hoverX !== null && (
                     <line
                       x1={hoverX}
-                      y1={chartPad}
+                      y1={CHART_PAD}
                       x2={hoverX}
-                      y2={chartH - chartPad}
+                      y2={CHART_H - CHART_PAD}
                       stroke="hsl(var(--muted-foreground))"
                       strokeWidth="1"
                       strokeDasharray="4 3"
@@ -381,7 +381,7 @@ const OpinionDetail = () => {
                 </svg>
 
                 {/* Y-axis labels */}
-                <div className="absolute right-3 top-0 flex flex-col justify-between py-[32px] pointer-events-none" style={{ height: chartH }}>
+                <div className="absolute right-3 top-0 flex flex-col justify-between py-[32px] pointer-events-none" style={{ height: CHART_H }}>
                   {[100, 75, 50, 25, 0].map(v => (
                     <span key={v} className="text-[11px] text-muted-foreground font-body">{v}%</span>
                   ))}
@@ -395,13 +395,13 @@ const OpinionDetail = () => {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0 }}
                       className="absolute top-2 rounded-lg border border-gold-border bg-card px-3 py-2.5 shadow-lg pointer-events-none z-10"
-                      style={{ left: Math.min(hoverX / chartW * 100, 75) + "%", minWidth: 140 }}
+                      style={{ left: Math.min(hoverX / CHART_W * 100, 75) + "%", minWidth: 140 }}
                     >
                       <p className="text-[11px] text-muted-foreground font-body mb-1.5">
-                        {dateLabels[Math.min(Math.floor((hoverX - chartPad) / (chartW - chartPad * 2) * (dateLabels.length - 1)), dateLabels.length - 1)] || ""}
+                        {dateLabels[Math.min(Math.floor((hoverX - CHART_PAD) / (CHART_W - CHART_PAD * 2) * (dateLabels.length - 1)), dateLabels.length - 1)] || ""}
                       </p>
                       {allChartData.map((chartData, i) => {
-                        const val = getValueAtX(chartData, hoverX, chartW, chartPad);
+                        const val = getValueAtX(chartData, hoverX, CHART_W, CHART_PAD);
                         return (
                           <div key={i} className="flex items-center gap-2 mb-0.5">
                             <div className="h-2 w-2 rounded-full" style={{ backgroundColor: OPTION_HEX[i % OPTION_HEX.length] }} />
