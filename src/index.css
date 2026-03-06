@@ -43,8 +43,8 @@
 
     --yes: 142 71% 45%;
     --yes-faded: 142 71% 45% / 0.19;
-    --no: 217 91% 60%;
-    --no-faded: 217 91% 60% / 0.19;
+    --no: 0 84% 60%;
+    --no-faded: 0 84% 60% / 0.19;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
