@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Coins, Share2, ArrowLeft, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { OpinionCardData } from "./OpinionCard";
+import { DotPattern } from "./ui/dot-pattern";
 
 interface ResolutionScreenProps {
   card: OpinionCardData;
@@ -58,6 +59,7 @@ const ResolutionScreen = ({ card, userWon, userPayout, onDismiss }: ResolutionSc
         exit={{ opacity: 0 }}
         transition={{ duration: 0.5 }}
       >
+        <DotPattern className="fill-[#F5C518]/15 [mask-image:radial-gradient(800px_circle_at_center,white,transparent)] z-0" width={20} height={20} cr={1.5} />
         {/* Coin rain for win */}
         {userWon && !isVoid && (
           <div className="absolute inset-0 overflow-hidden pointer-events-none">

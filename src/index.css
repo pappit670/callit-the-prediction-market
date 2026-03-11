@@ -38,7 +38,7 @@
 
     --gold: 47 91% 52%;
     --gold-hover: 43 75% 46%;
-    --gold-border: 37 73% 38%;
+    --gold-border: 47 91% 52%;
     --gold-glow: 47 91% 52% / 0.12;
 
     --yes: 142 71% 45%;
@@ -56,73 +56,65 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
+  /* Force Dark mode variables to match Light mode to ensure absolute minimal white/black design everywhere */
   .dark {
-    --background: 0 0% 4%;
-    --foreground: 0 0% 100%;
-
-    --card: 0 0% 11%;
-    --card-foreground: 0 0% 100%;
-
-    --popover: 0 0% 11%;
-    --popover-foreground: 0 0% 100%;
-
+    --background: 0 0% 100%;
+    --foreground: 0 0% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
     --primary: 47 91% 52%;
     --primary-foreground: 0 0% 4%;
-
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 100%;
-
-    --muted: 0 0% 15%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 4%;
+    --muted: 0 0% 96%;
     --muted-foreground: 0 0% 42%;
-
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 62% 31%;
+    --accent: 0 0% 96%;
+    --accent-foreground: 0 0% 4%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-
-    --border: 0 0% 18%;
-    --input: 0 0% 18%;
+    --border: 0 0% 90%;
+    --input: 0 0% 90%;
     --ring: 47 91% 52%;
-
-    --sidebar-background: 0 0% 7%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 47 91% 52%;
-    --sidebar-primary-foreground: 0 0% 4%;
-    --sidebar-accent: 0 0% 12%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 0 0% 15%;
-    --sidebar-ring: 47 91% 52%;
-}
-
-@keyframes gold-pulse {
-  0%, 100% {
-    box-shadow: 0 0 8px hsl(47 91% 52% / 0.3);
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
   }
-  50% {
-    box-shadow: 0 0 24px hsl(47 91% 52% / 0.5);
+
+  @keyframes gold-pulse {
+    0%, 100% {
+      box-shadow: 0 0 8px hsl(47 91% 52% / 0.1);
+    }
+    50% {
+      box-shadow: 0 0 24px hsl(47 91% 52% / 0.2);
+    }
   }
-}
 
-.animate-gold-pulse {
-  animation: gold-pulse 2s ease-in-out infinite;
-}
+  .animate-gold-pulse {
+    animation: gold-pulse 2s ease-in-out infinite;
+  }
 
-@keyframes pool-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); opacity: 0.85; }
-}
-.animate-pool-pulse {
-  animation: pool-pulse 1.5s ease-in-out;
-}
+  @keyframes pool-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); opacity: 0.85; }
+  }
+  .animate-pool-pulse {
+    animation: pool-pulse 1.5s ease-in-out;
+  }
 
-@keyframes ticker {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-.animate-ticker {
-  animation: ticker 20s linear infinite;
-}
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .animate-ticker {
+    animation: ticker 20s linear infinite;
+  }
 }
 
 @layer base {
@@ -136,39 +128,37 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline;
+    @apply font-headline tracking-tight;
   }
 }
 
 @layer utilities {
   .glass-nav {
-    @apply backdrop-blur-[12px] bg-background/80 border-b border-border;
+    @apply bg-background border-b border-border;
   }
 
   .card-gold {
-    border: 1px solid hsl(var(--gold-border));
-    border-radius: 12px;
-    box-shadow: 0 2px 12px hsl(var(--gold-glow));
-    transition: transform 300ms ease, border-color 300ms ease, box-shadow 300ms ease;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0px; 
+    box-shadow: none;
+    transition: transform 300ms ease, border-color 300ms ease;
   }
 
   .card-gold:hover {
-    transform: translateY(-4px);
+    transform: translateY(-2px);
     border-color: hsl(var(--gold));
-    box-shadow: 0 8px 24px hsl(var(--gold-glow));
   }
 
   .compact-card {
-    border: 1px solid hsl(var(--gold-border));
-    border-radius: 10px;
-    padding: 14px 16px;
-    box-shadow: 0 2px 8px hsl(47 91% 52% / 0.12);
-    transition: transform 200ms ease, border-color 200ms ease, box-shadow 200ms ease;
+    border: 1px solid hsl(var(--border));
+    border-radius: 0px; 
+    padding: 16px;
+    box-shadow: none;
+    transition: transform 200ms ease, border-color 200ms ease;
   }
 
   .compact-card:hover {
     transform: translateY(-2px);
-    border-color: hsl(var(--gold));
-    box-shadow: 0 4px 16px hsl(47 91% 52% / 0.18);
+    border-color: hsl(var(--foreground) / 0.2);
   }
 }

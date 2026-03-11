@@ -5,20 +5,12 @@ import { Coins, TrendingUp, Trophy, Target } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { sampleCards } from "@/data/sampleCards";
 import { calculateNetWin, getCrowdContext } from "@/lib/callit";
+import { useApp } from "@/context/AppContext";
+import NumberFlow from "@/components/ui/number-flow";
 
 const tabs = ["Active Calls", "Call History", "Performance"];
 
 const historyFilters = ["All", "Won", "Lost", "Draw", "Voided"];
-
-// Hardcoded user positions for demo
-const userPositions: Record<number, { side: "yes" | "no"; coins: number }> = {
-  1: { side: "yes", coins: 200 },
-  3: { side: "no", coins: 150 },
-  4: { side: "yes", coins: 300 },
-  6: { side: "yes", coins: 100 },
-  2: { side: "yes", coins: 250 },
-  5: { side: "no", coins: 80 },
-};
 
 const recentActivity = [
   { text: 'You called Yes on "Will Drake drop an album before summer?"', result: "active", coins: 0, time: "1d ago" },
@@ -27,6 +19,7 @@ const recentActivity = [
   { text: 'You called Yes on "Is Messi the GOAT?"', result: "active", coins: 0, time: "3d ago" },
   { text: 'You called No on "Will it rain Friday in Nairobi?"', result: "draw", coins: 80, time: "4d ago" },
   { text: 'You called Yes on "Is remote work better?"', result: "active", coins: 0, time: "5d ago" },
+
   { text: 'You called Yes on "Will BTC pass ETH in dev activity?"', result: "won", coins: 180, time: "6d ago" },
   { text: 'You called No on "Is AI replacing designers?"', result: "lost", coins: 120, time: "7d ago" },
   { text: 'You called Yes on "Will Afrobeats dominate 2025?"', result: "won", coins: 320, time: "8d ago" },
@@ -44,6 +37,7 @@ const Portfolio = () => {
   const [activeTab, setActiveTab] = useState("Active Calls");
   const [historyFilter, setHistoryFilter] = useState("All");
   const navigate = useNavigate();
+  const { positions: userPositions, user } = useApp();
 
   const activeCalls = sampleCards.filter((c) => c.status === "open" || c.status === "locked");
   const historyCalls = sampleCards.filter((c) => c.status === "resolved" || c.status === "draw");
@@ -58,7 +52,7 @@ const Portfolio = () => {
   });
 
   const stats = [
-    { label: "Total Coins", value: "2,500", icon: Coins },
+    { label: "Total Coins", value: user.balance.toLocaleString(), icon: Coins },
     { label: "Position Value", value: "1,240", icon: TrendingUp },
     { label: "Win Rate", value: "68%", icon: Target },
     { label: "Biggest Win", value: "840", icon: Trophy },
@@ -80,21 +74,37 @@ const Portfolio = () => {
 
         {/* Performance Strip */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-          {stats.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              className="bg-card border border-gold rounded-xl p-5"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: i * 0.08 }}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                <stat.icon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground font-body">{stat.label}</span>
-              </div>
-              <span className="font-headline text-2xl font-bold text-gold">{stat.value}</span>
-            </motion.div>
-          ))}
+          {stats.map((stat, i) => {
+            const isNumeric = !isNaN(Number(stat.value.replace(/,/g, '').replace('%', '')));
+            const numValue = isNumeric ? Number(stat.value.replace(/,/g, '').replace('%', '')) : null;
+            const isPercent = stat.value.includes('%');
+            
+            return (
+              <motion.div
+                key={stat.label}
+                className="bg-card border border-gold rounded-xl p-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: i * 0.08 }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <stat.icon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground font-body">{stat.label}</span>
+                </div>
+                {isNumeric && numValue !== null ? (
+                  <div className="flex items-baseline">
+                    <NumberFlow 
+                      value={numValue} 
+                      className="font-headline text-2xl font-bold text-gold"
+                    />
+                    {isPercent && <span className="font-headline text-2xl font-bold text-gold">%</span>}
+                  </div>
+                ) : (
+                  <span className="font-headline text-2xl font-bold text-gold">{stat.value}</span>
+                )}
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Tabs */}

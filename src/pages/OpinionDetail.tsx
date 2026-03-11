@@ -9,6 +9,7 @@ import Navbar from "@/components/Navbar";
 import ResolutionScreen from "@/components/ResolutionScreen";
 import { getCrowdContext, calculateNetWin, getMaxCall } from "@/lib/callit";
 import type { SuggestedAnswer } from "@/components/AnswerOptions";
+import { useApp } from "@/context/AppContext";
 
 // --- Data ---
 const activityFeed = [
@@ -578,10 +579,16 @@ const OpinionDetail = () => {
                         </div>
                         <p className="text-sm text-foreground font-body mb-3">{c.text}</p>
                         <div className="flex items-center gap-4">
-                          <button className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body">
+                          <button 
+                            onClick={() => toast("Liked comment")}
+                            className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body"
+                          >
                             <ThumbsUp className="h-3.5 w-3.5" /> Like
                           </button>
-                          <button className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body">
+                          <button 
+                            onClick={() => toast("Reply modal coming soon")}
+                            className="text-muted-foreground hover:text-gold transition-colors flex items-center gap-1 text-xs font-body"
+                          >
                             <MessageCircle className="h-3.5 w-3.5" /> Reply
                           </button>
                         </div>

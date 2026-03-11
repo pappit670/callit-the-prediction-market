@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Coins } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
+import { useApp } from "@/context/AppContext";
+import { toast } from "@/hooks/use-toast";
 
 const categories = [
   "Trending", "Sports", "Music & Culture", "Entertainment",
@@ -39,6 +42,9 @@ const sectionVariants = {
 };
 
 const CallIt = () => {
+  const navigate = useNavigate();
+  const { postCall } = useApp();
+
   const [question, setQuestion] = useState("");
   const [declared, setDeclared] = useState<"yes" | "no" | null>(null);
   const [category, setCategory] = useState<string | null>(null);
@@ -273,6 +279,22 @@ const CallIt = () => {
             whileHover={isReady ? { scale: 1.02 } : {}}
             whileTap={isReady ? { scale: 0.98 } : {}}
             disabled={!isReady}
+            onClick={() => {
+              if (!isReady) return;
+              postCall({
+                question,
+                declared: declared as "yes" | "no",
+                category: category as string,
+                duration: duration as string,
+                stake: Number(stake),
+                resolutionType: resolutionType as "crowd" | "event" | "metric",
+              });
+              toast({
+                title: "Call Posted!",
+                description: `You called ${Number(stake)} coins on ${declared === "yes" ? "Yes" : "No"}.`,
+              });
+              navigate("/");
+            }}
             className={`w-full rounded-full py-4 text-base font-semibold transition-colors duration-200 ${
               isReady
                 ? "bg-gold text-primary-foreground hover:bg-gold-hover animate-gold-pulse"

@@ -10,6 +10,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { useApp } from "@/context/AppContext";
+import NumberFlow from "@/components/ui/number-flow";
 
 /* ── Coin rain particle (from ResolutionScreen pattern) ── */
 const CoinParticle = ({ delay, x }: { delay: number; x: number }) => (
@@ -102,6 +104,7 @@ const fadeUp = (delay: number) => ({
 /* ── Main Wallet component ── */
 const Wallet = () => {
   const navigate = useNavigate();
+  const { user } = useApp();
   const [showGift, setShowGift] = useState(false);
   const [comingSoonOpen, setComingSoonOpen] = useState(false);
   const [txFilter, setTxFilter] = useState<TxType | "all">("all");
@@ -126,7 +129,12 @@ const Wallet = () => {
         >
           <Coins className="h-10 w-10 text-gold mx-auto" />
           <p className="text-sm text-muted-foreground font-body font-medium">Available Coins</p>
-          <p className="font-headline text-[56px] leading-none font-bold text-gold">2,500</p>
+          <NumberFlow
+            value={user.balance}
+            format={{ style: "decimal", maximumFractionDigits: 0 }}
+            className="font-headline text-[56px] leading-none font-bold text-gold"
+            duration={800}
+          />
           <div className="flex justify-center gap-3 flex-wrap">
             <span className="bg-secondary rounded-full px-4 py-1.5 text-xs text-muted-foreground font-body">
               In active calls: 1,240

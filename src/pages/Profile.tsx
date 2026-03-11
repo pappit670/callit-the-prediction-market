@@ -83,6 +83,10 @@ function getGlowStyle(rank: number) {
   return {};
 }
 
+import { DotPattern } from "@/components/ui/dot-pattern";
+
+// ... [Profile constants]
+
 const Profile = () => {
   const [activeTab, setActiveTab] = useState<typeof profileTabs[number]>("Active Calls");
   const [historyFilter, setHistoryFilter] = useState("All");
@@ -115,12 +119,13 @@ const Profile = () => {
       <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
         {/* Profile Header Card */}
         <motion.div
-          className="bg-card border-b border-gold-border rounded-[20px] p-8 md:p-10 mb-8"
+          className="relative bg-card border-b border-gold-border rounded-[20px] p-8 md:p-10 mb-8 overflow-hidden"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="flex flex-col md:flex-row md:items-start gap-6 md:gap-10">
+          <DotPattern className="fill-[#F5C518]/10 [mask-image:linear-gradient(to_left,white,transparent)] z-0" width={12} height={12} cr={0.8} />
+          <div className="relative z-10 flex flex-col md:flex-row md:items-start gap-6 md:gap-10">
             {/* Left: Avatar + Info */}
             <div className="flex flex-col items-center md:items-start gap-3">
               <button className="relative group">
