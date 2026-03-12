@@ -1,309 +1,354 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Coins } from "lucide-react";
+import { Coins, ChevronRight, ChevronLeft, Bitcoin, Trophy, Laptop, Landmark, PenTool, Flame, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import { useApp } from "@/context/AppContext";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 const categories = [
-  "Trending", "Sports", "Music & Culture", "Entertainment",
-  "Crypto & Money", "Politics & Society", "Random", "Local",
+  "Crypto", "Sports", "Tech", "Politics", "Economy", "Culture", "Entertainment", "Random"
 ];
 
-const durations = ["24 Hours", "3 Days", "7 Days", "14 Days"];
-
-const durationToTimeLeft: Record<string, string> = {
-  "24 Hours": "24 hours left",
-  "3 Days": "3 days left",
-  "7 Days": "7 days left",
-  "14 Days": "14 days left",
-};
-
-const resolutionTypes = [
-  { value: "crowd" as const, label: "Crowd Based", desc: "The side with the most called coins wins when the timer ends.", disabled: false },
-  { value: "event" as const, label: "Event Based", desc: "Resolved by a real-world event outcome on a set date.", disabled: false },
-  { value: "metric" as const, label: "Metric Based", desc: "Resolved by predefined measurable metrics.", disabled: true },
+const templates = [
+  { id: "crypto", title: "Crypto Prediction", example: "Will Bitcoin reach $100k before 2027?", icon: <Bitcoin className="h-6 w-6" />, category: "Crypto" },
+  { id: "sports", title: "Sports Prediction", example: "Will Arsenal win the Champions League this season?", icon: <Trophy className="h-6 w-6" />, category: "Sports" },
+  { id: "tech", title: "Tech Prediction", example: "Will Apple release a foldable iPhone before 2027?", icon: <Laptop className="h-6 w-6" />, category: "Tech" },
+  { id: "politics", title: "Politics Prediction", example: "Will the current president be re-elected?", icon: <Landmark className="h-6 w-6" />, category: "Politics" },
+  { id: "custom", title: "Custom Prediction", example: "Create your own unique Call.", icon: <PenTool className="h-6 w-6" />, category: "Random" },
 ];
 
-const fakeSuggestions = [
-  { question: "Will Drake drop a new album this year?", yesPercent: 62, noPercent: 38, coins: 980 },
-  { question: "Is hip hop the biggest genre right now?", yesPercent: 74, noPercent: 26, coins: 1540 },
+const trendingIdeas = [
+  "Will Tesla release a humanoid robot before 2030?",
+  "Will Ethereum flip Bitcoin in market cap by 2026?",
+  "Will the next World Cup be held in more than 3 countries?",
 ];
 
-const sectionVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, delay: i * 0.1, ease: [0.25, 0.1, 0.25, 1] as const },
-  }),
-};
+const resolutionSources = ["Official News", "Government Data", "Sports Result", "Market Price", "Community Consensus"];
 
 const CallIt = () => {
   const navigate = useNavigate();
-  const { postCall } = useApp();
+  const { postCall, isLoggedIn } = useApp();
+  const [step, setStep] = useState(1);
 
+  // Form State
   const [question, setQuestion] = useState("");
-  const [declared, setDeclared] = useState<"yes" | "no" | null>(null);
-  const [category, setCategory] = useState<string | null>(null);
-  const [duration, setDuration] = useState<string | null>(null);
-  const [stake, setStake] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [dismissedSuggestions, setDismissedSuggestions] = useState(false);
-  const [resolutionType, setResolutionType] = useState<"crowd" | "event" | "metric">("crowd");
+  const [category, setCategory] = useState("Random");
+  const [resDate, setResDate] = useState("");
+  const [resSource, setResSource] = useState("Official News");
+  const [description, setDescription] = useState("");
+  const [agreeReason, setAgreeReason] = useState("");
+  const [disagreeReason, setDisagreeReason] = useState("");
+  const [stake, setStake] = useState("10");
+  const [visibility, setVisibility] = useState<"Public" | "Friends" | "Community">("Public");
 
-  const shouldShowSuggestions = question.length > 10 && showSuggestions && !dismissedSuggestions;
+  useEffect(() => {
+    if (!isLoggedIn) {
+      toast.error("Please log in to make a call.");
+      navigate("/auth");
+    }
+  }, [isLoggedIn, navigate]);
+
+  const handleTemplateSelect = (template: typeof templates[0]) => {
+    setQuestion(template.example === "Create your own unique Call." ? "" : template.example);
+    setCategory(template.category);
+    setStep(2);
+  };
+
+  const handleSuggestionSelect = (suggestion: string) => {
+    setQuestion(suggestion);
+    setStep(2);
+  };
+
+  const isReady = question.trim().length > 10 && resDate && stake;
 
   const previewData = useMemo(() => ({
-    id: 0,
-    question: question || "Your question will appear here...",
-    yesPercent: declared === "yes" ? 100 : declared === "no" ? 0 : 50,
-    noPercent: declared === "no" ? 100 : declared === "yes" ? 0 : 50,
-    coins: Number(stake) || 0,
-    timeLeft: duration ? durationToTimeLeft[duration] : "—",
-    genre: category || "Category",
-    creator: "you",
-    resolutionType,
+    id: Date.now(),
+    question: question || "Your prediction will appear here...",
+    yesPercent: 50,
+    noPercent: 50,
+    coins: Number(stake),
+    timeLeft: resDate ? `Ends ${resDate}` : "TBD",
+    genre: category,
     status: "open" as const,
-  }), [question, declared, category, duration, stake, resolutionType]);
-
-  const isReady = question.trim().length > 0 && declared !== null && category !== null && duration !== null && stake !== "" && Number(stake) >= 10;
+  }), [question, stake, resDate, category]);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background transition-colors duration-400">
       <Navbar />
 
-      <main className="mx-auto max-w-[600px] px-4 md:px-6 py-10 pb-20">
-        {/* Page title */}
-        <motion.div custom={0} variants={sectionVariants} initial="hidden" animate="visible" className="mb-10 text-center">
-          <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-2">Make Your Call</h1>
-          <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            Post your opinion as a question. Declare your answer. Let the crowd decide.
-          </p>
-        </motion.div>
-
-        {/* SECTION 1 — Question Input */}
-        <motion.div custom={1} variants={sectionVariants} initial="hidden" animate="visible" className="mb-6">
-          <div className="relative">
-            <textarea
-              value={question}
-              onChange={(e) => {
-                if (e.target.value.length <= 200) setQuestion(e.target.value);
-                if (e.target.value.length > 10) setShowSuggestions(true);
-              }}
-              placeholder="What's your call? Ask it as a question..."
-              rows={3}
-              className="w-full rounded-lg border border-border bg-secondary px-4 py-4 text-base font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 focus:shadow-[0_0_16px_hsl(var(--gold)/0.15)] transition-all duration-200 resize-none"
-            />
-            <span className="absolute bottom-3 right-3 text-xs text-muted-foreground">{question.length}/200</span>
+      <main className="mx-auto max-w-4xl px-4 py-12 pb-24">
+        {/* Progress Header */}
+        <div className="mb-12 flex flex-col items-center">
+          <div className="flex items-center gap-4 mb-4">
+            {[1, 2, 3].map((s) => (
+              <div key={s} className="flex items-center">
+                <div 
+                  className={`h-10 w-10 rounded-full flex items-center justify-center font-bold transition-all duration-300 ${
+                    step >= s ? "bg-gold text-primary-foreground" : "bg-secondary text-muted-foreground"
+                  }`}
+                >
+                  {step > s ? <Check className="h-5 w-5" /> : s}
+                </div>
+                {s < 3 && (
+                  <div className={`h-1 w-12 md:w-24 transition-all duration-300 ${step > s ? "bg-gold" : "bg-secondary"}`} />
+                )}
+              </div>
+            ))}
           </div>
-        </motion.div>
+          <span className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Step {step} of 3</span>
+        </div>
 
-        {/* SECTION 2 — AI Suggestion Strip */}
-        <AnimatePresence>
-          {shouldShowSuggestions && (
+        <AnimatePresence mode="wait">
+          {/* STEP 1: SELECT TEMPLATE */}
+          {step === 1 && (
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-              className="mb-6 overflow-hidden"
+              key="step1"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-12"
             >
-              <p className="text-xs font-medium text-muted-foreground mb-3">Similar opinions already live:</p>
-              <div className="flex flex-col gap-3">
-                {fakeSuggestions.map((s, i) => (
-                  <div key={i} className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{s.question}</p>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-xs font-bold text-yes">Yes {s.yesPercent}%</span>
-                        <span className="text-xs font-bold text-no">No {s.noPercent}%</span>
-                        <span className="text-xs text-gold font-semibold">{s.coins} coins</span>
-                      </div>
+              <div className="text-center">
+                <h1 className="text-4xl md:text-5xl font-bold mb-4">What type of Call do you want to make?</h1>
+                <p className="text-lg text-muted-foreground">Choose a format or start from a trending idea.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {templates.map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleTemplateSelect(t)}
+                    className="flex flex-col items-start text-left p-6 rounded-2xl border border-border bg-card hover:border-gold hover:shadow-lg transition-all group"
+                  >
+                    <div className="p-3 rounded-xl bg-secondary text-gold mb-6 group-hover:bg-gold group-hover:text-primary-foreground transition-colors">
+                      {t.icon}
                     </div>
-                    <button className="shrink-0 rounded-full border border-gold text-gold px-3 py-1 text-xs font-semibold hover:bg-gold hover:text-primary-foreground transition-all duration-200">
-                      Join this instead
-                    </button>
-                  </div>
+                    <h3 className="text-xl font-bold mb-2">{t.title}</h3>
+                    <p className="text-sm text-muted-foreground italic">"{t.example}"</p>
+                  </button>
                 ))}
               </div>
-              <button onClick={() => setDismissedSuggestions(true)} className="mt-3 text-xs font-medium text-gold hover:text-gold-hover transition-colors">
-                Mine is different, continue →
+
+              <div className="pt-8 px-6">
+                <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-6 flex items-center gap-2">
+                  <Flame className="h-4 w-4 text-gold" /> Trending Calls You Could Create
+                </h2>
+                <div className="grid gap-4">
+                  {trendingIdeas.map((idea, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleSuggestionSelect(idea)}
+                      className="w-full p-4 rounded-xl border border-border bg-secondary/30 text-left hover:bg-secondary hover:border-gold/50 transition-all font-semibold flex justify-between items-center group"
+                    >
+                      <span>{idea}</span>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-gold transition-colors" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* STEP 2: CUSTOMIZE */}
+          {step === 2 && (
+            <motion.div
+              key="step2"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="max-w-2xl mx-auto space-y-10"
+            >
+              <div className="flex items-center gap-4">
+                <button onClick={() => setStep(1)} className="p-2 rounded-full hover:bg-secondary text-muted-foreground">
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <h1 className="text-3xl font-bold">Edit Your Call</h1>
+              </div>
+
+              {/* Main Question Input */}
+              <div className="space-y-4">
+                <label className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Prediction Question</label>
+                <textarea
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="e.g. Will Bitcoin reach $100k before 2027?"
+                  className="w-full text-2xl font-bold bg-transparent border-b-2 border-border focus:border-gold outline-none py-4 placeholder:text-muted-foreground/30 resize-none transition-all"
+                  rows={2}
+                />
+              </div>
+
+              {/* Market Details Card */}
+              <div className="bg-card border border-border rounded-3xl p-8 space-y-6 shadow-sm">
+                <h3 className="font-bold text-lg flex items-center gap-2">
+                   Market Details
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Category</label>
+                    <select 
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="w-full bg-secondary rounded-xl px-4 py-3 border border-border focus:border-gold outline-none transition-all"
+                    >
+                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground">Resolution Date</label>
+                    <input 
+                      type="date"
+                      value={resDate}
+                      onChange={(e) => setResDate(e.target.value)}
+                      className="w-full bg-secondary rounded-xl px-4 py-3 border border-border focus:border-gold outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-muted-foreground">Resolution Source</label>
+                  <select 
+                    value={resSource}
+                    onChange={(e) => setResSource(e.target.value)}
+                    className="w-full bg-secondary rounded-xl px-4 py-3 border border-border focus:border-gold outline-none transition-all"
+                  >
+                    {resolutionSources.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-muted-foreground">Description (Optional)</label>
+                  <textarea 
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Explain what this Call means..."
+                    className="w-full bg-secondary rounded-xl px-4 py-3 border border-border focus:border-gold outline-none transition-all resize-none"
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              {/* Argument Builder */}
+              <div className="space-y-6">
+                <h3 className="text-xl font-bold">Prediction Arguments</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-yes uppercase tracking-wider">Why might this happen?</label>
+                    <textarea 
+                      value={agreeReason}
+                      onChange={(e) => setAgreeReason(e.target.value)}
+                      placeholder="e.g. BTC is gaining institucional adoption..."
+                      className="w-full bg-yes/5 border border-yes/20 rounded-2xl p-4 outline-none focus:border-yes transition-all resize-none text-sm"
+                      rows={4}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-no uppercase tracking-wider">Why might this NOT happen?</label>
+                    <textarea 
+                      value={disagreeReason}
+                      onChange={(e) => setDisagreeReason(e.target.value)}
+                      placeholder="e.g. Regulatory hurdles could slow down growth..."
+                      className="w-full bg-no/5 border border-no/20 rounded-2xl p-4 outline-none focus:border-no transition-all resize-none text-sm"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button
+                  onClick={() => setStep(3)}
+                  disabled={!isReady}
+                  className={`w-full py-4 rounded-full font-bold text-lg flex items-center justify-center gap-2 transition-all ${
+                    isReady ? "bg-gold text-primary-foreground shadow-lg hover:bg-gold-hover scale-100" : "bg-muted text-muted-foreground scale-95 opacity-50 cursor-not-allowed"
+                  }`}
+                >
+                  Preview Your Call <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* STEP 3: PREVIEW & LAUNCH */}
+          {step === 3 && (
+            <motion.div
+              key="step3"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="max-w-2xl mx-auto space-y-12"
+            >
+              <div className="flex items-center gap-4">
+                <button onClick={() => setStep(2)} className="p-2 rounded-full hover:bg-secondary text-muted-foreground">
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <h1 className="text-3xl font-bold">Preview Your Call</h1>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground text-center">Live Feed Preview</p>
+                <div className="pointer-events-none">
+                   <OpinionCard data={previewData} index={0} />
+                </div>
+              </div>
+
+              {/* Launch Settings */}
+              <div className="bg-card border border-border rounded-3xl p-8 space-y-8 shadow-sm">
+                 <div className="space-y-4 text-center pb-6 border-b border-border">
+                    <p className="text-xs font-bold uppercase text-muted-foreground">Founding Stake</p>
+                    <div className="flex items-center justify-center gap-3">
+                       <Coins className="h-8 w-8 text-gold" />
+                       <input 
+                         type="number" 
+                         value={stake}
+                         onChange={(e) => setStake(e.target.value)}
+                         className="bg-transparent text-5xl font-bold w-32 border-none focus:ring-0 outline-none text-center"
+                       />
+                    </div>
+                    <p className="text-sm text-muted-foreground">Seed the pool to start the market.</p>
+                 </div>
+
+                 <div className="space-y-4">
+                    <p className="text-xs font-bold uppercase text-muted-foreground">Visibility</p>
+                    <div className="flex p-1 bg-secondary rounded-2xl gap-1">
+                       {["Public", "Friends", "Community"].map((v) => (
+                         <button
+                           key={v}
+                           onClick={() => setVisibility(v as any)}
+                           className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${
+                             visibility === v ? "bg-background shadow-md text-foreground" : "text-muted-foreground hover:text-foreground"
+                           }`}
+                         >
+                           {v}
+                         </button>
+                       ))}
+                    </div>
+                 </div>
+              </div>
+
+              <button
+                onClick={() => {
+                   postCall({
+                     question,
+                     declared: "yes", // Originator starts as Yes for now in this flow
+                     category,
+                     duration: `until ${resDate}`,
+                     stake: Number(stake),
+                     resolutionType: "event",
+                   });
+                   toast.success("Call launched successfully!");
+                   navigate("/");
+                }}
+                className="w-full py-5 rounded-full bg-gold text-primary-foreground font-black text-xl shadow-xl hover:bg-gold-hover hover:scale-[1.02] transition-all animate-gold-pulse uppercase tracking-widest"
+              >
+                Launch Call
               </button>
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* SECTION 3 — Declare Your Answer */}
-        <motion.div custom={2} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-base font-semibold text-foreground mb-4">I'm calling it...</p>
-          <div className="grid grid-cols-2 gap-4">
-            {(["yes", "no"] as const).map((side) => {
-              const isYes = side === "yes";
-              const selected = declared === side;
-              const otherSelected = declared !== null && declared !== side;
-              return (
-                <motion.button
-                  key={side}
-                  onClick={() => setDeclared(side)}
-                  whileTap={{ scale: 0.98 }}
-                  animate={selected ? { scale: 1.02 } : { scale: 1 }}
-                  transition={{ duration: 0.2 }}
-                  className={`rounded-xl border-2 py-8 text-center font-bold text-2xl transition-all duration-200 ${
-                    selected
-                      ? isYes ? "border-yes bg-yes text-white shadow-lg" : "border-no bg-no text-white shadow-lg"
-                      : otherSelected
-                        ? isYes ? "border-yes/30 bg-yes-faded text-yes/40" : "border-no/30 bg-no-faded text-no/40"
-                        : isYes ? "border-yes bg-yes-faded text-yes hover:bg-yes/20" : "border-no bg-no-faded text-no hover:bg-no/20"
-                  }`}
-                >
-                  {isYes ? "Yes" : "No"}
-                </motion.button>
-              );
-            })}
-          </div>
-        </motion.div>
-
-        {/* SECTION 4 — Category Selector */}
-        <motion.div custom={3} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-base font-semibold text-foreground mb-4">Pick a category</p>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
-                  category === c
-                    ? "bg-gold text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* SECTION 4.5 — Resolution Type Selector */}
-        <motion.div custom={3.5} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-base font-semibold text-foreground mb-4">How should this resolve?</p>
-          <div className="flex flex-col gap-3">
-            {resolutionTypes.map((rt) => (
-              <button
-                key={rt.value}
-                onClick={() => !rt.disabled && setResolutionType(rt.value)}
-                disabled={rt.disabled}
-                className={`rounded-xl border p-4 text-left transition-all duration-200 ${
-                  rt.disabled
-                    ? "border-border opacity-50 cursor-not-allowed"
-                    : resolutionType === rt.value
-                      ? "border-gold bg-gold/10"
-                      : "border-border hover:border-gold/50"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-semibold font-body ${resolutionType === rt.value && !rt.disabled ? "text-gold" : "text-foreground"}`}>
-                    {rt.label}
-                  </span>
-                  {rt.disabled && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">Coming Soon</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 font-body">{rt.desc}</p>
-              </button>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* SECTION 5 — Time Limit */}
-        <motion.div custom={4} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-base font-semibold text-foreground mb-4">How long should this run?</p>
-          <div className="flex flex-wrap gap-2">
-            {durations.map((d) => (
-              <button
-                key={d}
-                onClick={() => setDuration(d)}
-                className={`rounded-full px-4 py-1.5 text-sm font-medium transition-all duration-200 ${
-                  duration === d
-                    ? "bg-gold text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
-                }`}
-              >
-                {d}
-              </button>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* SECTION 6 — Founding Call */}
-        <motion.div custom={5} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-base font-semibold text-foreground mb-2">Back your opinion with coins</p>
-          <p className="text-xs text-muted-foreground mb-4">You must call coins to post. This seeds the pool. Minimum call: 10 coins.</p>
-          <div className="relative">
-            <Coins className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gold" />
-            <input
-              type="number"
-              min={10}
-              value={stake}
-              onChange={(e) => setStake(e.target.value)}
-              placeholder="Min 10"
-              className="w-full rounded-lg border border-border bg-secondary pl-10 pr-4 py-3 text-base font-body text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 focus:shadow-[0_0_16px_hsl(var(--gold)/0.15)] transition-all duration-200 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            />
-          </div>
-          {stake && Number(stake) > 0 && Number(stake) < 10 && (
-            <p className="mt-1 text-[11px] text-destructive font-body">Minimum call: 10 coins</p>
-          )}
-          {stake && declared && Number(stake) >= 10 && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2 text-sm text-muted-foreground">
-              You're calling <span className="text-gold font-semibold">{Number(stake).toLocaleString()}</span> coins on{" "}
-              <span className={declared === "yes" ? "text-yes font-semibold" : "text-no font-semibold"}>
-                {declared === "yes" ? "Yes" : "No"}
-              </span>
-            </motion.p>
-          )}
-        </motion.div>
-
-        {/* SECTION 7 — Live Preview Card */}
-        <motion.div custom={6} variants={sectionVariants} initial="hidden" animate="visible" className="mb-8">
-          <p className="text-xs font-semibold text-muted-foreground mb-3">Preview</p>
-          <div className="transition-all duration-150">
-            <OpinionCard data={previewData} index={0} />
-          </div>
-        </motion.div>
-
-        {/* SECTION 8 — Post It Button */}
-        <motion.div custom={7} variants={sectionVariants} initial="hidden" animate="visible">
-          <motion.button
-            whileHover={isReady ? { scale: 1.02 } : {}}
-            whileTap={isReady ? { scale: 0.98 } : {}}
-            disabled={!isReady}
-            onClick={() => {
-              if (!isReady) return;
-              postCall({
-                question,
-                declared: declared as "yes" | "no",
-                category: category as string,
-                duration: duration as string,
-                stake: Number(stake),
-                resolutionType: resolutionType as "crowd" | "event" | "metric",
-              });
-              toast({
-                title: "Call Posted!",
-                description: `You called ${Number(stake)} coins on ${declared === "yes" ? "Yes" : "No"}.`,
-              });
-              navigate("/");
-            }}
-            className={`w-full rounded-full py-4 text-base font-semibold transition-colors duration-200 ${
-              isReady
-                ? "bg-gold text-primary-foreground hover:bg-gold-hover animate-gold-pulse"
-                : "bg-muted text-muted-foreground cursor-not-allowed"
-            }`}
-          >
-            Post It — Call It
-          </motion.button>
-        </motion.div>
       </main>
     </div>
   );

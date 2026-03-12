@@ -23,6 +23,7 @@ import HowItWorks from "./pages/HowItWorks";
 import HelpCenter from "./pages/HelpCenter";
 import SavedCalls from "./pages/SavedCalls";
 import MyCalls from "./pages/MyCalls";
+import Topics from "./pages/Topics";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/call-it" element={<CallIt />} />
+                <Route path="/topics" element={<Topics />} />
                 <Route path="/opinion/:id" element={<OpinionDetail />} />
                 <Route path="/portfolio" element={<Portfolio />} />
                 <Route path="/wallet" element={<Wallet />} />

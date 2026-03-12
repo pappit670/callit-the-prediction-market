@@ -8,6 +8,7 @@ import { sampleCards } from "@/data/sampleCards";
 import { systemGeneratedCards } from "@/data/systemGeneratedCards";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
+import FloatingComments from "@/components/FloatingComments";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -122,28 +123,7 @@ const Index = () => {
                   </div>
                 </section>
 
-                {/* 2. Breaking News Panel */}
-                <section>
-                  <div className="mb-4">
-                    <h2 className="text-sm font-bold tracking-wider text-muted-foreground uppercase">Breaking News</h2>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    {breakingNews.map((news) => (
-                      <div 
-                        key={news.id} 
-                        onClick={() => navigate(`/opinion/${news.id}`)}
-                        className="flex items-center justify-between bg-card border border-border p-4 hover:border-gold/50 hover:bg-gold/5 transition-colors cursor-pointer group"
-                      >
-                        <p className="font-semibold text-[15px] pr-4 flex-1 group-hover:text-gold transition-colors">{news.question}</p>
-                        <div className="flex items-center gap-4 shrink-0 font-mono text-sm">
-                          <span className="text-yes font-bold">{news.yes}% <span className="text-muted-foreground text-xs font-sans font-normal uppercase">Yes</span></span>
-                          <span className="text-muted-foreground/30">|</span>
-                          <span className="text-no font-bold">{news.no}% <span className="text-muted-foreground text-xs font-sans font-normal uppercase">No</span></span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
+                {/* 2. Breaking News Panel - Removed because it's now in the Navbar */}
                 
               </div>
 
@@ -161,7 +141,7 @@ const Index = () => {
                     {hotTopics.map((topic, i) => (
                       <div 
                         key={topic.id} 
-                        onClick={() => navigate("/call-it")}
+                        onClick={() => navigate(`/topics?topic=${encodeURIComponent(topic.name)}`)}
                         className="flex items-center justify-between pb-3 border-b border-border/50 last:border-0 last:pb-0 cursor-pointer group hover:bg-secondary/30 -mx-2 px-2 transition-colors rounded"
                       >
                         <div className="flex items-center gap-3">
@@ -175,7 +155,7 @@ const Index = () => {
                       </div>
                     ))}
                     <button 
-                      onClick={() => navigate("/call-it")}
+                      onClick={() => navigate("/topics")}
                       className="mt-2 w-full py-2.5 text-sm font-bold text-foreground border border-border hover:border-gold hover:text-gold hover:bg-gold/5 transition-colors"
                     >
                       Explore All
@@ -207,6 +187,12 @@ const Index = () => {
                 {allCards.map((card, i) => (
                   <div key={card.id}>
                     <OpinionCard data={card} index={i} />
+                    {/* Add FloatingComments between some cards */}
+                    {(i === 1 || i === 4 || i === 7) && (
+                      <div className="col-span-1 md:col-span-2 lg:col-span-3 py-4">
+                        <FloatingComments delayOffset={i * 500} />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

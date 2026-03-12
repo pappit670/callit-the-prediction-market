@@ -33,6 +33,7 @@ interface UserProfile {
   bio: string;
   balance: number;
   joinDate: string;
+  avatar?: string;
 }
 
 interface AppContextType {
@@ -51,6 +52,8 @@ interface AppContextType {
   logout: () => void;
   hasSeenHero: boolean;
   setHasSeenHero: (val: boolean) => void;
+  theme: "light" | "dark";
+  toggleTheme: () => void;
 }
 
 const defaultUser: UserProfile = {
@@ -141,6 +144,25 @@ export const AppContextProvider = ({ children }: { children: React.ReactNode }) 
   const [notifications, setNotifications] = useState<AppNotification[]>(defaultNotifications);
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [hasSeenHero, setHasSeenHero] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("theme");
+      if (saved === "dark" || saved === "light") return saved;
+      // return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    return "light"; // Default to light for now as requested
+  });
+
+  React.useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove("light", "dark");
+    root.classList.add(theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  }, []);
 
   const setUser = useCallback((updates: Partial<UserProfile>) => {
     setUserState((prev) => ({ ...prev, ...updates }));
@@ -190,6 +212,8 @@ export const AppContextProvider = ({ children }: { children: React.ReactNode }) 
         logout,
         hasSeenHero,
         setHasSeenHero,
+        theme,
+        toggleTheme,
       }}
     >
       {children}
