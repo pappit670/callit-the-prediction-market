@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import { sampleCards } from "@/data/sampleCards";
@@ -27,20 +27,13 @@ interface Topic {
   parent_id: string | null;
 }
 
-interface TopicGroup {
-  category: Topic;
-  leagues: Topic[];
-}
-
 const Topics = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const selectedTopic = searchParams.get("topic") || "Trending";
-  const selectedFilter = searchParams.get("filter") || "trending";
-
   const [topics, setTopics] = useState<Topic[]>([]);
   const [expandedSports, setExpandedSports] = useState<Set<string>>(new Set(['Sports']));
   const [loading, setLoading] = useState(true);
+  const [selectedTopic, setSelectedTopic] = useState("Trending");
+  const [selectedFilter, setSelectedFilter] = useState("trending");
 
   const allCards = useMemo(() => [...sampleCards, ...systemGeneratedCards], []);
 
@@ -60,7 +53,6 @@ const Topics = () => {
     setLoading(false);
   };
 
-  // Group leagues under their sport category
   const groupedTopics = useMemo(() => {
     const categories = topics.filter(t => t.type === 'category');
     const leagues = topics.filter(t => t.type === 'league' || t.type === 'competition');
@@ -131,7 +123,7 @@ const Topics = () => {
 
             {/* Trending */}
             <button
-              onClick={() => setSearchParams({ topic: 'Trending', filter: selectedFilter })}
+              onClick={() => navigate(`/topic/trending`)}
               className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${selectedTopic === 'Trending'
                 ? "bg-gold text-primary-foreground"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -144,7 +136,7 @@ const Topics = () => {
             {!loading && groupedTopics.categories.map(cat => (
               <button
                 key={cat.id}
-                onClick={() => setSearchParams({ topic: cat.name, filter: selectedFilter })}
+                onClick={() => navigate(`/topic/${cat.slug}`)}
                 className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${selectedTopic === cat.name
                   ? "bg-gold text-primary-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -154,7 +146,7 @@ const Topics = () => {
               </button>
             ))}
 
-            {/* Sports leagues grouped by sport */}
+            {/* Sports leagues */}
             <div className="mt-3">
               <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 px-3">
                 Leagues & Competitions
@@ -180,7 +172,7 @@ const Topics = () => {
                       {leagues.map(league => (
                         <button
                           key={league.id}
-                          onClick={() => setSearchParams({ topic: league.name, filter: selectedFilter })}
+                          onClick={() => navigate(`/topic/${league.slug}`)}
                           className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${selectedTopic === league.name
                             ? "bg-gold text-primary-foreground"
                             : "text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -209,7 +201,7 @@ const Topics = () => {
             {/* Mobile topic scroll */}
             <div className="flex md:hidden gap-2 overflow-x-auto no-scrollbar pb-1">
               <button
-                onClick={() => setSearchParams({ topic: 'Trending', filter: selectedFilter })}
+                onClick={() => navigate(`/topic/trending`)}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all ${selectedTopic === 'Trending'
                   ? "bg-gold text-primary-foreground border-gold"
                   : "bg-secondary/30 text-muted-foreground border-border"
@@ -220,7 +212,7 @@ const Topics = () => {
               {topics.map(topic => (
                 <button
                   key={topic.id}
-                  onClick={() => setSearchParams({ topic: topic.name, filter: selectedFilter })}
+                  onClick={() => navigate(`/topic/${topic.slug}`)}
                   className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all ${selectedTopic === topic.name
                     ? "bg-gold text-primary-foreground border-gold"
                     : "bg-secondary/30 text-muted-foreground border-border"
@@ -236,7 +228,7 @@ const Topics = () => {
               {filters.map(filter => (
                 <button
                   key={filter.id}
-                  onClick={() => setSearchParams({ topic: selectedTopic, filter: filter.id })}
+                  onClick={() => setSelectedFilter(filter.id)}
                   className={`flex items-center gap-2 whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition-all ${selectedFilter === filter.id
                     ? "bg-foreground text-background border-foreground"
                     : "bg-secondary/30 text-muted-foreground border-border hover:border-gold/50 hover:text-gold"

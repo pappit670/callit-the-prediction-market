@@ -24,6 +24,7 @@ import HelpCenter from "./pages/HelpCenter";
 import SavedCalls from "./pages/SavedCalls";
 import MyCalls from "./pages/MyCalls";
 import Topics from "./pages/Topics";
+import TopicPage from "./pages/TopicPage";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const AppRoutes = () => (
         <Route path="/" element={<Index />} />
         <Route path="/call-it" element={<ProtectedRoute><CallIt /></ProtectedRoute>} />
         <Route path="/topics" element={<Topics />} />
+        <Route path="/topic/:slug" element={<TopicPage />} />
         <Route path="/opinion/:id" element={<OpinionDetail />} />
         <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
         <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
