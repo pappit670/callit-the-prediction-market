@@ -97,8 +97,8 @@ const Auth = () => {
               key={t}
               onClick={() => setTab(t)}
               className={`flex-1 py-2.5 text-sm font-semibold rounded-full transition-all duration-200 font-body capitalize ${tab === t
-                  ? "bg-gold text-primary-foreground shadow"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-gold text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               {t === "signup" ? "Sign Up" : "Log In"}
@@ -249,4 +249,22 @@ const Auth = () => {
 
               <motion.button
                 onClick={() => {
-                  setShowGift(false
+                  setShowGift(false);
+                  navigate("/");
+                }}
+                className="w-full rounded-full bg-gold py-3.5 text-base font-semibold text-primary-foreground hover:bg-gold-hover transition-colors animate-gold-pulse"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.1 }}
+              >
+                Make My First Call
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default Auth;
