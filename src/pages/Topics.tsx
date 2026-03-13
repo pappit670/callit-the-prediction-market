@@ -133,8 +133,8 @@ const Topics = () => {
             <button
               onClick={() => setSearchParams({ topic: 'Trending', filter: selectedFilter })}
               className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${selectedTopic === 'Trending'
-                  ? "bg-gold text-primary-foreground"
-                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                ? "bg-gold text-primary-foreground"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
             >
               <Flame className="h-4 w-4" /> Trending
@@ -146,8 +146,8 @@ const Topics = () => {
                 key={cat.id}
                 onClick={() => setSearchParams({ topic: cat.name, filter: selectedFilter })}
                 className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${selectedTopic === cat.name
-                    ? "bg-gold text-primary-foreground"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  ? "bg-gold text-primary-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                   }`}
               >
                 <span>{cat.icon}</span> {cat.name}
@@ -182,8 +182,8 @@ const Topics = () => {
                           key={league.id}
                           onClick={() => setSearchParams({ topic: league.name, filter: selectedFilter })}
                           className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 ${selectedTopic === league.name
-                              ? "bg-gold text-primary-foreground"
-                              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                            ? "bg-gold text-primary-foreground"
+                            : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                             }`}
                         >
                           <span
@@ -211,8 +211,8 @@ const Topics = () => {
               <button
                 onClick={() => setSearchParams({ topic: 'Trending', filter: selectedFilter })}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all ${selectedTopic === 'Trending'
-                    ? "bg-gold text-primary-foreground border-gold"
-                    : "bg-secondary/30 text-muted-foreground border-border"
+                  ? "bg-gold text-primary-foreground border-gold"
+                  : "bg-secondary/30 text-muted-foreground border-border"
                   }`}
               >
                 🔥 Trending
@@ -222,8 +222,8 @@ const Topics = () => {
                   key={topic.id}
                   onClick={() => setSearchParams({ topic: topic.name, filter: selectedFilter })}
                   className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold border transition-all ${selectedTopic === topic.name
-                      ? "bg-gold text-primary-foreground border-gold"
-                      : "bg-secondary/30 text-muted-foreground border-border"
+                    ? "bg-gold text-primary-foreground border-gold"
+                    : "bg-secondary/30 text-muted-foreground border-border"
                     }`}
                 >
                   {topic.icon} {topic.name}
@@ -238,8 +238,8 @@ const Topics = () => {
                   key={filter.id}
                   onClick={() => setSearchParams({ topic: selectedTopic, filter: filter.id })}
                   className={`flex items-center gap-2 whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition-all ${selectedFilter === filter.id
-                      ? "bg-foreground text-background border-foreground"
-                      : "bg-secondary/30 text-muted-foreground border-border hover:border-gold/50 hover:text-gold"
+                    ? "bg-foreground text-background border-foreground"
+                    : "bg-secondary/30 text-muted-foreground border-border hover:border-gold/50 hover:text-gold"
                     }`}
                 >
                   {filter.icon}
