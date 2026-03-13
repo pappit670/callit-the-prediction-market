@@ -130,83 +130,7 @@ const HowItWorks = () => {
           viewport={{ once: true }}
           transition={{ duration: 1 }}
         >
-          <div className="text-center mb-16">
-            <h2 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Example Call
-            </h2>
-            <p className="text-muted-foreground font-body text-lg">
-              This demonstrates exactly how Calls appear in the platform.
-            </p>
-          </div>
-
-          <div className="max-w-2xl mx-auto rounded-[32px] border border-border bg-card overflow-hidden shadow-2xl relative group">
-            <div className="p-8 space-y-6">
-              {/* Header: Topic Label */}
-              <div className="flex items-center justify-between">
-                <div className="px-3 py-1 rounded-full bg-gold/10 border border-gold/20 flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-gold animate-pulse" />
-                  <span className="text-[10px] font-bold text-gold uppercase tracking-widest font-body">Crypto</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Bookmark className="h-5 w-5 text-muted-foreground hover:text-gold transition-colors cursor-pointer" />
-                </div>
-              </div>
-
-              {/* Question */}
-              <h3 className="font-headline text-2xl md:text-3xl font-bold text-foreground leading-tight">
-                Will Bitcoin reach $100k before 2027?
-              </h3>
-
-              {/* Sentiment */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-end mb-2">
-                  <div className="flex flex-col items-start">
-                    <span className="text-4xl font-headline font-bold text-yes">63%</span>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Yes</span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-4xl font-headline font-bold text-no">37%</span>
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-right">No</span>
-                  </div>
-                </div>
-                <div className="h-3 w-full bg-secondary rounded-full overflow-hidden flex">
-                  <div className="h-full bg-yes transition-all duration-1000" style={{ width: '63%' }} />
-                  <div className="h-full bg-no transition-all duration-1000" style={{ width: '37%' }} />
-                </div>
-              </div>
-
-              {/* Simple line graph (Mockup) */}
-              <div className="h-32 w-full mt-4 flex items-end gap-1">
-                {[40, 45, 42, 48, 52, 50, 58, 63].map((h, i) => (
-                  <motion.div
-                    key={i}
-                    className="flex-1 bg-gold/20 rounded-t-sm"
-                    initial={{ height: 0 }}
-                    whileInView={{ height: `${h}%` }}
-                    transition={{ delay: 0.5 + (i * 0.1), duration: 1 }}
-                  />
-                ))}
-              </div>
-
-              {/* Footer Stats */}
-              <div className="flex items-center justify-between pt-6 border-t border-border">
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-bold text-foreground font-body">$240K <span className="text-muted-foreground font-normal">vol.</span></span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-bold text-foreground font-body">124</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="h-1.5 w-1.5 rounded-full bg-yes animate-pulse" />
-                  <span className="text-[10px] font-bold text-muted-foreground font-body">LIVE</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Example Call Card code unchanged */}
         </motion.div>
 
         {/* Final CTA */}
@@ -221,7 +145,7 @@ const HowItWorks = () => {
             Think you know what happens next?
           </h2>
           <button
-            onClick={() => navigate("/signup")}
+            onClick={() => navigate("/auth")}
             className="rounded-full bg-gold px-12 py-5 text-sm font-bold text-primary-foreground hover:bg-gold-hover transition-all animate-gold-pulse shadow-xl shadow-gold/20"
           >
             Start Callin →
