@@ -42,6 +42,18 @@ const AppRoutes = () => (
     <div className="fixed inset-0 z-0 pointer-events-none">
       <DotPattern className="fill-muted-foreground/10 [mask-image:linear-gradient(to_bottom,white,transparent)]" />
     </div>
+
+    {/* Subtle logo watermark */}
+    <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center opacity-[0.03]">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="600" height="600">
+        <rect width="80" height="80" rx="20" fill="#F5C518" />
+        <path d="M55 22 A22 22 0 1 0 55 58" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" />
+        <g transform="translate(40,40) rotate(-12)">
+          <path d="M-9 0 L-3 7 L9 -5" fill="none" stroke="#111111" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+      </svg>
+    </div>
+
     <div className="flex-1 relative z-10">
       <Routes>
         <Route path="/auth" element={<AuthRoute />} />
