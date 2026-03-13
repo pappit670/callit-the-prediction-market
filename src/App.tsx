@@ -44,7 +44,7 @@ const AppRoutes = () => (
     </div>
 
     {/* Subtle logo watermark */}
-    <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center opacity-[0.03]">
+    <div className="fixed inset-0 z-0 pointer-events-none flex items-center justify-center opacity-[0.06]">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="600" height="600">
         <rect width="80" height="80" rx="20" fill="#F5C518" />
         <path d="M55 22 A22 22 0 1 0 55 58" fill="none" stroke="#111111" stroke-width="6" stroke-linecap="round" />
