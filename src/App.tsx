@@ -2,8 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AppContextProvider } from "@/context/AppContext";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AppContextProvider, useApp } from "@/context/AppContext";
 import { DotPattern } from "@/components/ui/dot-pattern";
 import Index from "./pages/Index";
 import CallIt from "./pages/CallIt";
@@ -27,6 +27,47 @@ import Topics from "./pages/Topics";
 
 const queryClient = new QueryClient();
 
+const AuthRoute = () => {
+  const { isLoggedIn } = useApp();
+  return isLoggedIn ? <Navigate to="/" replace /> : <Auth />;
+};
+
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isLoggedIn } = useApp();
+  return isLoggedIn ? <>{children}</> : <Navigate to="/auth" replace />;
+};
+
+const AppRoutes = () => (
+  <div className="relative min-h-screen flex flex-col bg-background">
+    <div className="fixed inset-0 z-0 pointer-events-none">
+      <DotPattern className="fill-muted-foreground/10 [mask-image:linear-gradient(to_bottom,white,transparent)]" />
+    </div>
+    <div className="flex-1 relative z-10">
+      <Routes>
+        <Route path="/auth" element={<AuthRoute />} />
+        <Route path="/" element={<Index />} />
+        <Route path="/call-it" element={<ProtectedRoute><CallIt /></ProtectedRoute>} />
+        <Route path="/topics" element={<Topics />} />
+        <Route path="/opinion/:id" element={<OpinionDetail />} />
+        <Route path="/portfolio" element={<ProtectedRoute><Portfolio /></ProtectedRoute>} />
+        <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
+        <Route path="/leaderboard" element={<Leaderboard />} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/user/:username" element={<UserProfile />} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/help-center" element={<HelpCenter />} />
+        <Route path="/saved-calls" element={<ProtectedRoute><SavedCalls /></ProtectedRoute>} />
+        <Route path="/my-calls" element={<ProtectedRoute><MyCalls /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </div>
+    <Footer />
+    <MobileNav />
+  </div>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AppContextProvider>
@@ -34,39 +75,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <div className="relative min-h-screen flex flex-col bg-background">
-            {/* Global Dot Pattern Background */}
-            <div className="fixed inset-0 z-0 pointer-events-none">
-              <DotPattern className="fill-muted-foreground/10 [mask-image:linear-gradient(to_bottom,white,transparent)]" />
-            </div>
-            
-            {/* Main Content wrapper */}
-            <div className="flex-1 relative z-10">
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/call-it" element={<CallIt />} />
-                <Route path="/topics" element={<Topics />} />
-                <Route path="/opinion/:id" element={<OpinionDetail />} />
-                <Route path="/portfolio" element={<Portfolio />} />
-                <Route path="/wallet" element={<Wallet />} />
-                <Route path="/leaderboard" element={<Leaderboard />} />
-                <Route path="/profile" element={<Profile />} />
-                <Route path="/user/:username" element={<UserProfile />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/notifications" element={<Notifications />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/how-it-works" element={<HowItWorks />} />
-                <Route path="/help-center" element={<HelpCenter />} />
-                <Route path="/saved-calls" element={<SavedCalls />} />
-                <Route path="/my-calls" element={<MyCalls />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </div>
-
-            <Footer />
-            <MobileNav />
-          </div>
+          <AppRoutes />
         </BrowserRouter>
       </TooltipProvider>
     </AppContextProvider>
