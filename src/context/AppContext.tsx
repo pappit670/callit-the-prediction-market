@@ -141,7 +141,7 @@ export const AppContextProvider = ({ children }: { children: React.ReactNode }) 
         displayName: data.username,
         initials: data.username.slice(0, 2).toUpperCase(),
         bio: data.bio || "Calling it like I see it",
-        balance: 0,
+        balance: 1000,
         joinDate: new Date(data.created_at).toLocaleDateString("en-US", {
           month: "short",
           year: "numeric",
