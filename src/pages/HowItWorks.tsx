@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
-import { 
-  ArrowLeft, 
-  MessageSquare, 
-  CheckCircle2, 
-  TrendingUp, 
-  Clock, 
-  Trophy, 
+import {
+  ArrowLeft,
+  MessageSquare,
+  CheckCircle2,
+  TrendingUp,
+  Clock,
+  Trophy,
   BarChart3,
   MessageCircle,
   Bookmark
@@ -50,19 +50,19 @@ const sections = [
 
 function XIcon({ className }: { className?: string }) {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" 
-      height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
       className={className}
     >
-      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
     </svg>
   );
 }
@@ -73,18 +73,18 @@ const HowItWorks = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="mx-auto max-w-4xl px-4 md:px-6 py-16 md:py-24">
         {/* Page Header */}
-        <motion.div 
+        <motion.div
           className="text-center mb-20 md:mb-32"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
           <div className="flex items-center justify-center gap-2 mb-6">
-            <button 
-              onClick={() => navigate(-1)} 
+            <button
+              onClick={() => navigate(-1)}
               className="text-muted-foreground hover:text-foreground transition-colors absolute left-4 md:static"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -101,7 +101,7 @@ const HowItWorks = () => {
         {/* Content Sections */}
         <div className="space-y-32">
           {sections.map((section, index) => (
-            <motion.section 
+            <motion.section
               key={index}
               className={`flex flex-col md:flex-row gap-8 md:gap-16 items-start md:items-center ${index % 2 === 1 ? "md:flex-row-reverse" : ""}`}
               {...fadeInUp}
@@ -123,7 +123,7 @@ const HowItWorks = () => {
         </div>
 
         {/* Example Call Section */}
-        <motion.div 
+        <motion.div
           className="mt-40 md:mt-56"
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
@@ -178,9 +178,9 @@ const HowItWorks = () => {
               {/* Simple line graph (Mockup) */}
               <div className="h-32 w-full mt-4 flex items-end gap-1">
                 {[40, 45, 42, 48, 52, 50, 58, 63].map((h, i) => (
-                  <motion.div 
+                  <motion.div
                     key={i}
-                    className="flex-1 bg-gold/20 rounded-t-sm" 
+                    className="flex-1 bg-gold/20 rounded-t-sm"
                     initial={{ height: 0 }}
                     whileInView={{ height: `${h}%` }}
                     transition={{ delay: 0.5 + (i * 0.1), duration: 1 }}
@@ -201,8 +201,8 @@ const HowItWorks = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                   <div className="h-1.5 w-1.5 rounded-full bg-yes animate-pulse" />
-                   <span className="text-[10px] font-bold text-muted-foreground font-body">LIVE</span>
+                  <div className="h-1.5 w-1.5 rounded-full bg-yes animate-pulse" />
+                  <span className="text-[10px] font-bold text-muted-foreground font-body">LIVE</span>
                 </div>
               </div>
             </div>
@@ -210,7 +210,7 @@ const HowItWorks = () => {
         </motion.div>
 
         {/* Final CTA */}
-        <motion.div 
+        <motion.div
           className="mt-40 md:mt-56 text-center border-t border-border pt-24"
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -220,14 +220,14 @@ const HowItWorks = () => {
           <h2 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-8">
             Think you know what happens next?
           </h2>
-          <button 
-            onClick={() => navigate("/")} 
+          <button
+            onClick={() => navigate("/signup")}
             className="rounded-full bg-gold px-12 py-5 text-sm font-bold text-primary-foreground hover:bg-gold-hover transition-all animate-gold-pulse shadow-xl shadow-gold/20"
           >
-            Call It Now
+            Start Callin →
           </button>
         </motion.div>
-        
+
       </main>
     </div>
   );
