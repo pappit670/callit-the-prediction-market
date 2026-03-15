@@ -45,67 +45,30 @@ const MiniGraph = ({ options, yesPercent = 50, noPercent = 50, seed = 1 }: MiniG
 
   return (
     <div className="w-full">
-      {/* Chart area */}
-      <div className="relative w-full rounded-lg overflow-hidden bg-secondary/30" style={{ height: H }}>
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          width="100%"
-          height={H}
-          preserveAspectRatio="none"
-        >
-          {/* Subtle grid */}
+      {/* Chart */}
+      <div className="relative w-full rounded-lg overflow-hidden bg-secondary/20" style={{ height: H }}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
           {[25, 50, 75].map(v => (
-            <line
-              key={v}
-              x1={0} y1={H - (v / 100) * H}
-              x2={W} y2={H - (v / 100) * H}
-              stroke="currentColor"
-              strokeOpacity={0.05}
-              strokeWidth={0.5}
-              strokeDasharray="4 4"
-            />
+            <line key={v} x1={0} y1={H - (v / 100) * H} x2={W} y2={H - (v / 100) * H}
+              stroke="currentColor" strokeOpacity={0.05} strokeWidth={0.5} strokeDasharray="4 4" />
           ))}
-
-          {/* Area fills + lines */}
           {displayOptions.map((opt, i) => {
             const color = COLORS[i % COLORS.length];
             const path = generatePath(opt.percent, seed * 7 + i * 13, W, H);
             return (
               <g key={i}>
-                <path
-                  d={path + ` L ${W} ${H} L 0 ${H} Z`}
-                  fill={color}
-                  opacity={0.07}
-                />
-                <path
-                  d={path}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={1.8}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {/* End dot with pulse ring */}
-                <circle
-                  cx={W - 2}
-                  cy={H - (opt.percent / 100) * H}
-                  r={4}
-                  fill={color}
-                  opacity={0.2}
-                />
-                <circle
-                  cx={W - 2}
-                  cy={H - (opt.percent / 100) * H}
-                  r={2.5}
-                  fill={color}
-                />
+                <path d={path + ` L ${W} ${H} L 0 ${H} Z`} fill={color} opacity={0.07} />
+                <path d={path} fill="none" stroke={color} strokeWidth={1.8}
+                  strokeLinecap="round" strokeLinejoin="round" />
+                <circle cx={W - 2} cy={H - (opt.percent / 100) * H} r={4} fill={color} opacity={0.2} />
+                <circle cx={W - 2} cy={H - (opt.percent / 100) * H} r={2.5} fill={color} />
               </g>
             );
           })}
         </svg>
       </div>
 
-      {/* Stats row — label + sliding percent + bar */}
+      {/* Stats row */}
       <div className="flex flex-col gap-1.5 mt-3">
         {displayOptions.map((opt, i) => {
           const color = COLORS[i % COLORS.length];
@@ -114,10 +77,8 @@ const MiniGraph = ({ options, yesPercent = 50, noPercent = 50, seed = 1 }: MiniG
               <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
               <span className="text-[11px] text-muted-foreground flex-shrink-0 w-16 truncate">{opt.label}</span>
               <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${opt.percent}%`, background: color }}
-                />
+                <div className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${opt.percent}%`, background: color }} />
               </div>
               <div className="text-[11px] font-semibold flex items-center flex-shrink-0" style={{ color }}>
                 <SlidingNumber value={opt.percent} /><span>%</span>
