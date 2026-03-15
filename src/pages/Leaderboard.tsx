@@ -1,51 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Crown, Flame, Trophy } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { supabase } from "@/supabaseClient";
+import { useApp } from "@/context/AppContext";
 
 const timeTabs = ["This Week", "This Month", "All Time"] as const;
-const categoryTabs = ["Most Coins Won", "Win Rate", "Best Streak", "Top Opinion Creators"] as const;
-
-interface LeaderboardEntry {
-  rank: number;
-  username: string;
-  initials: string;
-  genre: string;
-  coinsWon: number;
-  winRate: number;
-  streak: number;
-  isCurrentUser?: boolean;
-}
-
-const leaderboardData: LeaderboardEntry[] = [
-  { rank: 1, username: "vibecheck", initials: "VC", genre: "Music & Culture", coinsWon: 12400, winRate: 82, streak: 9, },
-  { rank: 2, username: "goatdebater", initials: "GD", genre: "Sports", coinsWon: 9800, winRate: 76, streak: 7, },
-  { rank: 3, username: "cryptobro", initials: "CB", genre: "Crypto & Money", coinsWon: 8200, winRate: 71, streak: 5, },
-  { rank: 4, username: "hiphophead", initials: "HH", genre: "Music & Culture", coinsWon: 6500, winRate: 68, streak: 4, },
-  { rank: 5, username: "nairobiguide", initials: "NG", genre: "Local", coinsWon: 5100, winRate: 65, streak: 3, },
-  { rank: 6, username: "worklife", initials: "WL", genre: "Random", coinsWon: 4200, winRate: 62, streak: 2, },
-  { rank: 7, username: "politicsjunkie", initials: "PJ", genre: "Politics & Society", coinsWon: 3800, winRate: 59, streak: 4, },
-  { rank: 8, username: "sportsfan99", initials: "SF", genre: "Sports", coinsWon: 3200, winRate: 57, streak: 1, },
-  { rank: 9, username: "memequeen", initials: "MQ", genre: "Entertainment", coinsWon: 2900, winRate: 55, streak: 2, },
-  { rank: 10, username: "trendwatcher", initials: "TW", genre: "Trending", coinsWon: 2600, winRate: 53, streak: 1, },
-];
-
-const currentUserStats: LeaderboardEntry = {
-  rank: 24,
-  username: "you",
-  initials: "JD",
-  genre: "Music & Culture",
-  coinsWon: 1240,
-  winRate: 68,
-  streak: 3,
-  isCurrentUser: true,
-};
 
 function getRankColor(rank: number) {
-  if (rank === 1) return "hsl(47 91% 52%)"; // gold
-  if (rank === 2) return "hsl(0 0% 75%)";   // silver
-  if (rank === 3) return "hsl(29 69% 50%)";  // bronze
+  if (rank === 1) return "hsl(47 91% 52%)";
+  if (rank === 2) return "hsl(0 0% 75%)";
+  if (rank === 3) return "hsl(29 69% 50%)";
   return undefined;
 }
 
@@ -57,7 +23,7 @@ function getRankTextClass(rank: number) {
 }
 
 function getGlowStyle(rank: number) {
-  if (rank === 1) return { boxShadow: "0 0 40px hsl(47 91% 52% / 0.15), 0 0 80px hsl(47 91% 52% / 0.05)" };
+  if (rank === 1) return { boxShadow: "0 0 40px hsl(47 91% 52% / 0.15)" };
   if (rank === 2) return { boxShadow: "0 0 30px hsl(0 0% 75% / 0.12)" };
   if (rank === 3) return { boxShadow: "0 0 30px hsl(29 69% 50% / 0.12)" };
   return {};
@@ -65,159 +31,142 @@ function getGlowStyle(rank: number) {
 
 const Leaderboard = () => {
   const [timeTab, setTimeTab] = useState<typeof timeTabs[number]>("All Time");
-  const [categoryTab, setCategoryTab] = useState<typeof categoryTabs[number]>("Most Coins Won");
+  const [entries, setEntries] = useState<any[]>([]);
+  const [userRank, setUserRank] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { user, isLoggedIn } = useApp();
 
-  const isEmpty = false; // toggle for empty state demo
+  useEffect(() => { fetchLeaderboard(); }, [timeTab]);
+
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, username, wins, losses, total_calls, avatar_url")
+        .gt("total_calls", 0)
+        .order("wins", { ascending: false })
+        .limit(20);
+
+      if (data) {
+        const ranked = data.map((p, i) => ({
+          ...p,
+          rank: i + 1,
+          winRate: p.total_calls > 0 ? Math.round((p.wins / p.total_calls) * 100) : 0,
+          initials: p.username?.slice(0, 2).toUpperCase() || "??",
+        }));
+        setEntries(ranked);
+
+        if (isLoggedIn) {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          const myEntry = ranked.find(e => e.id === authUser?.id);
+          if (myEntry) setUserRank(myEntry);
+          else {
+            const { data: myProfile } = await supabase
+              .from("profiles")
+              .select("id, username, wins, losses, total_calls")
+              .eq("id", authUser?.id)
+              .single();
+            if (myProfile) setUserRank({
+              ...myProfile,
+              rank: ranked.length + 1,
+              winRate: myProfile.total_calls > 0 ? Math.round((myProfile.wins / myProfile.total_calls) * 100) : 0,
+              initials: myProfile.username?.slice(0, 2).toUpperCase() || "??",
+            });
+          }
+        }
+      }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
       <Navbar />
-
       <main className="mx-auto max-w-3xl px-4 md:px-6 py-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
-          <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground">
-            The Ones Who Called It
-          </h1>
-          <p className="mt-2 text-sm font-body text-muted-foreground">
-            Ranked by coins won, win rate and streak
-          </p>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8">
+          <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground">The Ones Who Called It</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Ranked by wins, win rate and total calls</p>
         </motion.div>
 
         {/* Time Tabs */}
-        <div className="relative border-b border-border mb-4">
+        <div className="relative border-b border-border mb-6">
           <div className="flex gap-1">
             {timeTabs.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTimeTab(t)}
-                className="relative whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors"
-              >
-                <span className={timeTab === t ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"}>
-                  {t}
-                </span>
+              <button key={t} onClick={() => setTimeTab(t)}
+                className="relative whitespace-nowrap px-4 py-3 text-sm font-medium transition-colors">
+                <span className={timeTab === t ? "text-foreground font-semibold" : "text-muted-foreground hover:text-foreground"}>{t}</span>
                 {timeTab === t && (
-                  <motion.div
-                    layoutId="time-underline"
-                    className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
+                  <motion.div layoutId="time-underline" className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }} />
                 )}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Category Tabs */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {categoryTabs.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategoryTab(c)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                categoryTab === c
-                  ? "bg-gold text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
-        {isEmpty ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
-          >
+        {loading ? (
+          <div className="space-y-3">
+            {[...Array(5)].map((_, i) => <div key={i} className="h-16 rounded-xl bg-secondary animate-pulse" />)}
+          </div>
+        ) : entries.length === 0 ? (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="flex flex-col items-center justify-center py-20 text-center">
             <Trophy className="h-12 w-12 text-muted-foreground/40 mb-4" />
             <h3 className="font-headline text-xl text-muted-foreground mb-2">No rankings yet</h3>
-            <p className="text-sm font-body text-muted-foreground">Be the first to call and climb</p>
-            <button
-              onClick={() => navigate("/call-it")}
-              className="mt-6 rounded-full bg-gold px-6 py-2 text-sm font-semibold text-primary-foreground hover:bg-gold-hover transition-colors"
-            >
+            <p className="text-sm text-muted-foreground">Be the first to call and climb</p>
+            <button onClick={() => navigate("/call-it")}
+              className="mt-6 rounded-full bg-gold px-6 py-2 text-sm font-semibold text-primary-foreground hover:bg-gold-hover transition-colors">
               Make a Call
             </button>
           </motion.div>
         ) : (
           <div className="space-y-3">
-            {leaderboardData.map((entry, i) => {
+            {entries.map((entry, i) => {
               const isTop3 = entry.rank <= 3;
               const rankColor = getRankColor(entry.rank);
-
+              const isMe = userRank?.id === entry.id;
               return (
-                <motion.div
-                  key={entry.rank}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
+                <motion.div key={entry.id}
+                  initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: i * 0.05 }}
-                  className={`relative flex items-center gap-4 bg-card border border-gold-border rounded-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-gold hover:shadow-lg ${
-                    isTop3 ? "p-6" : "px-6 py-4"
-                  }`}
+                  className={`relative flex items-center gap-4 bg-card border border-border rounded-xl transition-all duration-300 hover:-translate-y-0.5 hover:border-gold ${isTop3 ? "p-6" : "px-6 py-4"
+                    } ${isMe ? "border-gold/50" : ""}`}
                   style={getGlowStyle(entry.rank)}
                 >
-                  {/* Rank */}
                   <div className="relative flex flex-col items-center min-w-[32px]">
-                    {entry.rank === 1 && (
-                      <Crown className="h-4 w-4 text-gold mb-1" />
-                    )}
-                    <span className={`font-headline text-xl font-bold ${getRankTextClass(entry.rank)}`}>
-                      {entry.rank}
-                    </span>
+                    {entry.rank === 1 && <Crown className="h-4 w-4 text-gold mb-1" />}
+                    <span className={`font-headline text-xl font-bold ${getRankTextClass(entry.rank)}`}>{entry.rank}</span>
                   </div>
-
-                  {/* Avatar */}
-                  <div
-                    className="h-11 w-11 shrink-0 rounded-full bg-secondary border-2 flex items-center justify-center text-xs font-semibold text-muted-foreground"
-                    style={{ borderColor: rankColor || "hsl(var(--border))" }}
-                  >
+                  <div className="h-11 w-11 shrink-0 rounded-full bg-secondary border-2 flex items-center justify-center text-xs font-semibold text-muted-foreground"
+                    style={{ borderColor: rankColor || "hsl(var(--border))" }}>
                     {entry.initials}
                   </div>
-
-                  {/* Name + Genre */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-body text-[15px] font-semibold text-foreground truncate">
-                        {entry.username}
-                      </span>
-                      {entry.isCurrentUser && (
-                        <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-gold leading-none">
-                          You
-                        </span>
-                      )}
+                      <span className="text-sm font-semibold text-foreground truncate">{entry.username}</span>
+                      {isMe && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-gold">You</span>}
                     </div>
-                    <span className="inline-block mt-1 rounded-full bg-gold/10 px-2.5 py-0.5 text-[11px] font-body text-gold leading-none">
-                      {entry.genre}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{entry.total_calls} calls made</span>
                   </div>
-
-                  {/* Stats */}
                   <div className="hidden sm:flex items-center gap-5 text-right">
                     <div>
-                      <div className="text-base font-bold font-body text-gold">{entry.coinsWon.toLocaleString()}</div>
-                      <div className="text-[11px] text-muted-foreground">coins</div>
+                      <div className="text-base font-bold text-gold">{entry.wins}</div>
+                      <div className="text-xs text-muted-foreground">wins</div>
                     </div>
                     <div>
-                      <div className="text-[13px] font-medium font-body text-yes">{entry.winRate}%</div>
-                      <div className="text-[11px] text-muted-foreground">win rate</div>
+                      <div className="text-sm font-medium text-yes">{entry.winRate}%</div>
+                      <div className="text-xs text-muted-foreground">win rate</div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Flame className="h-3.5 w-3.5 text-gold" />
-                      <span className="text-[13px] font-medium font-body text-foreground">{entry.streak}</span>
+                      <span className="text-sm font-medium text-foreground">{entry.total_calls}</span>
                     </div>
                   </div>
-
-                  {/* Mobile stats */}
-                  <div className="sm:hidden flex items-center gap-1 text-right">
-                    <span className="text-sm font-bold font-body text-gold">{entry.coinsWon.toLocaleString()}</span>
+                  <div className="sm:hidden">
+                    <span className="text-sm font-bold text-gold">{entry.wins} wins</span>
                   </div>
                 </motion.div>
               );
@@ -226,24 +175,18 @@ const Leaderboard = () => {
         )}
       </main>
 
-      {/* Your Ranking Strip */}
-      {!isEmpty && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold-border bg-card/95 backdrop-blur-md">
+      {/* Your Rank Strip */}
+      {userRank && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold/30 bg-card/95 backdrop-blur-md">
           <div className="mx-auto max-w-3xl flex items-center justify-between px-4 md:px-6 py-3">
             <div className="flex items-center gap-4">
-              <span className="font-headline text-lg font-bold text-gold">
-                Your rank: #{currentUserStats.rank}
-              </span>
+              <span className="font-headline text-lg font-bold text-gold">Your rank: #{userRank.rank}</span>
               <div className="hidden sm:flex items-center gap-4 text-sm">
-                <span className="font-body font-bold text-gold">{currentUserStats.coinsWon.toLocaleString()} coins</span>
-                <span className="font-body font-medium text-yes">{currentUserStats.winRate}% win rate</span>
-                <span className="flex items-center gap-1 font-body font-medium text-foreground">
-                  <Flame className="h-3.5 w-3.5 text-gold" />
-                  {currentUserStats.streak}
-                </span>
+                <span className="font-bold text-gold">{userRank.wins} wins</span>
+                <span className="font-medium text-yes">{userRank.winRate}% win rate</span>
               </div>
             </div>
-            <span className="text-xs font-body text-muted-foreground">Keep calling to climb</span>
+            <span className="text-xs text-muted-foreground">Keep calling to climb</span>
           </div>
         </div>
       )}

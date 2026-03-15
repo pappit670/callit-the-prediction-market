@@ -78,7 +78,7 @@ const Portfolio = () => {
             const isNumeric = !isNaN(Number(stat.value.replace(/,/g, '').replace('%', '')));
             const numValue = isNumeric ? Number(stat.value.replace(/,/g, '').replace('%', '')) : null;
             const isPercent = stat.value.includes('%');
-            
+
             return (
               <motion.div
                 key={stat.label}
@@ -93,8 +93,8 @@ const Portfolio = () => {
                 </div>
                 {isNumeric && numValue !== null ? (
                   <div className="flex items-baseline">
-                    <NumberFlow 
-                      value={numValue} 
+                    <NumberFlow
+                      value={numValue}
                       className="font-headline text-2xl font-bold text-gold"
                     />
                     {isPercent && <span className="font-headline text-2xl font-bold text-gold">%</span>}
@@ -205,11 +205,10 @@ const Portfolio = () => {
                   <button
                     key={f}
                     onClick={() => setHistoryFilter(f)}
-                    className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
-                      historyFilter === f
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${historyFilter === f
                         ? "bg-gold text-primary-foreground"
                         : "bg-secondary text-muted-foreground hover:text-foreground"
-                    }`}
+                      }`}
                   >
                     {f}
                   </button>
