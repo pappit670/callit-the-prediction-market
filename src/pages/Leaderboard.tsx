@@ -5,6 +5,7 @@ import { Crown, Flame, Trophy } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
+import { SlidingNumber } from "@/components/ui/sliding-number";
 
 const timeTabs = ["This Week", "This Month", "All Time"] as const;
 
@@ -35,7 +36,7 @@ const Leaderboard = () => {
   const [userRank, setUserRank] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { user, isLoggedIn } = useApp();
+  const { isLoggedIn } = useApp();
 
   useEffect(() => { fetchLeaderboard(); }, [timeTab]);
 
@@ -61,13 +62,12 @@ const Leaderboard = () => {
         if (isLoggedIn) {
           const { data: { user: authUser } } = await supabase.auth.getUser();
           const myEntry = ranked.find(e => e.id === authUser?.id);
-          if (myEntry) setUserRank(myEntry);
-          else {
+          if (myEntry) {
+            setUserRank(myEntry);
+          } else {
             const { data: myProfile } = await supabase
-              .from("profiles")
-              .select("id, username, wins, losses, total_calls")
-              .eq("id", authUser?.id)
-              .single();
+              .from("profiles").select("id, username, wins, losses, total_calls")
+              .eq("id", authUser?.id).single();
             if (myProfile) setUserRank({
               ...myProfile,
               rank: ranked.length + 1,
@@ -91,7 +91,6 @@ const Leaderboard = () => {
           <p className="mt-2 text-sm text-muted-foreground">Ranked by wins, win rate and total calls</p>
         </motion.div>
 
-        {/* Time Tabs */}
         <div className="relative border-b border-border mb-6">
           <div className="flex gap-1">
             {timeTabs.map((t) => (
@@ -149,24 +148,34 @@ const Leaderboard = () => {
                       <span className="text-sm font-semibold text-foreground truncate">{entry.username}</span>
                       {isMe && <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-semibold text-gold">You</span>}
                     </div>
-                    <span className="text-xs text-muted-foreground">{entry.total_calls} calls made</span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <SlidingNumber value={entry.total_calls} /> calls made
+                    </span>
                   </div>
                   <div className="hidden sm:flex items-center gap-5 text-right">
                     <div>
-                      <div className="text-base font-bold text-gold">{entry.wins}</div>
+                      <div className="text-base font-bold text-gold flex items-center justify-end">
+                        <SlidingNumber value={entry.wins} />
+                      </div>
                       <div className="text-xs text-muted-foreground">wins</div>
                     </div>
                     <div>
-                      <div className="text-sm font-medium text-yes">{entry.winRate}%</div>
+                      <div className="text-sm font-medium text-yes flex items-center justify-end">
+                        <SlidingNumber value={entry.winRate} /><span>%</span>
+                      </div>
                       <div className="text-xs text-muted-foreground">win rate</div>
                     </div>
                     <div className="flex items-center gap-1">
                       <Flame className="h-3.5 w-3.5 text-gold" />
-                      <span className="text-sm font-medium text-foreground">{entry.total_calls}</span>
+                      <span className="text-sm font-medium text-foreground">
+                        <SlidingNumber value={entry.total_calls} />
+                      </span>
                     </div>
                   </div>
                   <div className="sm:hidden">
-                    <span className="text-sm font-bold text-gold">{entry.wins} wins</span>
+                    <span className="text-sm font-bold text-gold flex items-center">
+                      <SlidingNumber value={entry.wins} /> wins
+                    </span>
                   </div>
                 </motion.div>
               );
@@ -175,15 +184,18 @@ const Leaderboard = () => {
         )}
       </main>
 
-      {/* Your Rank Strip */}
       {userRank && (
         <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gold/30 bg-card/95 backdrop-blur-md">
           <div className="mx-auto max-w-3xl flex items-center justify-between px-4 md:px-6 py-3">
             <div className="flex items-center gap-4">
               <span className="font-headline text-lg font-bold text-gold">Your rank: #{userRank.rank}</span>
               <div className="hidden sm:flex items-center gap-4 text-sm">
-                <span className="font-bold text-gold">{userRank.wins} wins</span>
-                <span className="font-medium text-yes">{userRank.winRate}% win rate</span>
+                <span className="font-bold text-gold flex items-center gap-1">
+                  <SlidingNumber value={userRank.wins} /> wins
+                </span>
+                <span className="font-medium text-yes flex items-center gap-1">
+                  <SlidingNumber value={userRank.winRate} />% win rate
+                </span>
               </div>
             </div>
             <span className="text-xs text-muted-foreground">Keep calling to climb</span>

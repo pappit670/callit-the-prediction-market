@@ -1,101 +1,127 @@
-import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useRef } from "react";
 
 interface MiniGraphProps {
-  yesPercent: number;
-  noPercent: number;
+  options?: { label: string; percent: number }[];
+  yesPercent?: number;
+  noPercent?: number;
   seed?: number;
 }
 
-const generatePoints = (target: number, seed: number, count = 10): number[] => {
-  const points: number[] = [];
-  let value = 50;
-  let s = seed;
+const COLORS = ["#F5C518", "#22C55E", "#3B82F6", "#A855F7", "#F97316"];
+
+function generatePath(percent: number, seed: number, w: number, h: number): string {
+  const points: [number, number][] = [];
+  const count = 20;
+  let val = 40 + (seed % 20);
   for (let i = 0; i < count; i++) {
-    s = (s * 9301 + 49297) % 233280;
-    const rand = (s / 233280 - 0.5) * 16;
-    const pull = (target - value) * 0.25;
-    value = Math.max(5, Math.min(95, value + pull + rand));
-    points.push(value);
+    const noise = Math.sin(seed * 13.37 + i * 2.1) * 6 + Math.cos(seed * 7.53 + i * 3.7) * 4;
+    val = val + (percent - val) * 0.2 + noise * (1 - (i / count) * 0.6);
+    val = Math.max(2, Math.min(98, val));
+    if (i === count - 1) val = percent;
+    const x = (i / (count - 1)) * w;
+    const y = h - (val / 100) * h;
+    points.push([x, y]);
   }
-  points[count - 1] = target;
-  return points;
-};
-
-const toPath = (points: number[], width: number, height: number): string => {
-  const stepX = width / (points.length - 1);
-  const pts = points.map((p, i) => ({ x: i * stepX, y: height - (p / 100) * height }));
-
-  let d = `M${pts[0].x},${pts[0].y}`;
-  for (let i = 1; i < pts.length; i++) {
-    const cx1 = pts[i - 1].x + stepX * 0.4;
-    const cx2 = pts[i].x - stepX * 0.4;
-    d += ` C${cx1},${pts[i - 1].y} ${cx2},${pts[i].y} ${pts[i].x},${pts[i].y}`;
+  let d = `M ${points[0][0]} ${points[0][1]}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const cp1x = points[i - 1][0] + (points[i][0] - points[i - 1][0]) * 0.4;
+    const cp2x = points[i][0] - (points[i][0] - points[i - 1][0]) * 0.4;
+    d += ` C ${cp1x} ${points[i - 1][1]}, ${cp2x} ${points[i][1]}, ${points[i][0]} ${points[i][1]}`;
   }
+  d += ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
   return d;
-};
+}
 
-const toAreaPath = (linePath: string, width: number, height: number): string => {
-  return `${linePath} L${width},${height} L0,${height} Z`;
-};
+const MiniGraph = ({ options, yesPercent = 50, noPercent = 50, seed = 1 }: MiniGraphProps) => {
+  const W = 300;
+  const H = 80;
 
-const MiniGraph = ({ yesPercent, noPercent, seed = 42 }: MiniGraphProps) => {
-  const svgWidth = 200;
-  const svgHeight = 48;
-
-  const { yesPath, noPath, yesArea, noArea } = useMemo(() => {
-    const yesPoints = generatePoints(yesPercent, seed);
-    const noPoints = generatePoints(noPercent, seed + 1000);
-    const yp = toPath(yesPoints, svgWidth, svgHeight);
-    const np = toPath(noPoints, svgWidth, svgHeight);
-    return {
-      yesPath: yp,
-      noPath: np,
-      yesArea: toAreaPath(yp, svgWidth, svgHeight),
-      noArea: toAreaPath(np, svgWidth, svgHeight),
-    };
-  }, [yesPercent, noPercent, seed]);
+  const displayOptions = options && options.length > 0
+    ? options
+    : [
+      { label: "Agree", percent: yesPercent },
+      { label: "Disagree", percent: noPercent },
+    ];
 
   return (
-    <div className="flex items-center gap-3 mb-3 -mx-1">
-      <svg
-        viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-        className="flex-1 h-12"
-        preserveAspectRatio="none"
-      >
-        {/* Area fills */}
-        <path d={yesArea} fill="#22C55E" opacity={0.1} />
-        <path d={noArea} fill="#3B82F6" opacity={0.1} />
+    <div className="w-full">
+      {/* Chart */}
+      <div className="relative w-full" style={{ height: H }}>
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          width="100%"
+          height={H}
+          preserveAspectRatio="none"
+          className="overflow-visible"
+        >
+          {/* Grid lines */}
+          {[25, 50, 75].map(v => (
+            <line
+              key={v}
+              x1={0} y1={H - (v / 100) * H}
+              x2={W} y2={H - (v / 100) * H}
+              stroke="currentColor"
+              strokeOpacity={0.06}
+              strokeWidth={0.5}
+              strokeDasharray="3 3"
+            />
+          ))}
 
-        {/* Animated lines */}
-        <motion.path
-          d={yesPath}
-          fill="none"
-          stroke="#22C55E"
-          strokeWidth={1.5}
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        />
-        <motion.path
-          d={noPath}
-          fill="none"
-          stroke="#3B82F6"
-          strokeWidth={1.5}
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
-        />
-      </svg>
+          {/* Lines per option */}
+          {displayOptions.map((opt, i) => {
+            const color = COLORS[i % COLORS.length];
+            const path = generatePath(opt.percent, seed * 7 + i * 13, W, H);
+            return (
+              <g key={i}>
+                <path
+                  d={path + ` L ${W} ${H} L 0 ${H} Z`}
+                  fill={color}
+                  opacity={0.06}
+                />
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                />
+                {/* End dot */}
+                <circle
+                  cx={W}
+                  cy={H - (opt.percent / 100) * H}
+                  r={3}
+                  fill={color}
+                />
+              </g>
+            );
+          })}
+        </svg>
 
-      {/* Current percentages */}
-      <div className="flex flex-col items-end shrink-0">
-        <span className="text-[13px] font-bold" style={{ color: "#22C55E" }}>
-          {yesPercent}%
-        </span>
-        <span className="text-[13px] font-bold" style={{ color: "#3B82F6" }}>
-          {noPercent}%
-        </span>
+        {/* Y axis labels */}
+        <div className="absolute right-0 top-0 h-full flex flex-col justify-between pointer-events-none pr-0">
+          <span className="text-[9px] text-muted-foreground">100%</span>
+          <span className="text-[9px] text-muted-foreground">50%</span>
+          <span className="text-[9px] text-muted-foreground">0%</span>
+        </div>
+      </div>
+
+      {/* Legend with percentages */}
+      <div className="flex items-center gap-3 mt-2 flex-wrap">
+        {displayOptions.map((opt, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <div
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: COLORS[i % COLORS.length] }}
+            />
+            <span className="text-[11px] text-muted-foreground">{opt.label}</span>
+            <span
+              className="text-[11px] font-semibold"
+              style={{ color: COLORS[i % COLORS.length] }}
+            >
+              {opt.percent}%
+            </span>
+          </div>
+        ))}
       </div>
     </div>
   );

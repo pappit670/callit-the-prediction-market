@@ -1,21 +1,15 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
-import { Coins, Target, Trophy, Award, Settings, Flame, Crown } from "lucide-react";
+import { Target, Trophy, Award, Settings } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
 import { DotPattern } from "@/components/ui/dot-pattern";
+import { SlidingNumber } from "@/components/ui/sliding-number";
 
 const profileTabs = ["Active Calls", "My Opinions", "History"] as const;
 const historyFilters = ["All", "Won", "Lost"];
-
-function getRankColor(rank: number) {
-  if (rank === 1) return "hsl(47 91% 52%)";
-  if (rank === 2) return "hsl(0 0% 75%)";
-  if (rank === 3) return "hsl(29 69% 50%)";
-  return undefined;
-}
 
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -47,10 +41,7 @@ const Profile = () => {
     if (!authUser) return;
 
     const { data: profileData } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", authUser.id)
-      .single();
+      .from("profiles").select("*").eq("id", authUser.id).single();
     setProfile(profileData);
 
     const { data: callsData } = await supabase
@@ -59,18 +50,14 @@ const Profile = () => {
       .eq("user_id", authUser.id)
       .order("created_at", { ascending: false });
 
-    const active = (callsData || []).filter((c: any) => c.opinions?.status === "open");
-    const closed = (callsData || []).filter((c: any) => c.opinions?.status === "closed");
-    setActiveCalls(active);
-    setHistory(closed);
+    setActiveCalls((callsData || []).filter((c: any) => c.opinions?.status === "open"));
+    setHistory((callsData || []).filter((c: any) => c.opinions?.status === "closed"));
 
     const { data: opinionsData } = await supabase
-      .from("opinions")
-      .select("*, topics(name)")
+      .from("opinions").select("*, topics(name)")
       .eq("creator_id", authUser.id)
       .order("created_at", { ascending: false });
     setMyOpinions(opinionsData || []);
-
     setLoading(false);
   };
 
@@ -81,10 +68,14 @@ const Profile = () => {
     return true;
   });
 
+  const winRate = profile?.total_calls > 0
+    ? Math.round((profile.wins / profile.total_calls) * 100)
+    : 0;
+
   const stats = [
     { label: "Calls Made", value: profile?.total_calls || 0, icon: Target },
-    { label: "Win Rate", value: profile?.total_calls > 0 ? `${Math.round((profile.wins / profile.total_calls) * 100)}%` : "0%", icon: Award },
-    { label: "Wins", value: profile?.wins || 0, icon: Coins },
+    { label: "Win Rate", value: winRate, suffix: "%", icon: Award },
+    { label: "Wins", value: profile?.wins || 0, icon: Trophy },
     { label: "Losses", value: profile?.losses || 0, icon: Trophy },
   ];
 
@@ -93,7 +84,6 @@ const Profile = () => {
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
 
-        {/* Profile Header */}
         <motion.div
           className="relative bg-card border border-border rounded-2xl p-8 mb-8 overflow-hidden"
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
@@ -124,7 +114,10 @@ const Profile = () => {
                       <stat.icon className="h-3.5 w-3.5 text-gold" />
                       <span className="text-xs text-muted-foreground">{stat.label}</span>
                     </div>
-                    <span className="font-headline text-xl font-bold text-gold">{stat.value}</span>
+                    <div className="font-headline text-xl font-bold text-gold flex items-center justify-center">
+                      <SlidingNumber value={stat.value} />
+                      {stat.suffix && <span>{stat.suffix}</span>}
+                    </div>
                   </motion.div>
                 ))}
               </div>
@@ -150,14 +143,12 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* Tab Content */}
         {loading ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => <div key={i} className="h-24 rounded-xl bg-secondary animate-pulse" />)}
           </div>
         ) : (
           <div>
-            {/* Active Calls */}
             {activeTab === "Active Calls" && (
               <div className="space-y-4">
                 {activeCalls.length === 0 ? (
@@ -169,15 +160,11 @@ const Profile = () => {
                     initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-semibold text-foreground leading-snug mb-2">
-                          {call.opinions?.statement}
-                        </h3>
+                        <h3 className="text-sm font-semibold text-foreground leading-snug mb-2">{call.opinions?.statement}</h3>
                         <p className="text-xs text-muted-foreground">
                           You called: <span className="font-semibold text-gold">{call.chosen_option}</span>
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {call.opinions?.topics?.name}
-                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{call.opinions?.topics?.name}</p>
                       </div>
                       <span className="text-xs px-2.5 py-1 rounded-full bg-yes/15 text-yes font-medium shrink-0">Open</span>
                     </div>
@@ -186,7 +173,6 @@ const Profile = () => {
               </div>
             )}
 
-            {/* My Opinions */}
             {activeTab === "My Opinions" && (
               <div className="space-y-4">
                 {myOpinions.length === 0 ? (
@@ -202,14 +188,15 @@ const Profile = () => {
                         {op.status}
                       </span>
                       <span className="text-xs text-muted-foreground">{op.topics?.name}</span>
-                      <span className="text-xs text-gold font-semibold">{op.call_count || 0} callers</span>
+                      <span className="text-xs text-gold font-semibold flex items-center gap-0.5">
+                        <SlidingNumber value={op.call_count || 0} /> callers
+                      </span>
                     </div>
                   </motion.div>
                 ))}
               </div>
             )}
 
-            {/* History */}
             {activeTab === "History" && (
               <div>
                 <div className="flex gap-2 mb-6 flex-wrap">

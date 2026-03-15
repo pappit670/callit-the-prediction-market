@@ -1,11 +1,12 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, TrendingUp, TrendingDown, Bookmark } from "lucide-react";
+import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, Bookmark } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import { useApp } from "@/context/AppContext";
+import { SlidingNumber } from "@/components/ui/sliding-number";
 
 const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
 const COMMENT_TABS = ["Comments", "Top Callers", "Positions", "Activity"] as const;
@@ -83,7 +84,6 @@ const OpinionDetail = () => {
   const [loading, setLoading] = useState(true);
   const [commentInput, setCommentInput] = useState("");
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [stakeAmount, setStakeAmount] = useState("");
   const [activeTimeFilter, setActiveTimeFilter] = useState<typeof TIME_FILTERS[number]>("1W");
   const [activeCommentTab, setActiveCommentTab] = useState<typeof COMMENT_TABS[number]>("Comments");
   const [hoverX, setHoverX] = useState<number | null>(null);
@@ -130,8 +130,7 @@ const OpinionDetail = () => {
 
       if (isLoggedIn) {
         const { data: callData } = await supabase
-          .from("calls")
-          .select("*")
+          .from("calls").select("*")
           .eq("opinion_id", id)
           .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
           .single();
@@ -243,7 +242,6 @@ const OpinionDetail = () => {
           {/* LEFT COLUMN */}
           <div className="flex-[65] min-w-0">
 
-            {/* Breadcrumb */}
             <div className="flex items-center gap-2 mb-5">
               <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-gold transition-colors">
                 <ArrowLeft className="h-5 w-5" />
@@ -253,7 +251,6 @@ const OpinionDetail = () => {
               </span>
             </div>
 
-            {/* Tags */}
             <div className="flex items-center gap-2 flex-wrap mb-4">
               <span className="rounded-full bg-gold/10 px-3.5 py-1 text-xs font-semibold text-gold">
                 {opinion.topics?.icon} {opinion.topics?.name || "General"}
@@ -266,7 +263,6 @@ const OpinionDetail = () => {
               </span>
             </div>
 
-            {/* Question */}
             <h1 className="font-headline text-3xl sm:text-4xl text-foreground leading-tight mb-4">
               {opinion.statement}
             </h1>
@@ -278,7 +274,6 @@ const OpinionDetail = () => {
               </div>
             )}
 
-            {/* Creator */}
             {opinion.profiles && (
               <Link to={`/user/${opinion.profiles.username}`} className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity mb-8">
                 <div className="h-7 w-7 rounded-full bg-secondary border border-border flex items-center justify-center text-[10px] font-bold text-muted-foreground">
@@ -295,9 +290,9 @@ const OpinionDetail = () => {
                   <div key={i} className="flex items-center gap-2">
                     <div className="h-3 w-3 rounded-full" style={{ backgroundColor: OPTION_HEX[i % OPTION_HEX.length] }} />
                     <span className="text-sm text-foreground">{opt}</span>
-                    <span className="text-sm font-semibold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                      {basePercent}%
-                    </span>
+                    <div className="text-sm font-semibold flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                      <SlidingNumber value={basePercent} /><span>%</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -375,8 +370,7 @@ const OpinionDetail = () => {
                 {TIME_FILTERS.map(tf => (
                   <button key={tf} onClick={() => setActiveTimeFilter(tf)}
                     className={`px-3 py-1.5 text-[13px] font-medium rounded transition-all ${activeTimeFilter === tf ? "text-gold border-b-2 border-gold" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                  >{tf}</button>
+                      }`}>{tf}</button>
                 ))}
               </div>
             </motion.div>
@@ -385,28 +379,24 @@ const OpinionDetail = () => {
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-10">
               <div className="divide-y divide-border">
                 {options.map((opt, i) => (
-                  <div
-                    key={i}
-                    onClick={() => setSelectedOption(opt)}
-                    className={`flex items-center gap-5 py-5 cursor-pointer transition-colors hover:bg-secondary/40 px-2 -mx-2 rounded-lg ${selectedOption === opt ? "bg-secondary/30" : ""}`}
-                  >
+                  <div key={i} onClick={() => setSelectedOption(opt)}
+                    className={`flex items-center gap-5 py-5 cursor-pointer transition-colors hover:bg-secondary/40 px-2 -mx-2 rounded-lg ${selectedOption === opt ? "bg-secondary/30" : ""}`}>
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold text-foreground">{opt}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {opinion.call_count || 0} callers
+                      <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <SlidingNumber value={opinion.call_count || 0} /> callers
                       </p>
                     </div>
-                    <span className="text-2xl font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                      {basePercent}%
-                    </span>
+                    <div className="text-2xl font-bold flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                      <SlidingNumber value={basePercent} /><span>%</span>
+                    </div>
                     {isOpen && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setSelectedOption(opt); }}
                         className={`rounded-lg px-5 py-2.5 text-sm font-semibold transition-all ${selectedOption === opt
                             ? "bg-gold text-primary-foreground"
                             : "border border-border text-muted-foreground hover:border-gold hover:text-gold"
-                          }`}
-                      >
+                          }`}>
                         {selectedOption === opt ? "Selected" : "Pick"}
                       </button>
                     )}
@@ -415,7 +405,9 @@ const OpinionDetail = () => {
               </div>
 
               <div className="flex items-center gap-8 mt-5 flex-wrap">
-                <span className="text-sm text-muted-foreground">{opinion.call_count || 0} callers</span>
+                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                  <SlidingNumber value={opinion.call_count || 0} /> callers
+                </span>
                 <span className="text-sm text-muted-foreground">Ends {countdown || formatTimeLeft(opinion.end_time)}</span>
                 {opinion.source_url && (
                   <a href={opinion.source_url} target="_blank" rel="noopener noreferrer" className="text-sm text-gold hover:underline">
@@ -433,8 +425,7 @@ const OpinionDetail = () => {
                 {COMMENT_TABS.map(tab => (
                   <button key={tab} onClick={() => setActiveCommentTab(tab)}
                     className={`pb-3 text-sm font-semibold transition-colors relative ${activeCommentTab === tab ? "text-gold" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                  >
+                      }`}>
                     {tab === "Comments" ? `Comments (${comments.length})` : tab}
                     {activeCommentTab === tab && (
                       <motion.div layoutId="commentTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold rounded-full" />
@@ -449,9 +440,7 @@ const OpinionDetail = () => {
                     <div className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
                       {user?.initials || "?"}
                     </div>
-                    <input
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
+                    <input value={commentInput} onChange={(e) => setCommentInput(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleComment()}
                       placeholder={isLoggedIn ? "Drop your take..." : "Log in to comment"}
                       disabled={!isLoggedIn}
@@ -499,16 +488,19 @@ const OpinionDetail = () => {
                       <div className="flex items-center gap-2 mb-2">
                         <div className="h-3 w-3 rounded-full" style={{ backgroundColor: OPTION_HEX[i % OPTION_HEX.length] }} />
                         <span className="text-sm font-semibold text-foreground">{opt}</span>
-                        <span className="text-sm font-bold ml-auto" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>{basePercent}%</span>
+                        <div className="text-sm font-bold ml-auto flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                          <SlidingNumber value={basePercent} /><span>%</span>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">{opinion.call_count || 0} callers total</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <SlidingNumber value={opinion.call_count || 0} /> callers total
+                      </p>
                     </div>
                   ))}
                 </div>
               )}
             </motion.div>
 
-            {/* SHARE */}
             <div className="flex items-center gap-3">
               <button onClick={handleShare}
                 className="rounded-xl border border-gold text-gold text-sm font-semibold py-3 px-6 flex items-center gap-2 hover:bg-gold hover:text-primary-foreground transition-all">
@@ -521,17 +513,14 @@ const OpinionDetail = () => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN — STICKY CALL PANEL */}
+          {/* RIGHT COLUMN */}
           <div className="hidden lg:block flex-[35] min-w-[320px]">
             <div className="sticky top-24">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
-                className="rounded-2xl border border-gold/30 bg-card p-6"
-              >
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+                className="rounded-2xl border border-gold/30 bg-card p-6">
                 <h3 className="font-headline text-xl mb-2 text-foreground">Make Your Call</h3>
                 <p className="text-sm text-muted-foreground mb-5 line-clamp-2">{opinion.statement}</p>
 
-                {/* User's existing call */}
                 {userCall && (
                   <div className="mb-4 p-3 rounded-xl bg-gold/10 border border-gold/30">
                     <p className="text-xs text-muted-foreground mb-0.5">Your call</p>
@@ -539,31 +528,27 @@ const OpinionDetail = () => {
                   </div>
                 )}
 
-                {/* Options */}
                 <div className="flex flex-col gap-2 mb-5">
                   {options.map((opt, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setSelectedOption(opt)}
+                    <button key={i} onClick={() => setSelectedOption(opt)}
                       className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedOption === opt
                           ? "border-gold bg-gold/10 text-foreground"
                           : "border-border bg-secondary text-muted-foreground hover:border-gold/50 hover:text-foreground"
-                        }`}
-                    >
+                        }`}>
                       <span>{opt}</span>
-                      <span style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>{basePercent}%</span>
+                      <div className="flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                        <SlidingNumber value={basePercent} /><span>%</span>
+                      </div>
                     </button>
                   ))}
                 </div>
 
                 {isOpen ? (
                   <>
-                    <motion.button
-                      whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                       disabled={!selectedOption || submitting}
                       onClick={handleCall}
-                      className="w-full rounded-xl bg-gold py-4 text-base font-semibold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gold-pulse"
-                    >
+                      className="w-full rounded-xl bg-gold py-4 text-base font-semibold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gold-pulse">
                       {submitting ? "Placing call..." : userCall ? "Update Call" : "Confirm Call"}
                     </motion.button>
                     {!isLoggedIn && (
@@ -581,12 +566,13 @@ const OpinionDetail = () => {
                 <div className="mt-5 pt-5 border-t border-border">
                   <p className="text-xs text-muted-foreground mb-1">Time remaining</p>
                   <p className="text-base font-bold text-foreground">{countdown || formatTimeLeft(opinion.end_time)}</p>
-                  <p className="text-xs text-muted-foreground mt-2">{opinion.call_count || 0} people have called</p>
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                    <SlidingNumber value={opinion.call_count || 0} /> people have called
+                  </p>
                 </div>
               </motion.div>
             </div>
           </div>
-
         </div>
       </div>
     </div>

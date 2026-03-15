@@ -5,6 +5,7 @@ import { Coins, TrendingUp, Trophy, Target } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useApp } from "@/context/AppContext";
 import { supabase } from "@/supabaseClient";
+import { SlidingNumber } from "@/components/ui/sliding-number";
 
 const tabs = ["Active Calls", "Call History", "Performance"];
 const historyFilters = ["All", "Won", "Lost"];
@@ -17,7 +18,7 @@ const Portfolio = () => {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { user, isLoggedIn } = useApp();
+  const { isLoggedIn } = useApp();
 
   useEffect(() => {
     if (!isLoggedIn) { navigate("/auth"); return; }
@@ -55,10 +56,10 @@ const Portfolio = () => {
     : 0;
 
   const stats = [
-    { label: "Balance", value: `${(profile?.balance || 0).toLocaleString()}`, icon: Coins },
-    { label: "Total Calls", value: `${profile?.total_calls || 0}`, icon: TrendingUp },
-    { label: "Win Rate", value: `${winRate}%`, icon: Target },
-    { label: "Total Wins", value: `${profile?.wins || 0}`, icon: Trophy },
+    { label: "Balance", value: profile?.balance || 0, icon: Coins },
+    { label: "Total Calls", value: profile?.total_calls || 0, icon: TrendingUp },
+    { label: "Win Rate", value: winRate, suffix: "%", icon: Target },
+    { label: "Total Wins", value: profile?.wins || 0, icon: Trophy },
   ];
 
   return (
@@ -71,7 +72,6 @@ const Portfolio = () => {
           <p className="text-sm text-muted-foreground">Track your active calls and performance</p>
         </motion.div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
           {stats.map((stat, i) => (
             <motion.div key={stat.label}
@@ -82,12 +82,14 @@ const Portfolio = () => {
                 <stat.icon className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">{stat.label}</span>
               </div>
-              <span className="font-headline text-2xl font-bold text-gold">{stat.value}</span>
+              <div className="font-headline text-2xl font-bold text-gold flex items-center">
+                <SlidingNumber value={stat.value} />
+                {stat.suffix && <span>{stat.suffix}</span>}
+              </div>
             </motion.div>
           ))}
         </div>
 
-        {/* Tabs */}
         <div className="relative border-b border-border mt-10">
           <div className="flex gap-1">
             {tabs.map((tab) => (
@@ -107,7 +109,6 @@ const Portfolio = () => {
         </div>
 
         <div className="mt-6">
-          {/* Active Calls */}
           {activeTab === "Active Calls" && (
             <div className="space-y-4">
               {loading ? (
@@ -143,7 +144,6 @@ const Portfolio = () => {
             </div>
           )}
 
-          {/* Call History */}
           {activeTab === "Call History" && (
             <div>
               <div className="flex gap-2 mb-6 flex-wrap">
@@ -174,9 +174,6 @@ const Portfolio = () => {
                           </h3>
                           <p className="text-xs text-muted-foreground">
                             Called: <span className="text-gold font-semibold">{call.chosen_option}</span>
-                            {resolved && call.opinions?.winning_option && (
-                              <span className="ml-2">· Correct: <span className="font-semibold">{call.opinions.winning_option}</span></span>
-                            )}
                           </p>
                         </div>
                         <span className={`text-xs font-bold shrink-0 ${won ? "text-yes" : resolved ? "text-destructive" : "text-muted-foreground"}`}>
@@ -190,14 +187,15 @@ const Portfolio = () => {
             </div>
           )}
 
-          {/* Performance */}
           {activeTab === "Performance" && (
             <div>
               <motion.div className="text-center py-10"
                 initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.5 }}>
                 <p className="text-sm text-muted-foreground mb-2">Win Rate</p>
-                <span className="font-headline text-5xl font-bold text-gold">{winRate}%</span>
+                <div className="font-headline text-5xl font-bold text-gold flex items-center justify-center">
+                  <SlidingNumber value={winRate} /><span>%</span>
+                </div>
               </motion.div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
@@ -205,14 +203,17 @@ const Portfolio = () => {
                   { label: "Total Calls", value: profile?.total_calls || 0 },
                   { label: "Won", value: profile?.wins || 0 },
                   { label: "Lost", value: profile?.losses || 0 },
-                  { label: "Win Rate", value: `${winRate}%` },
+                  { label: "Win Rate", value: winRate, suffix: "%" },
                 ].map((s, i) => (
                   <motion.div key={s.label}
                     className="bg-card border border-border rounded-xl p-4 text-center"
                     initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.3, delay: i * 0.05 }}>
                     <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
-                    <span className="font-headline text-lg font-bold text-foreground">{s.value}</span>
+                    <div className="font-headline text-lg font-bold text-foreground flex items-center justify-center">
+                      <SlidingNumber value={s.value} />
+                      {s.suffix && <span>{s.suffix}</span>}
+                    </div>
                   </motion.div>
                 ))}
               </div>
