@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import MiniGraph from "@/components/MiniGraph";
-import { Flame, Zap, ChevronLeft, ChevronRight, Timer, Users } from "lucide-react";
+import { Zap, ChevronLeft, ChevronRight, Timer, Users } from "lucide-react";
 import { supabase } from "@/supabaseClient";
+import { useApp } from "@/context/AppContext";
 
 const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void }) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
@@ -62,18 +63,21 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
 
 const Index = () => {
   const navigate = useNavigate();
+  const { hasSeenHero, setHasSeenHero } = useApp();
   const [opinions, setOpinions] = useState<any[]>([]);
   const [featured, setFeatured] = useState<any[]>([]);
-  const [hotTopics, setHotTopics] = useState<any[]>([]);
   const [breaking, setBreaking] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [featuredIndex, setFeaturedIndex] = useState(0);
   const [sort, setSort] = useState("trending");
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 6;
+  const PAGE_SIZE = 9;
 
-  useEffect(() => { fetchData(); }, [sort, page]);
+  useEffect(() => {
+    if (hasSeenHero) fetchData();
+  }, [hasSeenHero, sort, page]);
 
+  // Auto-rotate featured every 6s
   useEffect(() => {
     if (featured.length < 2) return;
     const t = setInterval(() => setFeaturedIndex(i => (i + 1) % featured.length), 6000);
@@ -102,15 +106,12 @@ const Index = () => {
         }
       }
 
-      const { data: topicsData } = await supabase
-        .from("topics").select("name, slug, icon")
-        .eq("type", "category").eq("active", true).limit(8);
-      if (topicsData) setHotTopics(topicsData);
-
       const { data: breakingData } = await supabase
-        .from("opinions").select("id, statement, call_count, topics(name, icon)")
+        .from("opinions")
+        .select("id, statement, call_count, topics(name, icon)")
         .eq("status", "open")
-        .order("created_at", { ascending: false }).limit(8);
+        .order("created_at", { ascending: false })
+        .limit(10);
       if (breakingData) setBreaking(breakingData);
 
     } catch (e) { console.error(e); }
@@ -120,7 +121,8 @@ const Index = () => {
   const mapToCard = (op: any) => ({
     id: op.id,
     question: op.statement,
-    yesPercent: 50, noPercent: 50,
+    yesPercent: 50,
+    noPercent: 50,
     coins: (op.call_count || 0) * 100 || 100,
     timeLeft: op.end_time
       ? new Date(op.end_time) > new Date()
@@ -128,133 +130,137 @@ const Index = () => {
         : "Ended"
       : "30d left",
     genre: op.topics?.name || "General",
+    topicIcon: op.topics?.icon,
+    topicColor: op.topics?.color,
     status: op.status,
     options: Array.isArray(op.options)
       ? op.options.map((o: string) => ({ label: o, percent: Math.round(100 / op.options.length) }))
       : undefined,
   });
 
+  // ── LANDING PAGE ──
+  if (!hasSeenHero) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7 }}
+            className="max-w-3xl space-y-10"
+          >
+            <h1 className="font-headline text-6xl md:text-8xl lg:text-9xl font-bold text-foreground leading-[1.05] tracking-tight">
+              My opinion.<br />My call.<br />My validation.
+            </h1>
+            <p className="text-lg text-muted-foreground max-w-md mx-auto">
+              The prediction market where your takes get tested. Call it. Own it.
+            </p>
+            <div className="flex items-center justify-center gap-4">
+              <button
+                onClick={() => setHasSeenHero(true)}
+                className="rounded-full bg-gold px-10 py-4 text-lg font-bold text-primary-foreground hover:bg-gold-hover hover:scale-105 transition-all shadow-xl animate-gold-pulse"
+              >
+                Call It Now
+              </button>
+              <button
+                onClick={() => navigate("/how-it-works")}
+                className="rounded-full border border-border px-8 py-4 text-lg font-bold text-foreground hover:border-gold hover:text-gold transition-all"
+              >
+                How it works
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── HOME FEED ──
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-8 pb-24">
 
-        {/* ── TOP SECTION: Carousel LEFT + Sidebar RIGHT ── */}
+        {/* Top section: Carousel LEFT + Breaking RIGHT */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 mb-14">
 
-          {/* ── LEFT: Featured Carousel ── */}
+          {/* LEFT — Featured Carousel */}
           <div>
-            {featured.length > 0 && (
-              <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-gold animate-pulse inline-block" />
-                    Featured
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1 mr-1">
-                      {featured.map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setFeaturedIndex(i)}
-                          className={`h-1.5 rounded-full transition-all duration-300 ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border hover:bg-muted-foreground"
-                            }`}
-                        />
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
-                      className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all"
-                    >
-                      <ChevronLeft className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
-                      className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all"
-                    >
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-gold animate-pulse inline-block" />
+                Featured
+              </h2>
+              {featured.length > 1 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 mr-1">
+                    {featured.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setFeaturedIndex(i)}
+                        className={`h-1.5 rounded-full transition-all duration-300 ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border hover:bg-muted-foreground"
+                          }`}
+                      />
+                    ))}
                   </div>
+                  <button
+                    onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
+                    className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
+                    className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
                 </div>
+              )}
+            </div>
 
-                <AnimatePresence mode="wait">
-                  <FeaturedCard
-                    key={featuredIndex}
-                    opinion={featured[featuredIndex]}
-                    onClick={() => navigate(`/opinion/${featured[featuredIndex].id}`)}
-                  />
-                </AnimatePresence>
-              </section>
-            )}
-
-            {loading && featured.length === 0 && (
+            {loading && featured.length === 0 ? (
               <div className="h-80 rounded-2xl bg-secondary animate-pulse" />
-            )}
+            ) : featured.length > 0 ? (
+              <AnimatePresence mode="wait">
+                <FeaturedCard
+                  key={featuredIndex}
+                  opinion={featured[featuredIndex]}
+                  onClick={() => navigate(`/opinion/${featured[featuredIndex].id}`)}
+                />
+              </AnimatePresence>
+            ) : null}
           </div>
 
-          {/* ── RIGHT: Breaking News + Hot Topics ── */}
-          <aside className="hidden lg:flex flex-col gap-6">
-
-            {/* Breaking News */}
-            <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
-                <Zap className="h-3.5 w-3.5 text-gold" /> Breaking
-              </h2>
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {breaking.map((item, i) => (
-                  <button
-                    key={item.id}
-                    onClick={() => navigate(`/opinion/${item.id}`)}
-                    className="flex items-start gap-3 w-full px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors text-left group"
-                  >
-                    <span className="text-xs text-muted-foreground font-mono mt-0.5 shrink-0 w-4">{i + 1}.</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground group-hover:text-gold transition-colors line-clamp-2 leading-snug">
-                        {item.statement}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {item.topics?.icon} {item.topics?.name} · {item.call_count || 0} callers
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Hot Topics */}
-            <div>
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
-                <Flame className="h-3.5 w-3.5 text-gold" /> Hot Topics
-              </h2>
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {hotTopics.map((topic, i) => (
-                  <button
-                    key={topic.slug}
-                    onClick={() => navigate(`/topic/${topic.slug}`)}
-                    className="flex items-center justify-between w-full px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
-                      <span className="text-sm font-semibold text-foreground group-hover:text-gold transition-colors">
-                        {topic.icon} {topic.name}
-                      </span>
-                    </div>
-                    <Flame className="h-3 w-3 text-gold opacity-60 group-hover:opacity-100 transition-opacity" />
-                  </button>
-                ))}
+          {/* RIGHT — Breaking News */}
+          <aside className="hidden lg:block">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
+              <Zap className="h-3.5 w-3.5 text-gold" /> Breaking
+            </h2>
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              {breaking.map((item, i) => (
                 <button
-                  onClick={() => navigate("/topics")}
-                  className="w-full py-3 text-xs font-bold text-muted-foreground hover:text-gold transition-colors"
+                  key={item.id}
+                  onClick={() => navigate(`/opinion/${item.id}`)}
+                  className="flex items-start gap-3 w-full px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors text-left group"
                 >
-                  All Topics →
+                  <span className="text-xs text-muted-foreground font-mono mt-0.5 shrink-0 w-4">{i + 1}.</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground group-hover:text-gold transition-colors line-clamp-2 leading-snug">
+                      {item.statement}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      {item.topics?.icon} {item.topics?.name} · {item.call_count || 0} callers
+                    </p>
+                  </div>
                 </button>
-              </div>
+              ))}
             </div>
-
           </aside>
         </div>
 
-        {/* ── BOTTOM: All Calls Grid ── */}
+        {/* Bottom — All Calls */}
         <section>
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
             <h2 className="font-headline text-2xl font-bold text-foreground">All Calls</h2>
