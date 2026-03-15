@@ -25,6 +25,8 @@ import SavedCalls from "./pages/SavedCalls";
 import MyCalls from "./pages/MyCalls";
 import Topics from "./pages/Topics";
 import TopicPage from "./pages/TopicPage";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsAndConditions from "./pages/TermsAndConditions";
 
 const queryClient = new QueryClient();
 
@@ -74,6 +76,8 @@ const AppRoutes = () => (
         <Route path="/help-center" element={<HelpCenter />} />
         <Route path="/saved-calls" element={<ProtectedRoute><SavedCalls /></ProtectedRoute>} />
         <Route path="/my-calls" element={<ProtectedRoute><MyCalls /></ProtectedRoute>} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsAndConditions />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </div>
