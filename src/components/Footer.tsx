@@ -5,14 +5,9 @@ const Footer = () => {
   return (
     <footer className="w-full border-t border-border bg-background py-10 px-4 md:px-6 relative z-10">
       <div className="mx-auto max-w-7xl flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-
         <div className="flex flex-col gap-2">
-          <Link to="/" className="font-headline text-3xl font-bold tracking-tight text-foreground">
-            Callit
-          </Link>
-          <p className="text-sm font-medium text-muted-foreground">
-            My opinion. My call. My validation.
-          </p>
+          <Link to="/" className="font-headline text-3xl font-bold tracking-tight text-foreground">Callit</Link>
+          <p className="text-sm font-medium text-muted-foreground">My opinion. My call. My validation.</p>
         </div>
 
         <div className="flex items-center gap-6 text-sm font-medium text-foreground flex-wrap">
@@ -25,11 +20,11 @@ const Footer = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <a href="https://twitter.com/callitapp" target="_blank" rel="noopener noreferrer"
+          <a href="https://twitter.com/callitapp_" target="_blank" rel="noopener noreferrer"
             className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-gold/20 transition-all">
             <Twitter className="h-4 w-4" />
           </a>
-          <a href="https://instagram.com/callitapp" target="_blank" rel="noopener noreferrer"
+          <a href="https://instagram.com/callitapp_" target="_blank" rel="noopener noreferrer"
             className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-gold/20 transition-all">
             <Instagram className="h-4 w-4" />
           </a>

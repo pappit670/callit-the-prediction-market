@@ -166,7 +166,7 @@ const TopicPage = () => {
             <main className="mx-auto max-w-7xl px-4 md:px-6 py-8">
 
                 <button
-                    onClick={() => navigate("/topics")}
+                    onClick={() => navigate(-1)}
                     className="flex items-center gap-2 text-sm text-muted-foreground hover:text-gold transition-colors mb-6"
                 >
                     <ArrowLeft className="h-4 w-4" /> All topics
@@ -224,8 +224,8 @@ const TopicPage = () => {
                             <button
                                 onClick={() => setActiveSubtopic(null)}
                                 className={`px-4 py-2 rounded-full text-sm font-semibold border transition-all ${activeSubtopic === null
-                                        ? "bg-gold text-primary-foreground border-gold"
-                                        : "border-border text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                                    ? "bg-gold text-primary-foreground border-gold"
+                                    : "border-border text-muted-foreground hover:border-gold/50 hover:text-foreground"
                                     }`}
                             >
                                 All {topic.name}
@@ -235,8 +235,8 @@ const TopicPage = () => {
                                     key={sub.id}
                                     onClick={() => setActiveSubtopic(sub.slug)}
                                     className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold border transition-all ${activeSubtopic === sub.slug
-                                            ? "bg-gold text-primary-foreground border-gold"
-                                            : "border-border text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                                        ? "bg-gold text-primary-foreground border-gold"
+                                        : "border-border text-muted-foreground hover:border-gold/50 hover:text-foreground"
                                         }`}
                                 >
                                     <span style={{ fontSize: 13 }}>{sub.icon}</span> {sub.name}
@@ -253,8 +253,8 @@ const TopicPage = () => {
                             key={f.id}
                             onClick={() => setActiveFilter(f.id)}
                             className={`flex items-center gap-1.5 whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold border transition-all ${activeFilter === f.id
-                                    ? "bg-foreground text-background border-foreground"
-                                    : "border-border text-muted-foreground hover:border-gold/50 hover:text-gold"
+                                ? "bg-foreground text-background border-foreground"
+                                : "border-border text-muted-foreground hover:border-gold/50 hover:text-gold"
                                 }`}
                         >
                             {f.icon} {f.label}

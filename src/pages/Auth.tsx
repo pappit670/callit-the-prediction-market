@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Coins } from "lucide-react";
+import { Coins, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
@@ -137,7 +137,17 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-16 relative">
+
+      {/* Back Button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="absolute top-6 left-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gold transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </button>
+
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -146,7 +156,7 @@ const Auth = () => {
       >
         <div className="text-center mb-10">
           <h1 className="font-headline text-4xl font-bold text-foreground">Callit</h1>
-          <p className="text-sm text-muted-foreground font-body mt-2">
+          <p className="text-sm text-muted-foreground mt-2">
             The prediction market for opinions everyone has.
           </p>
         </div>
@@ -239,7 +249,10 @@ const Auth = () => {
 
           {tab === "signup" && (
             <p className="text-[11px] text-muted-foreground text-center">
-              By signing up you agree to our Terms and Privacy Policy
+              By signing up you agree to our{" "}
+              <button onClick={() => navigate("/terms")} className="text-gold hover:underline">Terms</button>
+              {" "}and{" "}
+              <button onClick={() => navigate("/privacy")} className="text-gold hover:underline">Privacy Policy</button>
             </p>
           )}
 
@@ -261,6 +274,7 @@ const Auth = () => {
         </p>
       </motion.div>
 
+      {/* Gift animation */}
       <AnimatePresence>
         {showGift && (
           <motion.div
