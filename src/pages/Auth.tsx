@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Coins, ArrowLeft } from "lucide-react";
+import { Coins, ArrowLeft, Mail, KeyRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
@@ -38,15 +38,20 @@ const CountUp = ({ target }: { target: number }) => {
   return <span>{current.toLocaleString()}</span>;
 };
 
+type AuthStep = "auth" | "verify-email" | "verify-otp";
+
 const Auth = () => {
   const navigate = useNavigate();
   const { setUser } = useApp();
   const [tab, setTab] = useState<"signup" | "login">("signup");
+  const [step, setStep] = useState<AuthStep>("auth");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
   const [showGift, setShowGift] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
@@ -61,7 +66,6 @@ const Auth = () => {
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
-
     try {
       if (tab === "signup") {
         const { data: supaUser, error: signUpError } = await supabase.auth.signUp({
@@ -71,43 +75,34 @@ const Auth = () => {
         });
         if (signUpError) throw signUpError;
 
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            id: supaUser.user?.id,
-            username: name,
-            balance: 1000,
-          })
-          .select()
-          .single();
-        if (profileError) throw profileError;
+        if (supaUser.user && !supaUser.user.confirmed_at) {
+          // Email confirmation required — show OTP screen
+          setStep("verify-email");
+          toast.success("Check your email for a confirmation code!");
+        } else {
+          // Email confirmation not required (dev mode)
+          await createProfile(supaUser.user?.id!, name);
+        }
 
-        setUser({
-          username: profile.username,
-          displayName: profile.username,
-          initials: profile.username.slice(0, 2).toUpperCase(),
-          bio: profile.bio || "Calling it like I see it",
-          balance: profile.balance || 1000,
-          joinDate: new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" }),
-          wins: profile.wins || 0,
-          losses: profile.losses || 0,
-          total_calls: profile.total_calls || 0,
-          avatar: profile.avatar_url || "",
-        });
-
-        setShowGift(true);
       } else {
         const { data: loginUser, error: loginError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
-        if (loginError) throw loginError;
+        if (loginError) {
+          if (loginError.message.includes("Email not confirmed")) {
+            // Resend OTP and show verify screen
+            await supabase.auth.resend({ type: "signup", email });
+            setStep("verify-email");
+            toast.info("Please verify your email first. A new code was sent!");
+          } else {
+            throw loginError;
+          }
+          return;
+        }
 
         const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", loginUser.user?.id)
-          .single();
+          .from("profiles").select("*").eq("id", loginUser.user?.id).single();
         if (profileError) throw profileError;
 
         setUser({
@@ -116,17 +111,14 @@ const Auth = () => {
           initials: profile.username.slice(0, 2).toUpperCase(),
           bio: profile.bio || "Calling it like I see it",
           balance: profile.balance || 0,
-          joinDate: new Date(profile.created_at).toLocaleDateString("en-US", {
-            month: "short",
-            year: "numeric",
-          }),
+          joinDate: new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
           wins: profile.wins || 0,
           losses: profile.losses || 0,
           total_calls: profile.total_calls || 0,
           avatar: profile.avatar_url || "",
         });
 
-        toast.success("Successfully logged in");
+        toast.success("Welcome back!");
         navigate("/");
       }
     } catch (err: any) {
@@ -136,16 +128,165 @@ const Auth = () => {
     }
   };
 
+  const handleVerifyOtp = async () => {
+    if (otp.length < 6) { toast.error("Enter the 6-digit code"); return; }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: otp,
+        type: "email",
+      });
+      if (error) throw error;
+
+      if (tab === "signup") {
+        await createProfile(data.user?.id!, name);
+      } else {
+        const { data: profile } = await supabase
+          .from("profiles").select("*").eq("id", data.user?.id).single();
+        if (profile) {
+          setUser({
+            username: profile.username,
+            displayName: profile.username,
+            initials: profile.username.slice(0, 2).toUpperCase(),
+            bio: profile.bio || "Calling it like I see it",
+            balance: profile.balance || 0,
+            joinDate: new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+            wins: profile.wins || 0,
+            losses: profile.losses || 0,
+            total_calls: profile.total_calls || 0,
+            avatar: profile.avatar_url || "",
+          });
+          toast.success("Welcome back!");
+          navigate("/");
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Invalid or expired code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createProfile = async (userId: string, username: string) => {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .upsert({ id: userId, username, balance: 1000 })
+      .select().single();
+    if (profileError) throw profileError;
+
+    setUser({
+      username: profile.username,
+      displayName: profile.username,
+      initials: profile.username.slice(0, 2).toUpperCase(),
+      bio: profile.bio || "Calling it like I see it",
+      balance: profile.balance || 1000,
+      joinDate: new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+      wins: 0, losses: 0, total_calls: 0, avatar: "",
+    });
+    setShowGift(true);
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    try {
+      await supabase.auth.resend({ type: "signup", email });
+      toast.success("New code sent to your email!");
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
+  // OTP Verification Screen
+  if (step === "verify-email") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center px-4 py-16 relative">
+        <button
+          onClick={() => setStep("auth")}
+          className="absolute top-6 left-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gold transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-md"
+        >
+          {/* Icon */}
+          <div className="flex justify-center mb-6">
+            <div className="h-16 w-16 rounded-2xl bg-gold/10 border border-gold/30 flex items-center justify-center">
+              <Mail className="h-8 w-8 text-gold" />
+            </div>
+          </div>
+
+          <div className="text-center mb-8">
+            <h1 className="font-headline text-3xl font-bold text-foreground mb-2">
+              Check your email
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              We sent a 6-digit code to
+            </p>
+            <p className="text-gold font-semibold text-sm mt-1">{email}</p>
+          </div>
+
+          <div className="bg-card border border-border rounded-2xl p-8 space-y-5">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">
+                Confirmation Code
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                placeholder="000000"
+                className="w-full rounded-lg border border-border bg-secondary px-4 py-4 text-3xl font-bold text-center text-foreground tracking-[0.5em] placeholder:text-muted-foreground/30 focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all"
+              />
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleVerifyOtp}
+              disabled={loading || otp.length < 6}
+              className="w-full rounded-full bg-gold py-3.5 text-sm font-semibold text-primary-foreground hover:bg-gold-hover transition-colors animate-gold-pulse disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              <KeyRound className="h-4 w-4" />
+              {loading ? "Verifying..." : "Verify & Continue"}
+            </motion.button>
+
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground mb-2">Didn't receive it?</p>
+              <button
+                onClick={handleResend}
+                disabled={resending}
+                className="text-gold text-sm font-semibold hover:text-gold-hover transition-colors disabled:opacity-50"
+              >
+                {resending ? "Sending..." : "Resend code"}
+              </button>
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            Code expires in 10 minutes
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Main Auth Screen
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-16 relative">
-
-      {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
         className="absolute top-6 left-6 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gold transition-colors"
       >
-        <ArrowLeft className="h-4 w-4" />
-        Back
+        <ArrowLeft className="h-4 w-4" /> Back
       </button>
 
       <motion.div
@@ -197,9 +338,7 @@ const Auth = () => {
                     placeholder="What should we call you?"
                     className="w-full rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all"
                   />
-                  {errors.name && (
-                    <p className="text-[11px] text-destructive mt-1">{errors.name}</p>
-                  )}
+                  {errors.name && <p className="text-[11px] text-destructive mt-1">{errors.name}</p>}
                 </div>
               </motion.div>
             )}
@@ -216,9 +355,7 @@ const Auth = () => {
               placeholder="you@example.com"
               className="w-full rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all"
             />
-            {errors.email && (
-              <p className="text-[11px] text-destructive mt-1">{errors.email}</p>
-            )}
+            {errors.email && <p className="text-[11px] text-destructive mt-1">{errors.email}</p>}
           </div>
 
           <div>
@@ -232,9 +369,7 @@ const Auth = () => {
               placeholder="Min 6 characters"
               className="w-full rounded-lg border border-border bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all"
             />
-            {errors.password && (
-              <p className="text-[11px] text-destructive mt-1">{errors.password}</p>
-            )}
+            {errors.password && <p className="text-[11px] text-destructive mt-1">{errors.password}</p>}
           </div>
 
           <motion.button
@@ -288,7 +423,6 @@ const Auth = () => {
                 <CoinParticle key={i} delay={p.delay} x={p.x} />
               ))}
             </div>
-
             <div className="relative z-10 text-center space-y-6 px-6 max-w-md w-full">
               <motion.h1
                 className="font-headline text-4xl sm:text-5xl text-foreground"
@@ -298,7 +432,6 @@ const Auth = () => {
               >
                 You're in.
               </motion.h1>
-
               <motion.p
                 className="font-headline text-5xl sm:text-6xl font-bold text-gold"
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -307,7 +440,6 @@ const Auth = () => {
               >
                 +<CountUp target={1000} /> coins
               </motion.p>
-
               <motion.p
                 className="text-sm text-muted-foreground"
                 initial={{ opacity: 0 }}
@@ -316,7 +448,6 @@ const Auth = () => {
               >
                 Welcome, {name || "caller"}. Your opinions matter here.
               </motion.p>
-
               <motion.button
                 onClick={() => { setShowGift(false); navigate("/"); }}
                 className="w-full rounded-full bg-gold py-3.5 text-base font-semibold text-primary-foreground hover:bg-gold-hover transition-colors animate-gold-pulse"
