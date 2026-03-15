@@ -28,6 +28,14 @@ const sportEmojis: Record<string, string> = {
     cricket: "🏏", athletics: "🏅", esports: "🎮",
 };
 
+const CALL_COLORS = [
+    "border-[#F5C518]/40 bg-[#F5C518]/10 text-[#F5C518] hover:bg-[#F5C518]/20 hover:shadow-[0_0_14px_rgba(245,197,24,0.3)]",
+    "border-[#00C278]/40 bg-[#00C278]/10 text-[#00C278] hover:bg-[#00C278]/20 hover:shadow-[0_0_14px_rgba(0,194,120,0.3)]",
+    "border-[#3B82F6]/40 bg-[#3B82F6]/10 text-[#3B82F6] hover:bg-[#3B82F6]/20 hover:shadow-[0_0_14px_rgba(59,130,246,0.3)]",
+    "border-[#A855F7]/40 bg-[#A855F7]/10 text-[#A855F7] hover:bg-[#A855F7]/20 hover:shadow-[0_0_14px_rgba(168,85,247,0.3)]",
+    "border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316] hover:bg-[#F97316]/20 hover:shadow-[0_0_14px_rgba(249,115,22,0.3)]",
+];
+
 const TopicPage = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
@@ -51,7 +59,6 @@ const TopicPage = () => {
     }, [topic, activeSubtopic, activeFilter]);
 
     const fetchTopicData = async (topicSlug: string) => {
-        // Load all categories for left column
         const { data: cats } = await supabase
             .from("topics").select("name, slug, icon")
             .eq("type", "category").eq("active", true).order("name");
@@ -145,6 +152,10 @@ const TopicPage = () => {
         return acc;
     }, {});
 
+    const selectedOptions = selectedOpinion && Array.isArray(selectedOpinion.options)
+        ? selectedOpinion.options.map((o: string) => ({ label: o, percent: Math.round(100 / selectedOpinion.options.length) }))
+        : [{ label: "Yes", percent: 50 }, { label: "No", percent: 50 }];
+
     if (loading) return (
         <div className="min-h-screen bg-background">
             <Navbar />
@@ -154,26 +165,27 @@ const TopicPage = () => {
         </div>
     );
 
-    const selectedOptions = selectedOpinion && Array.isArray(selectedOpinion.options)
-        ? selectedOpinion.options.map((o: string) => ({ label: o, percent: Math.round(100 / selectedOpinion.options.length) }))
-        : [{ label: "Yes", percent: 50 }, { label: "No", percent: 50 }];
-
     return (
         <div className="min-h-screen bg-background">
             <Navbar />
             <main className="mx-auto max-w-7xl px-4 md:px-6 py-8">
 
-                <button onClick={() => navigate(-1)}
-                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-gold transition-colors mb-6">
-                    <ArrowLeft className="h-4 w-4" /> Back
+                {/* Back to home */}
+                <button
+                    onClick={() => navigate("/")}
+                    className="flex items-center gap-2 text-sm text-muted-foreground hover:text-gold transition-colors mb-6"
+                >
+                    <ArrowLeft className="h-4 w-4" /> Back to Home
                 </button>
 
                 {/* THREE COLUMN LAYOUT */}
                 <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_300px] gap-6">
 
-                    {/* LEFT — All categories + subtopics */}
+                    {/* LEFT — Categories + Subtopics + Leagues */}
                     <div className="flex flex-col gap-2">
-                        <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase px-2 mb-1">Categories</h2>
+                        <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase px-2 mb-1">
+                            Categories
+                        </h2>
                         <div className="bg-card border border-border rounded-2xl overflow-hidden">
                             <button
                                 onClick={() => navigate("/topic/trending")}
@@ -183,7 +195,8 @@ const TopicPage = () => {
                                 🔥 Trending
                             </button>
                             {allCategories.map((cat) => (
-                                <button key={cat.slug}
+                                <button
+                                    key={cat.slug}
                                     onClick={() => navigate(`/topic/${cat.slug}`)}
                                     className={`flex items-center gap-2.5 w-full px-4 py-3 text-sm font-medium hover:bg-secondary transition-colors border-b border-border last:border-0 ${slug === cat.slug ? "bg-gold/10 text-gold font-semibold" : "text-muted-foreground"
                                         }`}
@@ -195,8 +208,10 @@ const TopicPage = () => {
 
                         {/* Subtopics */}
                         {subtopics.length > 0 && (
-                            <div className="mt-4">
-                                <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase px-2 mb-2">Subtopics</h2>
+                            <div className="mt-3">
+                                <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase px-2 mb-2">
+                                    Subtopics
+                                </h2>
                                 <div className="bg-card border border-border rounded-2xl overflow-hidden">
                                     <button
                                         onClick={() => setActiveSubtopic(null)}
@@ -206,7 +221,8 @@ const TopicPage = () => {
                                         All {topic?.name}
                                     </button>
                                     {subtopics.map(sub => (
-                                        <button key={sub.id}
+                                        <button
+                                            key={sub.id}
                                             onClick={() => setActiveSubtopic(sub.slug)}
                                             className={`flex items-center gap-2 w-full px-4 py-3 text-sm font-medium hover:bg-secondary transition-colors border-b border-border last:border-0 ${activeSubtopic === sub.slug ? "bg-gold/10 text-gold font-semibold" : "text-muted-foreground"
                                                 }`}
@@ -218,10 +234,12 @@ const TopicPage = () => {
                             </div>
                         )}
 
-                        {/* Sports leagues */}
+                        {/* Sports Leagues */}
                         {topic?.slug === "sports" && Object.keys(groupedLeagues).length > 0 && (
-                            <div className="mt-4">
-                                <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase px-2 mb-2">Leagues</h2>
+                            <div className="mt-3">
+                                <h2 className="text-xs font-bold tracking-wider text-muted-foreground uppercase px-2 mb-2">
+                                    Leagues
+                                </h2>
                                 {(Object.entries(groupedLeagues) as [string, League[]][]).map(([sport, sportLeagues]) => (
                                     <div key={sport} className="mb-3">
                                         <p className="text-[10px] font-bold text-muted-foreground uppercase px-2 mb-1 flex items-center gap-1">
@@ -229,13 +247,16 @@ const TopicPage = () => {
                                         </p>
                                         <div className="bg-card border border-border rounded-xl overflow-hidden">
                                             {sportLeagues.map((league) => (
-                                                <button key={league.id}
+                                                <button
+                                                    key={league.id}
                                                     onClick={() => navigate(`/topic/${league.slug}`)}
                                                     className="flex items-center gap-2 w-full px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-gold transition-colors border-b border-border last:border-0"
                                                     style={{ borderLeftColor: league.color || "#F5C518", borderLeftWidth: 2 }}
                                                 >
                                                     {league.name}
-                                                    {league.country && <span className="text-[10px] opacity-50 ml-auto">{league.country}</span>}
+                                                    {league.country && (
+                                                        <span className="text-[10px] opacity-50 ml-auto">{league.country}</span>
+                                                    )}
                                                 </button>
                                             ))}
                                         </div>
@@ -247,10 +268,11 @@ const TopicPage = () => {
 
                     {/* CENTER — Opinions feed */}
                     <div className="flex flex-col gap-4">
-                        {/* Topic header */}
                         <div className="flex items-center gap-3 mb-2">
-                            <div className="h-10 w-10 rounded-xl flex items-center justify-center text-2xl border border-border"
-                                style={{ background: (topic?.color || "#F5C518") + "20" }}>
+                            <div
+                                className="h-10 w-10 rounded-xl flex items-center justify-center text-2xl border border-border"
+                                style={{ background: (topic?.color || "#F5C518") + "20" }}
+                            >
                                 {topic?.icon}
                             </div>
                             <div>
@@ -262,7 +284,9 @@ const TopicPage = () => {
                         {/* Filters */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {filters.map(f => (
-                                <button key={f.id} onClick={() => setActiveFilter(f.id)}
+                                <button
+                                    key={f.id}
+                                    onClick={() => setActiveFilter(f.id)}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${activeFilter === f.id
                                             ? "bg-foreground text-background border-foreground"
                                             : "border-border text-muted-foreground hover:border-gold/50 hover:text-gold"
@@ -283,9 +307,11 @@ const TopicPage = () => {
                         ) : opinions.length > 0 ? (
                             <motion.div className="flex flex-col gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                                 {opinions.map((op, i) => (
-                                    <div key={op.id}
-                                        onClick={() => { setSelectedOpinion(op); }}
-                                        className={`cursor-pointer transition-all ${selectedOpinion?.id === op.id ? "ring-2 ring-gold rounded-2xl" : ""}`}
+                                    <div
+                                        key={op.id}
+                                        onClick={() => setSelectedOpinion(op)}
+                                        className={`cursor-pointer transition-all ${selectedOpinion?.id === op.id ? "ring-2 ring-gold rounded-2xl" : ""
+                                            }`}
                                     >
                                         <OpinionCard data={mapToCard(op)} index={i} />
                                     </div>
@@ -295,48 +321,45 @@ const TopicPage = () => {
                             <div className="py-20 text-center border border-dashed border-border rounded-2xl">
                                 <p className="text-3xl mb-3">{topic?.icon}</p>
                                 <p className="text-muted-foreground">No opinions yet in {topic?.name}.</p>
-                                <button onClick={() => navigate("/call-it")} className="mt-4 text-gold font-bold hover:underline">
+                                <button
+                                    onClick={() => navigate("/call-it")}
+                                    className="mt-4 text-gold font-bold hover:underline"
+                                >
                                     Be the first to call it →
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {/* RIGHT — Selected opinion call panel */}
+                    {/* RIGHT — Call panel */}
                     <div className="hidden lg:block">
-                        <div className="sticky top-24 flex flex-col gap-4">
+                        <div className="sticky top-24">
                             {selectedOpinion ? (
                                 <div className="bg-card border border-gold/30 rounded-2xl p-5">
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className="h-7 w-7 rounded-full bg-gold/10 flex items-center justify-center text-sm border border-gold/30">
                                             {selectedOpinion.topics?.icon || "📰"}
                                         </div>
-                                        <span className="text-xs font-semibold text-gold uppercase">
+                                        <span className="text-xs font-semibold text-gold uppercase tracking-wider">
                                             {selectedOpinion.topics?.name || "General"}
                                         </span>
                                     </div>
-                                    <h3 className="font-semibold text-foreground text-sm leading-snug mb-4 line-clamp-3">
+
+                                    <h3 className="font-semibold text-foreground text-base leading-snug mb-5 line-clamp-4">
                                         {selectedOpinion.statement}
                                     </h3>
 
                                     <div className="flex flex-col gap-2 mb-4">
-                                        {selectedOptions.map((opt: any, i: number) => {
-                                            const colors = [
-                                                "border-gold/40 bg-gold/10 text-gold hover:bg-gold/20 hover:shadow-[0_0_14px_rgba(245,197,24,0.3)]",
-                                                "border-green-500/40 bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:shadow-[0_0_14px_rgba(34,197,94,0.3)]",
-                                                "border-blue-500/40 bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 hover:shadow-[0_0_14px_rgba(59,130,246,0.3)]",
-                                                "border-purple-500/40 bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 hover:shadow-[0_0_14px_rgba(168,85,247,0.3)]",
-                                            ];
-                                            return (
-                                                <button key={i}
-                                                    onClick={() => navigate(`/opinion/${selectedOpinion.id}`)}
-                                                    className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${colors[i % colors.length]}`}
-                                                >
-                                                    <span>{opt.label}</span>
-                                                    <span>{opt.percent}%</span>
-                                                </button>
-                                            );
-                                        })}
+                                        {selectedOptions.map((opt: any, i: number) => (
+                                            <button
+                                                key={i}
+                                                onClick={() => navigate(`/opinion/${selectedOpinion.id}`)}
+                                                className={`flex items-center justify-between px-4 py-3 rounded-xl border-2 text-sm font-bold transition-all ${CALL_COLORS[i % CALL_COLORS.length]}`}
+                                            >
+                                                <span>{opt.label}</span>
+                                                <span>{opt.percent}%</span>
+                                            </button>
+                                        ))}
                                     </div>
 
                                     <button

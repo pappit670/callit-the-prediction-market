@@ -21,37 +21,43 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
 
   return (
     <motion.div
-      className="w-full bg-card border border-border rounded-2xl p-6 cursor-pointer hover:border-gold/50 transition-all"
+      className="w-full bg-card border border-border rounded-2xl p-7 cursor-pointer hover:border-gold/50 transition-all min-h-[480px] flex flex-col justify-between"
       onClick={onClick}
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.35 }}
     >
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="h-9 w-9 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-lg shrink-0">
-            {opinion.topics?.icon || "📰"}
+      <div>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-10 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-xl shrink-0">
+              {opinion.topics?.icon || "📰"}
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gold uppercase tracking-wider">
+                {opinion.topics?.name || "General"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">Featured Opinion</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-bold text-gold uppercase tracking-wider">
-              {opinion.topics?.name || "General"}
-            </p>
-            <p className="text-[10px] text-muted-foreground">Featured Opinion</p>
-          </div>
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            <Users className="h-3 w-3" /> {opinion.call_count || 0} callers
+          </span>
         </div>
-        <span className="text-xs text-muted-foreground flex items-center gap-1">
-          <Users className="h-3 w-3" /> {opinion.call_count || 0} callers
-        </span>
+
+        {/* Question — big */}
+        <h2 className="font-headline text-4xl md:text-5xl font-bold text-foreground leading-tight mb-8">
+          {opinion.statement}
+        </h2>
+
+        {/* Graph */}
+        <MiniGraph options={displayOptions} seed={seed} />
       </div>
 
-      <h2 className="font-headline text-3xl md:text-4xl font-bold text-foreground leading-tight mb-6">
-        {opinion.statement}
-      </h2>
-
-      <MiniGraph options={displayOptions} seed={seed} />
-
-      <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
+      {/* Footer */}
+      <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
         <span className="text-sm text-muted-foreground flex items-center gap-1.5">
           <Timer className="h-3.5 w-3.5" /> {timeLeft}
         </span>
@@ -77,7 +83,6 @@ const Index = () => {
     if (hasSeenHero) fetchData();
   }, [hasSeenHero, sort, page]);
 
-  // Auto-rotate featured every 6s
   useEffect(() => {
     if (featured.length < 2) return;
     const t = setInterval(() => setFeaturedIndex(i => (i + 1) % featured.length), 6000);
@@ -156,7 +161,7 @@ const Index = () => {
             <p className="text-lg text-muted-foreground max-w-md mx-auto">
               The prediction market where your takes get tested. Call it. Own it.
             </p>
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-4 flex-wrap">
               <button
                 onClick={() => setHasSeenHero(true)}
                 className="rounded-full bg-gold px-10 py-4 text-lg font-bold text-primary-foreground hover:bg-gold-hover hover:scale-105 transition-all shadow-xl animate-gold-pulse"
@@ -182,7 +187,7 @@ const Index = () => {
       <Navbar />
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-8 pb-24">
 
-        {/* Top section: Carousel LEFT + Breaking RIGHT */}
+        {/* Top: Carousel LEFT + Breaking RIGHT */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8 mb-14">
 
           {/* LEFT — Featured Carousel */}
@@ -221,7 +226,7 @@ const Index = () => {
             </div>
 
             {loading && featured.length === 0 ? (
-              <div className="h-80 rounded-2xl bg-secondary animate-pulse" />
+              <div className="h-[480px] rounded-2xl bg-secondary animate-pulse" />
             ) : featured.length > 0 ? (
               <AnimatePresence mode="wait">
                 <FeaturedCard
@@ -239,11 +244,13 @@ const Index = () => {
               <Zap className="h-3.5 w-3.5 text-gold" /> Breaking
             </h2>
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
-              {breaking.map((item, i) => (
+              {breaking.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground text-center">Loading...</div>
+              ) : breaking.map((item, i) => (
                 <button
                   key={item.id}
                   onClick={() => navigate(`/opinion/${item.id}`)}
-                  className="flex items-start gap-3 w-full px-4 py-3 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors text-left group"
+                  className="flex items-start gap-3 w-full px-4 py-3.5 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors text-left group"
                 >
                   <span className="text-xs text-muted-foreground font-mono mt-0.5 shrink-0 w-4">{i + 1}.</span>
                   <div className="flex-1 min-w-0">
@@ -298,7 +305,6 @@ const Index = () => {
             </button>
           </div>
         </section>
-
       </main>
     </div>
   );
