@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Bookmark, Activity, Timer, Share2, MessageCircle, Eye, Users, CheckCircle2, XCircle, Bell } from "lucide-react";
+import { Bookmark, Activity, Timer, Share2, MessageCircle, Eye, Users, CheckCircle2, XCircle, Bell, TrendingUp, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
@@ -27,72 +27,31 @@ export interface OpinionCardData {
   options?: { label: string; percent: number }[];
   leagueName?: string;
   creatorUsername?: string;
+  creatorReputation?: number;
   createdAt?: string;
   commentCount?: number;
   watcherCount?: number;
+  followerCount?: number;
+  risingScore?: number;
+  isRising?: boolean;
 }
 
 const CARD_THEMES = [
-  {
-    accent: "#F5C518",
-    borderHover: "hover:border-[#F5C518]/60",
-    shadow: "hover:shadow-[0_0_24px_rgba(245,197,24,0.15)]",
-    badge: "bg-[#F5C518]/10 text-[#F5C518]",
-    topBorder: "border-t-[#F5C518]",
-  },
-  {
-    accent: "#00C278",
-    borderHover: "hover:border-[#00C278]/60",
-    shadow: "hover:shadow-[0_0_24px_rgba(0,194,120,0.15)]",
-    badge: "bg-[#00C278]/10 text-[#00C278]",
-    topBorder: "border-t-[#00C278]",
-  },
-  {
-    accent: "#3B82F6",
-    borderHover: "hover:border-[#3B82F6]/60",
-    shadow: "hover:shadow-[0_0_24px_rgba(59,130,246,0.15)]",
-    badge: "bg-[#3B82F6]/10 text-[#3B82F6]",
-    topBorder: "border-t-[#3B82F6]",
-  },
-  {
-    accent: "#A855F7",
-    borderHover: "hover:border-[#A855F7]/60",
-    shadow: "hover:shadow-[0_0_24px_rgba(168,85,247,0.15)]",
-    badge: "bg-[#A855F7]/10 text-[#A855F7]",
-    topBorder: "border-t-[#A855F7]",
-  },
-  {
-    accent: "#F97316",
-    borderHover: "hover:border-[#F97316]/60",
-    shadow: "hover:shadow-[0_0_24px_rgba(249,115,22,0.15)]",
-    badge: "bg-[#F97316]/10 text-[#F97316]",
-    topBorder: "border-t-[#F97316]",
-  },
-  {
-    accent: "#F43F5E",
-    borderHover: "hover:border-[#F43F5E]/60",
-    shadow: "hover:shadow-[0_0_24px_rgba(244,63,94,0.15)]",
-    badge: "bg-[#F43F5E]/10 text-[#F43F5E]",
-    topBorder: "border-t-[#F43F5E]",
-  },
-  {
-    accent: "#06B6D4",
-    borderHover: "hover:border-[#06B6D4]/60",
-    shadow: "hover:shadow-[0_0_24px_rgba(6,182,212,0.15)]",
-    badge: "bg-[#06B6D4]/10 text-[#06B6D4]",
-    topBorder: "border-t-[#06B6D4]",
-  },
+  { accent: "#F5C518", borderHover: "hover:border-[#F5C518]/60", shadow: "hover:shadow-[0_0_24px_rgba(245,197,24,0.15)]", badge: "bg-[#F5C518]/10 text-[#F5C518]" },
+  { accent: "#00C278", borderHover: "hover:border-[#00C278]/60", shadow: "hover:shadow-[0_0_24px_rgba(0,194,120,0.15)]", badge: "bg-[#00C278]/10 text-[#00C278]" },
+  { accent: "#3B82F6", borderHover: "hover:border-[#3B82F6]/60", shadow: "hover:shadow-[0_0_24px_rgba(59,130,246,0.15)]", badge: "bg-[#3B82F6]/10 text-[#3B82F6]" },
+  { accent: "#A855F7", borderHover: "hover:border-[#A855F7]/60", shadow: "hover:shadow-[0_0_24px_rgba(168,85,247,0.15)]", badge: "bg-[#A855F7]/10 text-[#A855F7]" },
+  { accent: "#F97316", borderHover: "hover:border-[#F97316]/60", shadow: "hover:shadow-[0_0_24px_rgba(249,115,22,0.15)]", badge: "bg-[#F97316]/10 text-[#F97316]" },
+  { accent: "#F43F5E", borderHover: "hover:border-[#F43F5E]/60", shadow: "hover:shadow-[0_0_24px_rgba(244,63,94,0.15)]", badge: "bg-[#F43F5E]/10 text-[#F43F5E]" },
+  { accent: "#06B6D4", borderHover: "hover:border-[#06B6D4]/60", shadow: "hover:shadow-[0_0_24px_rgba(6,182,212,0.15)]", badge: "bg-[#06B6D4]/10 text-[#06B6D4]" },
 ];
 
-// Per option colors — cycle through independently of card theme
 const OPTION_COLORS = [
   { hex: "#F5C518", border: "border-[#F5C518]/40", bg: "bg-[#F5C518]/10", text: "text-[#F5C518]", hover: "hover:border-[#F5C518] hover:bg-[#F5C518]/20 hover:shadow-[0_0_16px_rgba(245,197,24,0.35)]" },
   { hex: "#00C278", border: "border-[#00C278]/40", bg: "bg-[#00C278]/10", text: "text-[#00C278]", hover: "hover:border-[#00C278] hover:bg-[#00C278]/20 hover:shadow-[0_0_16px_rgba(0,194,120,0.35)]" },
   { hex: "#3B82F6", border: "border-[#3B82F6]/40", bg: "bg-[#3B82F6]/10", text: "text-[#3B82F6]", hover: "hover:border-[#3B82F6] hover:bg-[#3B82F6]/20 hover:shadow-[0_0_16px_rgba(59,130,246,0.35)]" },
   { hex: "#A855F7", border: "border-[#A855F7]/40", bg: "bg-[#A855F7]/10", text: "text-[#A855F7]", hover: "hover:border-[#A855F7] hover:bg-[#A855F7]/20 hover:shadow-[0_0_16px_rgba(168,85,247,0.35)]" },
   { hex: "#F97316", border: "border-[#F97316]/40", bg: "bg-[#F97316]/10", text: "text-[#F97316]", hover: "hover:border-[#F97316] hover:bg-[#F97316]/20 hover:shadow-[0_0_16px_rgba(249,115,22,0.35)]" },
-  { hex: "#F43F5E", border: "border-[#F43F5E]/40", bg: "bg-[#F43F5E]/10", text: "text-[#F43F5E]", hover: "hover:border-[#F43F5E] hover:bg-[#F43F5E]/20 hover:shadow-[0_0_16px_rgba(244,63,94,0.35)]" },
-  { hex: "#06B6D4", border: "border-[#06B6D4]/40", bg: "bg-[#06B6D4]/10", text: "text-[#06B6D4]", hover: "hover:border-[#06B6D4] hover:bg-[#06B6D4]/20 hover:shadow-[0_0_16px_rgba(6,182,212,0.35)]" },
 ];
 
 function timeAgo(dateStr?: string): string {
@@ -107,13 +66,26 @@ function timeAgo(dateStr?: string): string {
   return "just now";
 }
 
+function formatCount(n: number): string {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
+  if (n >= 1000) return (n / 1000).toFixed(1) + "K";
+  return String(n);
+}
+
+function reputationColor(score?: number): string {
+  if (!score) return "text-muted-foreground";
+  if (score >= 75) return "text-[#00C278]";
+  if (score >= 50) return "text-[#F5C518]";
+  return "text-[#EF4444]";
+}
+
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
   const {
     question, yesPercent, noPercent, coins, timeLeft, genre,
-    topicIcon, topicColor, status = "open",
+    topicIcon, status = "open",
     isLiveGame, homeTeam, awayTeam, homeScore, awayScore, matchMinute,
-    options, leagueName, creatorUsername, createdAt,
-    commentCount = 0, watcherCount = 0,
+    options, leagueName, creatorUsername, creatorReputation, createdAt,
+    commentCount = 0, followerCount = 0, isRising = false,
   } = data;
 
   const navigate = useNavigate();
@@ -123,7 +95,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const [followed, setFollowed] = useState(false);
   const [showMore, setShowMore] = useState(false);
 
-  // Each card gets a unique theme based on index
   const theme = CARD_THEMES[index % CARD_THEMES.length];
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
   const cleanGenre = genre.replace(/\s*[\u{1F000}-\u{1FFFF}]/u, "").trim();
@@ -132,12 +103,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     e.stopPropagation();
     if (!isLoggedIn) { toast.error("Log in to make a call!"); navigate("/auth"); return; }
     setStakeModal({ side, optionLabel: label });
-  };
-
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(window.location.origin + "/opinion/" + data.id);
-    toast.success("Link copied!");
   };
 
   const handleFollow = (e: React.MouseEvent) => {
@@ -149,7 +114,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
 
   const handleDiscuss = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/opinion/${data.id}#comments`);
+    navigate(`/opinion/${data.id}#debate`);
   };
 
   return (
@@ -166,18 +131,21 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
 
           {/* Header */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div
                 className="h-7 w-7 rounded-full flex items-center justify-center text-sm border bg-secondary flex-shrink-0"
                 style={{ borderColor: theme.accent + "50" }}
               >
                 {topicIcon || "📰"}
               </div>
-              <span
-                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${theme.badge}`}
-              >
+              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${theme.badge}`}>
                 {cleanGenre}
               </span>
+              {isRising && (
+                <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-500/10 text-orange-500">
+                  <TrendingUp className="h-2.5 w-2.5" /> Rising
+                </span>
+              )}
               {isLive && (
                 <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-destructive/10 text-destructive">
                   <span className="w-1 h-1 rounded-full bg-destructive animate-pulse inline-block" />
@@ -185,14 +153,21 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-shrink-0">
               <button
                 className={`p-1 transition-colors ${followed ? "text-gold" : "text-muted-foreground hover:text-gold"}`}
                 onClick={handleFollow}
               >
                 <Bell className={`h-3.5 w-3.5 ${followed ? "fill-gold" : ""}`} />
               </button>
-              <button className="text-muted-foreground hover:text-gold transition-colors p-1" onClick={handleShare}>
+              <button
+                className="text-muted-foreground hover:text-gold transition-colors p-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigator.clipboard.writeText(window.location.origin + "/opinion/" + data.id);
+                  toast.success("Link copied!");
+                }}
+              >
                 <Share2 className="h-3.5 w-3.5" />
               </button>
               <button
@@ -204,9 +179,10 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           </div>
 
-          {/* League */}
           {leagueName && (
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold -mt-1">{leagueName}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold -mt-1">
+              {leagueName}
+            </p>
           )}
 
           {/* Live Score */}
@@ -232,12 +208,15 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             {question}
           </h3>
 
-          {/* Creator + time */}
-          {(creatorUsername || createdAt) && (
-            <div className="flex items-center gap-2 -mt-1">
-              {creatorUsername && (
-                <span className="text-[11px] text-muted-foreground">
-                  by <span className="font-semibold" style={{ color: theme.accent }}>@{creatorUsername}</span>
+          {/* Creator + reputation */}
+          {creatorUsername && (
+            <div className="flex items-center gap-2 -mt-1 flex-wrap">
+              <span className="text-[11px] text-muted-foreground">
+                by <span className="font-semibold" style={{ color: theme.accent }}>@{creatorUsername}</span>
+              </span>
+              {creatorReputation !== undefined && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-secondary ${reputationColor(creatorReputation)}`}>
+                  {creatorReputation}% accuracy
                 </span>
               )}
               {createdAt && (
@@ -246,11 +225,10 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           )}
 
-          {/* Options with probability bars */}
+          {/* Probability bars */}
           {options && options.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {(showMore ? options : options.slice(0, 2)).map((opt, i) => {
-                // Options use their own color cycle independent of card theme
                 const oc = OPTION_COLORS[i % OPTION_COLORS.length];
                 const isSelected = selectedOption === opt.label;
                 return (
@@ -269,9 +247,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                         <span className={`text-sm font-bold ${isSelected ? oc.text : "text-foreground"}`}>
                           {opt.label}
                         </span>
-                        <span className="text-sm font-bold" style={{ color: oc.hex }}>
-                          {opt.percent}%
-                        </span>
+                        <span className="text-sm font-bold" style={{ color: oc.hex }}>{opt.percent}%</span>
                       </div>
                       <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
                         <div
@@ -283,18 +259,16 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                   </button>
                 );
               })}
-
               {options.length > 2 && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowMore(!showMore); }}
                   className="text-[11px] text-muted-foreground hover:text-gold py-1 transition-colors text-center"
                 >
-                  {showMore ? "↑ fewer options" : `↓ +${options.length - 2} more options`}
+                  {showMore ? "↑ fewer" : `↓ +${options.length - 2} more options`}
                 </button>
               )}
             </div>
           ) : (
-            /* Standard Yes / No */
             <div className="flex flex-col gap-1.5">
               <button
                 onClick={(e) => openStake(e, "yes")}
@@ -307,7 +281,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                     <span className="text-sm font-bold text-[#00C278]">{yesPercent}%</span>
                   </div>
                   <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
-                    <div className="h-full rounded-full bg-[#00C278] transition-all" style={{ width: `${yesPercent}%` }} />
+                    <div className="h-full rounded-full bg-[#00C278]" style={{ width: `${yesPercent}%` }} />
                   </div>
                 </div>
               </button>
@@ -322,23 +296,23 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                     <span className="text-sm font-bold text-[#EF4444]">{noPercent}%</span>
                   </div>
                   <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
-                    <div className="h-full rounded-full bg-[#EF4444] transition-all" style={{ width: `${noPercent}%` }} />
+                    <div className="h-full rounded-full bg-[#EF4444]" style={{ width: `${noPercent}%` }} />
                   </div>
                 </div>
               </button>
             </div>
           )}
 
-          {/* Social proof footer */}
+          {/* Social proof */}
           <div className="flex items-center justify-between pt-1.5 border-t border-border/50 mt-auto">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Users className="h-3 w-3" />
-                <span className="font-semibold text-foreground">{coins >= 1000 ? (coins / 1000).toFixed(1) + "K" : coins}</span>
+                <span className="font-semibold text-foreground">{formatCount(coins)}</span> callers
               </span>
-              {watcherCount > 0 && (
+              {followerCount > 0 && (
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Eye className="h-3 w-3" /> {watcherCount}
+                  <Eye className="h-3 w-3" /> {formatCount(followerCount)} watching
                 </span>
               )}
               {commentCount > 0 && (
@@ -362,25 +336,25 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           <div className="flex items-center gap-1 -mx-1 pt-1 border-t border-border/30">
             <button
               onClick={(e) => openStake(e, "yes")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#00C278] hover:bg-[#00C278]/10 transition-colors flex-1 justify-center"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-[#00C278] hover:bg-[#00C278]/10 transition-colors flex-1 justify-center"
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Agree
             </button>
             <button
               onClick={(e) => openStake(e, "no")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors flex-1 justify-center"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors flex-1 justify-center"
             >
               <XCircle className="h-3.5 w-3.5" /> Disagree
             </button>
             <button
               onClick={handleDiscuss}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors flex-1 justify-center"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors flex-1 justify-center"
             >
-              <MessageCircle className="h-3.5 w-3.5" /> Discuss
+              <Swords className="h-3.5 w-3.5" /> Debate
             </button>
             <button
               onClick={handleFollow}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors flex-1 justify-center ${followed ? "text-gold bg-gold/10" : "text-muted-foreground hover:text-gold hover:bg-gold/10"
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-colors flex-1 justify-center ${followed ? "text-gold bg-gold/10" : "text-muted-foreground hover:text-gold hover:bg-gold/10"
                 }`}
             >
               <Bell className="h-3.5 w-3.5" /> {followed ? "Following" : "Follow"}

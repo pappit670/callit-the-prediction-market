@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
-import { Zap, ChevronLeft, ChevronRight, Timer, Users } from "lucide-react";
+import { FastRisingCalls } from "@/components/FastRisingCalls";
+import { Zap, ChevronLeft, ChevronRight, Timer, Users, Plus } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
 
@@ -35,11 +36,7 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
   const optionSeries = options.map((o: string, i: number) => ({
     label: o,
     color: OPTION_HEX[i % OPTION_HEX.length],
-    data: generateFeaturedChartData(
-      basePercent + (i * 7 % 20) - 10,
-      i * 17 + 42,
-      20
-    ),
+    data: generateFeaturedChartData(basePercent + (i * 7 % 20) - 10, i * 17 + 42, 20),
   }));
 
   const timeLeft = opinion.end_time
@@ -57,7 +54,7 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.35 }}
     >
-      <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-gold/50 transition-all min-h-[500px] flex flex-col">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-gold/50 transition-all min-h-[500px] flex flex-col border-t-2 border-t-gold">
 
         {/* Header */}
         <div className="p-6 pb-4">
@@ -73,18 +70,35 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
                 <p className="text-[10px] text-muted-foreground">Featured Opinion</p>
               </div>
             </div>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <Users className="h-3 w-3" /> {opinion.call_count || 0} callers
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Users className="h-3 w-3" /> {opinion.call_count || 0} callers
+              </span>
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Timer className="h-3 w-3" /> {timeLeft}
+              </span>
+            </div>
           </div>
 
           {/* Big question */}
-          <h2 className="font-headline text-4xl md:text-5xl font-bold text-foreground leading-tight">
+          <h2 className="font-headline text-4xl md:text-5xl font-bold text-foreground leading-tight mb-2">
             {opinion.statement}
           </h2>
+
+          {/* Creator */}
+          {opinion.profiles?.username && (
+            <p className="text-sm text-muted-foreground">
+              by <span className="text-gold font-semibold">@{opinion.profiles.username}</span>
+              {opinion.profiles?.reputation_score && (
+                <span className="ml-2 text-xs text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">
+                  {Math.round(opinion.profiles.reputation_score)}% accuracy
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
-        {/* Chart — all options on one graph */}
+        {/* Chart */}
         <div className="px-3 flex-1">
           <CallitPredictionCard
             title={`${opinion.topics?.name || "Market"} Probability`}
@@ -95,9 +109,17 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border mt-2">
-          <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-            <Timer className="h-3.5 w-3.5" /> {timeLeft}
-          </span>
+          <div className="flex items-center gap-4">
+            {options.map((opt, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
+                <span className="text-xs text-muted-foreground">{opt}</span>
+                <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                  {basePercent}%
+                </span>
+              </div>
+            ))}
+          </div>
           <span className="text-sm font-bold text-gold">View Opinion →</span>
         </div>
       </div>
@@ -130,7 +152,7 @@ const Index = () => {
     try {
       let query = supabase
         .from("opinions")
-        .select("*, topics(name, slug, icon, color)")
+        .select("*, topics(name, slug, icon, color), profiles(username, reputation_score)")
         .eq("status", "open")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -175,9 +197,13 @@ const Index = () => {
     topicColor: op.topics?.color,
     status: op.status,
     creatorUsername: op.profiles?.username || null,
+    creatorReputation: op.profiles?.reputation_score
+      ? Math.round(op.profiles.reputation_score) : undefined,
     createdAt: op.created_at,
-    commentCount: op.comment_count || 0,
-    watcherCount: op.watcher_count || 0,
+    commentCount: 0,
+    followerCount: op.follower_count || 0,
+    risingScore: op.rising_score || 0,
+    isRising: (op.rising_score || 0) > 10,
     options: Array.isArray(op.options)
       ? op.options.map((o: string) => ({ label: o, percent: Math.round(100 / op.options.length) }))
       : undefined,
@@ -301,18 +327,29 @@ const Index = () => {
           </aside>
         </div>
 
-        {/* Bottom — All Calls */}
+        {/* Fast Rising Calls */}
+        <FastRisingCalls />
+
+        {/* All Calls */}
         <section>
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
             <h2 className="font-headline text-2xl font-bold text-foreground">All Calls</h2>
-            <select
-              value={sort}
-              onChange={(e) => { setSort(e.target.value); setPage(0); setOpinions([]); }}
-              className="bg-background border border-border text-sm px-3 py-1.5 rounded-lg focus:outline-none focus:border-gold transition-colors"
-            >
-              <option value="trending">Trending</option>
-              <option value="newest">Newest</option>
-            </select>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => navigate("/call-it")}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-primary-foreground text-xs font-bold hover:bg-gold-hover transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" /> Create Call
+              </button>
+              <select
+                value={sort}
+                onChange={(e) => { setSort(e.target.value); setPage(0); setOpinions([]); }}
+                className="bg-background border border-border text-sm px-3 py-1.5 rounded-lg focus:outline-none focus:border-gold transition-colors"
+              >
+                <option value="trending">Trending</option>
+                <option value="newest">Newest</option>
+              </select>
+            </div>
           </div>
 
           {loading && page === 0 ? (
@@ -330,8 +367,11 @@ const Index = () => {
           )}
 
           <div className="mt-8 flex justify-center">
-            <button onClick={() => setPage(p => p + 1)} disabled={loading}
-              className="py-3 px-8 text-sm font-bold border border-border rounded-xl hover:border-gold hover:text-gold transition-colors disabled:opacity-50">
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={loading}
+              className="py-3 px-8 text-sm font-bold border border-border rounded-xl hover:border-gold hover:text-gold transition-colors disabled:opacity-50"
+            >
               {loading ? "Loading..." : "Load More"}
             </button>
           </div>
