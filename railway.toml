@@ -1,0 +1,5 @@
+[build]
+  nixpacksPlan = "node"
+
+[nixpacks]
+  nodeVersion = "20"
