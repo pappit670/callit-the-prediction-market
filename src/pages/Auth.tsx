@@ -240,10 +240,10 @@ const Auth = () => {
               <input
                 type="text"
                 inputMode="numeric"
-                maxLength={6}
+                maxLength={8}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                placeholder="000000"
+                placeholder="00000000"
                 className="w-full rounded-lg border border-border bg-secondary px-4 py-4 text-3xl font-bold text-center text-foreground tracking-[0.5em] placeholder:text-muted-foreground/30 focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/20 transition-all"
               />
             </div>
@@ -252,7 +252,7 @@ const Auth = () => {
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleVerifyOtp}
-              disabled={loading || otp.length < 6}
+              disabled={loading || otp.length < 8}
               className="w-full rounded-full bg-gold py-3.5 text-sm font-semibold text-primary-foreground hover:bg-gold-hover transition-colors animate-gold-pulse disabled:opacity-60 flex items-center justify-center gap-2"
             >
               <KeyRound className="h-4 w-4" />
@@ -308,8 +308,8 @@ const Auth = () => {
               key={t}
               onClick={() => setTab(t)}
               className={`flex-1 py-2.5 text-sm font-semibold rounded-full transition-all duration-200 capitalize ${tab === t
-                  ? "bg-gold text-primary-foreground shadow"
-                  : "text-muted-foreground hover:text-foreground"
+                ? "bg-gold text-primary-foreground shadow"
+                : "text-muted-foreground hover:text-foreground"
                 }`}
             >
               {t === "signup" ? "Sign Up" : "Log In"}
