@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { SlidingNumber } from "@/components/ui/sliding-number";
 
 interface MiniGraphProps {
   options?: { label: string; percent: number }[];
@@ -11,7 +11,7 @@ const COLORS = ["#F5C518", "#22C55E", "#3B82F6", "#A855F7", "#F97316"];
 
 function generatePath(percent: number, seed: number, w: number, h: number): string {
   const points: [number, number][] = [];
-  const count = 20;
+  const count = 24;
   let val = 40 + (seed % 20);
   for (let i = 0; i < count; i++) {
     const noise = Math.sin(seed * 13.37 + i * 2.1) * 6 + Math.cos(seed * 7.53 + i * 3.7) * 4;
@@ -34,7 +34,7 @@ function generatePath(percent: number, seed: number, w: number, h: number): stri
 
 const MiniGraph = ({ options, yesPercent = 50, noPercent = 50, seed = 1 }: MiniGraphProps) => {
   const W = 300;
-  const H = 80;
+  const H = 72;
 
   const displayOptions = options && options.length > 0
     ? options
@@ -45,29 +45,28 @@ const MiniGraph = ({ options, yesPercent = 50, noPercent = 50, seed = 1 }: MiniG
 
   return (
     <div className="w-full">
-      {/* Chart */}
-      <div className="relative w-full" style={{ height: H }}>
+      {/* Chart area */}
+      <div className="relative w-full rounded-lg overflow-hidden bg-secondary/30" style={{ height: H }}>
         <svg
           viewBox={`0 0 ${W} ${H}`}
           width="100%"
           height={H}
           preserveAspectRatio="none"
-          className="overflow-visible"
         >
-          {/* Grid lines */}
+          {/* Subtle grid */}
           {[25, 50, 75].map(v => (
             <line
               key={v}
               x1={0} y1={H - (v / 100) * H}
               x2={W} y2={H - (v / 100) * H}
               stroke="currentColor"
-              strokeOpacity={0.06}
+              strokeOpacity={0.05}
               strokeWidth={0.5}
-              strokeDasharray="3 3"
+              strokeDasharray="4 4"
             />
           ))}
 
-          {/* Lines per option */}
+          {/* Area fills + lines */}
           {displayOptions.map((opt, i) => {
             const color = COLORS[i % COLORS.length];
             const path = generatePath(opt.percent, seed * 7 + i * 13, W, H);
@@ -76,52 +75,56 @@ const MiniGraph = ({ options, yesPercent = 50, noPercent = 50, seed = 1 }: MiniG
                 <path
                   d={path + ` L ${W} ${H} L 0 ${H} Z`}
                   fill={color}
-                  opacity={0.06}
+                  opacity={0.07}
                 />
                 <path
                   d={path}
                   fill="none"
                   stroke={color}
-                  strokeWidth={1.5}
+                  strokeWidth={1.8}
                   strokeLinecap="round"
+                  strokeLinejoin="round"
                 />
-                {/* End dot */}
+                {/* End dot with pulse ring */}
                 <circle
-                  cx={W}
+                  cx={W - 2}
                   cy={H - (opt.percent / 100) * H}
-                  r={3}
+                  r={4}
+                  fill={color}
+                  opacity={0.2}
+                />
+                <circle
+                  cx={W - 2}
+                  cy={H - (opt.percent / 100) * H}
+                  r={2.5}
                   fill={color}
                 />
               </g>
             );
           })}
         </svg>
-
-        {/* Y axis labels */}
-        <div className="absolute right-0 top-0 h-full flex flex-col justify-between pointer-events-none pr-0">
-          <span className="text-[9px] text-muted-foreground">100%</span>
-          <span className="text-[9px] text-muted-foreground">50%</span>
-          <span className="text-[9px] text-muted-foreground">0%</span>
-        </div>
       </div>
 
-      {/* Legend with percentages */}
-      <div className="flex items-center gap-3 mt-2 flex-wrap">
-        {displayOptions.map((opt, i) => (
-          <div key={i} className="flex items-center gap-1.5">
-            <div
-              className="w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: COLORS[i % COLORS.length] }}
-            />
-            <span className="text-[11px] text-muted-foreground">{opt.label}</span>
-            <span
-              className="text-[11px] font-semibold"
-              style={{ color: COLORS[i % COLORS.length] }}
-            >
-              {opt.percent}%
-            </span>
-          </div>
-        ))}
+      {/* Stats row — label + sliding percent + bar */}
+      <div className="flex flex-col gap-1.5 mt-3">
+        {displayOptions.map((opt, i) => {
+          const color = COLORS[i % COLORS.length];
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+              <span className="text-[11px] text-muted-foreground flex-shrink-0 w-16 truncate">{opt.label}</span>
+              <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${opt.percent}%`, background: color }}
+                />
+              </div>
+              <div className="text-[11px] font-semibold flex items-center flex-shrink-0" style={{ color }}>
+                <SlidingNumber value={opt.percent} /><span>%</span>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
