@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import { supabase } from "@/supabaseClient";
-import { ArrowLeft, Flame, Clock, TrendingUp, BarChart3, Users } from "lucide-react";
+import { ArrowLeft, Flame, Clock, TrendingUp, BarChart3, Users, Plus } from "lucide-react";
 
 const filters = [
     { id: "trending", label: "Trending", icon: <Flame className="h-3.5 w-3.5" /> },
@@ -46,6 +46,7 @@ const TopicPage = () => {
     const [activeSubtopic, setActiveSubtopic] = useState<string | null>(null);
     const [activeFilter, setActiveFilter] = useState("trending");
     const [opinions, setOpinions] = useState<any[]>([]);
+    const [trendingCount, setTrendingCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [opLoading, setOpLoading] = useState(false);
     const [selectedOpinion, setSelectedOpinion] = useState<any>(null);
@@ -96,7 +97,7 @@ const TopicPage = () => {
         try {
             let query = supabase
                 .from("opinions")
-                .select("*, topics(name, slug, icon, color)")
+                .select("*, topics(name, slug, icon, color), profiles(username, avatar_url)")
                 .eq("status", "open");
 
             if (topic?.slug !== "trending" && topic?.slug !== "sports") {
@@ -122,6 +123,9 @@ const TopicPage = () => {
             const { data } = await query.limit(12);
             setOpinions(data || []);
             if (data && data.length > 0) setSelectedOpinion(data[0]);
+
+            // Trending = top 5 by call count
+            setTrendingCount(Math.min(data?.length || 0, 5));
         } catch (e) { console.error(e); }
         finally { setOpLoading(false); }
     };
@@ -129,17 +133,22 @@ const TopicPage = () => {
     const mapToCard = (op: any) => ({
         id: op.id,
         question: op.statement,
-        yesPercent: 50, noPercent: 50,
-        coins: (op.call_count || 0) * 100,
+        yesPercent: 50,
+        noPercent: 50,
+        coins: op.call_count || 0,
         timeLeft: op.end_time
             ? new Date(op.end_time) > new Date()
                 ? `${Math.ceil((new Date(op.end_time).getTime() - Date.now()) / 86400000)}d left`
                 : "Ended"
-            : "30 days",
+            : "30d left",
         genre: op.topics?.name || "General",
-        topicIcon: op.topics?.icon || "📰",
+        topicIcon: op.topics?.icon,
         topicColor: op.topics?.color,
         status: op.status,
+        creatorUsername: op.profiles?.username || null,
+        createdAt: op.created_at,
+        commentCount: op.comment_count || 0,
+        watcherCount: op.watcher_count || 0,
         options: Array.isArray(op.options)
             ? op.options.map((o: string) => ({ label: o, percent: Math.round(100 / op.options.length) }))
             : undefined,
@@ -170,7 +179,7 @@ const TopicPage = () => {
             <Navbar />
             <main className="mx-auto max-w-7xl px-4 md:px-6 py-8">
 
-                {/* Back to home */}
+                {/* Back */}
                 <button
                     onClick={() => navigate("/")}
                     className="flex items-center gap-2 text-sm text-muted-foreground hover:text-gold transition-colors mb-6"
@@ -268,17 +277,38 @@ const TopicPage = () => {
 
                     {/* CENTER — Opinions feed */}
                     <div className="flex flex-col gap-4">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div
-                                className="h-10 w-10 rounded-xl flex items-center justify-center text-2xl border border-border"
-                                style={{ background: (topic?.color || "#F5C518") + "20" }}
+
+                        {/* Topic header with counts + Create Call button */}
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                                <div
+                                    className="h-10 w-10 rounded-xl flex items-center justify-center text-2xl border border-border"
+                                    style={{ background: (topic?.color || "#F5C518") + "20" }}
+                                >
+                                    {topic?.icon}
+                                </div>
+                                <div>
+                                    <h1 className="font-headline text-2xl font-bold text-foreground">{topic?.name}</h1>
+                                    <div className="flex items-center gap-3 mt-0.5">
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-yes inline-block" />
+                                            {opinions.length} active calls
+                                        </span>
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <Flame className="h-3 w-3 text-gold" />
+                                            {trendingCount} trending
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Create Call button */}
+                            <button
+                                onClick={() => navigate("/call-it")}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-primary-foreground text-xs font-bold hover:bg-gold-hover transition-all"
                             >
-                                {topic?.icon}
-                            </div>
-                            <div>
-                                <h1 className="font-headline text-2xl font-bold text-foreground">{topic?.name}</h1>
-                                <p className="text-xs text-muted-foreground">{opinions.length} open calls</p>
-                            </div>
+                                <Plus className="h-3.5 w-3.5" /> Create Call
+                            </button>
                         </div>
 
                         {/* Filters */}
@@ -336,6 +366,8 @@ const TopicPage = () => {
                         <div className="sticky top-24">
                             {selectedOpinion ? (
                                 <div className="bg-card border border-gold/30 rounded-2xl p-5">
+
+                                    {/* Topic tag */}
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className="h-7 w-7 rounded-full bg-gold/10 flex items-center justify-center text-sm border border-gold/30">
                                             {selectedOpinion.topics?.icon || "📰"}
@@ -345,10 +377,19 @@ const TopicPage = () => {
                                         </span>
                                     </div>
 
-                                    <h3 className="font-semibold text-foreground text-base leading-snug mb-5 line-clamp-4">
+                                    {/* Question */}
+                                    <h3 className="font-semibold text-foreground text-base leading-snug mb-1 line-clamp-4">
                                         {selectedOpinion.statement}
                                     </h3>
 
+                                    {/* Creator */}
+                                    {selectedOpinion.profiles?.username && (
+                                        <p className="text-xs text-muted-foreground mb-4">
+                                            by <span className="text-gold font-semibold">@{selectedOpinion.profiles.username}</span>
+                                        </p>
+                                    )}
+
+                                    {/* Options */}
                                     <div className="flex flex-col gap-2 mb-4">
                                         {selectedOptions.map((opt: any, i: number) => (
                                             <button
@@ -362,24 +403,31 @@ const TopicPage = () => {
                                         ))}
                                     </div>
 
+                                    {/* CTA */}
                                     <button
                                         onClick={() => navigate(`/opinion/${selectedOpinion.id}`)}
                                         className="w-full py-3 rounded-xl bg-gold text-primary-foreground text-sm font-bold hover:bg-gold-hover transition-all animate-gold-pulse"
                                     >
-                                        Make Your Call
+                                        Call It →
                                     </button>
 
-                                    <div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                            <Users className="h-3 w-3" /> {selectedOpinion.call_count || 0} callers
-                                        </span>
-                                        <span>
-                                            {selectedOpinion.end_time
-                                                ? new Date(selectedOpinion.end_time) > new Date()
-                                                    ? `${Math.ceil((new Date(selectedOpinion.end_time).getTime() - Date.now()) / 86400000)}d left`
-                                                    : "Ended"
-                                                : "30 days left"}
-                                        </span>
+                                    {/* Stats */}
+                                    <div className="mt-4 pt-4 border-t border-border">
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                                            <span className="flex items-center gap-1">
+                                                <Users className="h-3 w-3" /> {selectedOpinion.call_count || 0} callers
+                                            </span>
+                                            <span>
+                                                {selectedOpinion.end_time
+                                                    ? new Date(selectedOpinion.end_time) > new Date()
+                                                        ? `${Math.ceil((new Date(selectedOpinion.end_time).getTime() - Date.now()) / 86400000)}d left`
+                                                        : "Ended"
+                                                    : "30 days left"}
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground">
+                                            Posted {new Date(selectedOpinion.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                        </p>
                                     </div>
                                 </div>
                             ) : (
