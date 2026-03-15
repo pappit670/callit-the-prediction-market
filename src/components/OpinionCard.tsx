@@ -32,12 +32,67 @@ export interface OpinionCardData {
   watcherCount?: number;
 }
 
+const CARD_THEMES = [
+  {
+    accent: "#F5C518",
+    borderHover: "hover:border-[#F5C518]/60",
+    shadow: "hover:shadow-[0_0_24px_rgba(245,197,24,0.15)]",
+    badge: "bg-[#F5C518]/10 text-[#F5C518]",
+    topBorder: "border-t-[#F5C518]",
+  },
+  {
+    accent: "#00C278",
+    borderHover: "hover:border-[#00C278]/60",
+    shadow: "hover:shadow-[0_0_24px_rgba(0,194,120,0.15)]",
+    badge: "bg-[#00C278]/10 text-[#00C278]",
+    topBorder: "border-t-[#00C278]",
+  },
+  {
+    accent: "#3B82F6",
+    borderHover: "hover:border-[#3B82F6]/60",
+    shadow: "hover:shadow-[0_0_24px_rgba(59,130,246,0.15)]",
+    badge: "bg-[#3B82F6]/10 text-[#3B82F6]",
+    topBorder: "border-t-[#3B82F6]",
+  },
+  {
+    accent: "#A855F7",
+    borderHover: "hover:border-[#A855F7]/60",
+    shadow: "hover:shadow-[0_0_24px_rgba(168,85,247,0.15)]",
+    badge: "bg-[#A855F7]/10 text-[#A855F7]",
+    topBorder: "border-t-[#A855F7]",
+  },
+  {
+    accent: "#F97316",
+    borderHover: "hover:border-[#F97316]/60",
+    shadow: "hover:shadow-[0_0_24px_rgba(249,115,22,0.15)]",
+    badge: "bg-[#F97316]/10 text-[#F97316]",
+    topBorder: "border-t-[#F97316]",
+  },
+  {
+    accent: "#F43F5E",
+    borderHover: "hover:border-[#F43F5E]/60",
+    shadow: "hover:shadow-[0_0_24px_rgba(244,63,94,0.15)]",
+    badge: "bg-[#F43F5E]/10 text-[#F43F5E]",
+    topBorder: "border-t-[#F43F5E]",
+  },
+  {
+    accent: "#06B6D4",
+    borderHover: "hover:border-[#06B6D4]/60",
+    shadow: "hover:shadow-[0_0_24px_rgba(6,182,212,0.15)]",
+    badge: "bg-[#06B6D4]/10 text-[#06B6D4]",
+    topBorder: "border-t-[#06B6D4]",
+  },
+];
+
+// Per option colors — cycle through independently of card theme
 const OPTION_COLORS = [
-  { border: "border-[#F5C518]", bg: "bg-[#F5C518]/15", text: "text-[#F5C518]", hoverBorder: "hover:border-[#F5C518]", hoverBg: "hover:bg-[#F5C518]/15", glow: "hover:shadow-[0_0_18px_rgba(245,197,24,0.45)]", hex: "#F5C518", barBg: "bg-[#F5C518]" },
-  { border: "border-[#00C278]", bg: "bg-[#00C278]/15", text: "text-[#00C278]", hoverBorder: "hover:border-[#00C278]", hoverBg: "hover:bg-[#00C278]/15", glow: "hover:shadow-[0_0_18px_rgba(0,194,120,0.45)]", hex: "#00C278", barBg: "bg-[#00C278]" },
-  { border: "border-[#3B82F6]", bg: "bg-[#3B82F6]/15", text: "text-[#3B82F6]", hoverBorder: "hover:border-[#3B82F6]", hoverBg: "hover:bg-[#3B82F6]/15", glow: "hover:shadow-[0_0_18px_rgba(59,130,246,0.45)]", hex: "#3B82F6", barBg: "bg-[#3B82F6]" },
-  { border: "border-[#A855F7]", bg: "bg-[#A855F7]/15", text: "text-[#A855F7]", hoverBorder: "hover:border-[#A855F7]", hoverBg: "hover:bg-[#A855F7]/15", glow: "hover:shadow-[0_0_18px_rgba(168,85,247,0.45)]", hex: "#A855F7", barBg: "bg-[#A855F7]" },
-  { border: "border-[#F97316]", bg: "bg-[#F97316]/15", text: "text-[#F97316]", hoverBorder: "hover:border-[#F97316]", hoverBg: "hover:bg-[#F97316]/15", glow: "hover:shadow-[0_0_18px_rgba(249,115,22,0.45)]", hex: "#F97316", barBg: "bg-[#F97316]" },
+  { hex: "#F5C518", border: "border-[#F5C518]/40", bg: "bg-[#F5C518]/10", text: "text-[#F5C518]", hover: "hover:border-[#F5C518] hover:bg-[#F5C518]/20 hover:shadow-[0_0_16px_rgba(245,197,24,0.35)]" },
+  { hex: "#00C278", border: "border-[#00C278]/40", bg: "bg-[#00C278]/10", text: "text-[#00C278]", hover: "hover:border-[#00C278] hover:bg-[#00C278]/20 hover:shadow-[0_0_16px_rgba(0,194,120,0.35)]" },
+  { hex: "#3B82F6", border: "border-[#3B82F6]/40", bg: "bg-[#3B82F6]/10", text: "text-[#3B82F6]", hover: "hover:border-[#3B82F6] hover:bg-[#3B82F6]/20 hover:shadow-[0_0_16px_rgba(59,130,246,0.35)]" },
+  { hex: "#A855F7", border: "border-[#A855F7]/40", bg: "bg-[#A855F7]/10", text: "text-[#A855F7]", hover: "hover:border-[#A855F7] hover:bg-[#A855F7]/20 hover:shadow-[0_0_16px_rgba(168,85,247,0.35)]" },
+  { hex: "#F97316", border: "border-[#F97316]/40", bg: "bg-[#F97316]/10", text: "text-[#F97316]", hover: "hover:border-[#F97316] hover:bg-[#F97316]/20 hover:shadow-[0_0_16px_rgba(249,115,22,0.35)]" },
+  { hex: "#F43F5E", border: "border-[#F43F5E]/40", bg: "bg-[#F43F5E]/10", text: "text-[#F43F5E]", hover: "hover:border-[#F43F5E] hover:bg-[#F43F5E]/20 hover:shadow-[0_0_16px_rgba(244,63,94,0.35)]" },
+  { hex: "#06B6D4", border: "border-[#06B6D4]/40", bg: "bg-[#06B6D4]/10", text: "text-[#06B6D4]", hover: "hover:border-[#06B6D4] hover:bg-[#06B6D4]/20 hover:shadow-[0_0_16px_rgba(6,182,212,0.35)]" },
 ];
 
 function timeAgo(dateStr?: string): string {
@@ -68,6 +123,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const [followed, setFollowed] = useState(false);
   const [showMore, setShowMore] = useState(false);
 
+  // Each card gets a unique theme based on index
+  const theme = CARD_THEMES[index % CARD_THEMES.length];
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
   const cleanGenre = genre.replace(/\s*[\u{1F000}-\u{1FFFF}]/u, "").trim();
 
@@ -98,7 +155,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   return (
     <>
       <motion.div
-        className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col cursor-pointer hover:border-gold/40 hover:shadow-lg transition-all duration-200 group"
+        className={`bg-card border border-border rounded-2xl overflow-hidden flex flex-col cursor-pointer transition-all duration-200 group border-t-2 ${theme.borderHover} ${theme.shadow}`}
+        style={{ borderTopColor: theme.accent }}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: index * 0.04 }}
@@ -106,16 +164,18 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       >
         <div className="p-4 flex flex-col gap-3 flex-1">
 
-          {/* Header — topic icon + genre + live + actions */}
+          {/* Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div
                 className="h-7 w-7 rounded-full flex items-center justify-center text-sm border bg-secondary flex-shrink-0"
-                style={{ borderColor: topicColor ? topicColor + "50" : "hsl(var(--border))" }}
+                style={{ borderColor: theme.accent + "50" }}
               >
                 {topicIcon || "📰"}
               </div>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+              <span
+                className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${theme.badge}`}
+              >
                 {cleanGenre}
               </span>
               {isLive && (
@@ -129,7 +189,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               <button
                 className={`p-1 transition-colors ${followed ? "text-gold" : "text-muted-foreground hover:text-gold"}`}
                 onClick={handleFollow}
-                title="Follow this call"
               >
                 <Bell className={`h-3.5 w-3.5 ${followed ? "fill-gold" : ""}`} />
               </button>
@@ -145,12 +204,12 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           </div>
 
-          {/* League name */}
+          {/* League */}
           {leagueName && (
             <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold -mt-1">{leagueName}</p>
           )}
 
-          {/* Live Game Score */}
+          {/* Live Score */}
           {isLiveGame && homeTeam && awayTeam && (
             <div className="bg-secondary rounded-xl px-3 py-2.5 flex items-center justify-between">
               <div className="text-center">
@@ -174,51 +233,50 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           </h3>
 
           {/* Creator + time */}
-          <div className="flex items-center gap-2 -mt-1">
-            {creatorUsername && (
-              <span className="text-[11px] text-muted-foreground">
-                by <span className="text-gold font-semibold">@{creatorUsername}</span>
-              </span>
-            )}
-            {createdAt && (
-              <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>
-            )}
-          </div>
+          {(creatorUsername || createdAt) && (
+            <div className="flex items-center gap-2 -mt-1">
+              {creatorUsername && (
+                <span className="text-[11px] text-muted-foreground">
+                  by <span className="font-semibold" style={{ color: theme.accent }}>@{creatorUsername}</span>
+                </span>
+              )}
+              {createdAt && (
+                <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>
+              )}
+            </div>
+          )}
 
           {/* Options with probability bars */}
           {options && options.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {(showMore ? options : options.slice(0, 2)).map((opt, i) => {
-                const c = OPTION_COLORS[i % OPTION_COLORS.length];
+                // Options use their own color cycle independent of card theme
+                const oc = OPTION_COLORS[i % OPTION_COLORS.length];
                 const isSelected = selectedOption === opt.label;
                 return (
                   <button
                     key={i}
                     onClick={(e) => { e.stopPropagation(); setSelectedOption(opt.label); openStake(e, "yes", opt.label); }}
-                    className={`w-full rounded-xl border-2 overflow-hidden transition-all duration-150 ${isSelected ? `${c.bg} ${c.border} shadow-lg` : `border-border/40 bg-secondary/40 ${c.hoverBorder} ${c.hoverBg} ${c.glow}`
+                    className={`w-full rounded-xl border-2 overflow-hidden transition-all duration-150 ${isSelected ? `${oc.bg} ${oc.border} shadow-lg` : `border-border/40 bg-secondary/40 ${oc.hover}`
                       }`}
                   >
-                    {/* Probability bar background */}
                     <div className="relative px-3 py-2.5">
-                      {/* Bar fill */}
                       <div
-                        className={`absolute inset-0 opacity-20 rounded-xl transition-all duration-500`}
-                        style={{ width: `${opt.percent}%`, background: c.hex }}
+                        className="absolute inset-0 opacity-15 rounded-xl transition-all duration-500"
+                        style={{ width: `${opt.percent}%`, background: oc.hex }}
                       />
-                      {/* Label + percent */}
                       <div className="relative flex items-center justify-between">
-                        <span className={`text-sm font-bold ${isSelected ? c.text : "text-foreground"}`}>
+                        <span className={`text-sm font-bold ${isSelected ? oc.text : "text-foreground"}`}>
                           {opt.label}
                         </span>
-                        <span className="text-sm font-bold" style={{ color: c.hex }}>
+                        <span className="text-sm font-bold" style={{ color: oc.hex }}>
                           {opt.percent}%
                         </span>
                       </div>
-                      {/* Progress bar at bottom */}
                       <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${opt.percent}%`, background: c.hex }}
+                          style={{ width: `${opt.percent}%`, background: oc.hex }}
                         />
                       </div>
                     </div>
@@ -236,20 +294,20 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
             </div>
           ) : (
-            /* Standard Yes / No with bars */
+            /* Standard Yes / No */
             <div className="flex flex-col gap-1.5">
               <button
                 onClick={(e) => openStake(e, "yes")}
                 className="w-full rounded-xl border-2 border-border/40 bg-secondary/40 hover:border-[#00C278] hover:bg-[#00C278]/15 hover:shadow-[0_0_18px_rgba(0,194,120,0.4)] transition-all duration-150 overflow-hidden"
               >
                 <div className="relative px-3 py-2.5">
-                  <div className="absolute inset-0 opacity-20 rounded-xl" style={{ width: `${yesPercent}%`, background: "#00C278" }} />
+                  <div className="absolute inset-0 opacity-15 rounded-xl" style={{ width: `${yesPercent}%`, background: "#00C278" }} />
                   <div className="relative flex items-center justify-between">
                     <span className="text-sm font-bold text-[#00C278]">Agree</span>
                     <span className="text-sm font-bold text-[#00C278]">{yesPercent}%</span>
                   </div>
                   <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
-                    <div className="h-full rounded-full bg-[#00C278] transition-all duration-500" style={{ width: `${yesPercent}%` }} />
+                    <div className="h-full rounded-full bg-[#00C278] transition-all" style={{ width: `${yesPercent}%` }} />
                   </div>
                 </div>
               </button>
@@ -258,22 +316,21 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                 className="w-full rounded-xl border-2 border-border/40 bg-secondary/40 hover:border-[#EF4444] hover:bg-[#EF4444]/15 hover:shadow-[0_0_18px_rgba(239,68,68,0.4)] transition-all duration-150 overflow-hidden"
               >
                 <div className="relative px-3 py-2.5">
-                  <div className="absolute inset-0 opacity-20 rounded-xl" style={{ width: `${noPercent}%`, background: "#EF4444" }} />
+                  <div className="absolute inset-0 opacity-15 rounded-xl" style={{ width: `${noPercent}%`, background: "#EF4444" }} />
                   <div className="relative flex items-center justify-between">
                     <span className="text-sm font-bold text-[#EF4444]">Disagree</span>
                     <span className="text-sm font-bold text-[#EF4444]">{noPercent}%</span>
                   </div>
                   <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
-                    <div className="h-full rounded-full bg-[#EF4444] transition-all duration-500" style={{ width: `${noPercent}%` }} />
+                    <div className="h-full rounded-full bg-[#EF4444] transition-all" style={{ width: `${noPercent}%` }} />
                   </div>
                 </div>
               </button>
             </div>
           )}
 
-          {/* Engagement row */}
+          {/* Social proof footer */}
           <div className="flex items-center justify-between pt-1.5 border-t border-border/50 mt-auto">
-            {/* Social proof */}
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Users className="h-3 w-3" />
@@ -290,10 +347,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                 </span>
               )}
             </div>
-
-            {/* Time */}
             {isLive ? (
-              <span className="flex items-center gap-1 text-[11px] text-gold font-medium">
+              <span className="flex items-center gap-1 text-[11px] font-medium" style={{ color: theme.accent }}>
                 <Activity className="h-3 w-3" /> Live
               </span>
             ) : (
