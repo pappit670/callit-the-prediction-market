@@ -1,18 +1,16 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, Bookmark } from "lucide-react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import { useApp } from "@/context/AppContext";
 import { SlidingNumber } from "@/components/ui/sliding-number";
+import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
 
 const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
 const COMMENT_TABS = ["Comments", "Top Callers", "Positions", "Activity"] as const;
-const CHART_W = 800;
-const CHART_H = 220;
-const CHART_PAD = 32;
 const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
 
 function formatTimeLeft(endTime: string): string {
@@ -27,50 +25,19 @@ function formatTimeLeft(endTime: string): string {
   return `${m}m ${s}s`;
 }
 
-function generateChartData(percent: number, seed: number, points = 30) {
-  const data: { x: number; y: number }[] = [];
+function generateChartPoint(percent: number, seed: number, points = 20) {
+  const data: { time: string; probability: number }[] = [];
   let val = 40 + (seed % 20);
+  const labels = ["Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20", "Day 24", "Day 28",
+    "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47", "Day 50", "Day 54", "Day 57", "Now"];
   for (let i = 0; i < points; i++) {
     const noise = Math.sin(seed * 13.37 + i * 2.1) * 8 + Math.cos(seed * 7.53 + i * 3.7) * 5;
     val = val + (percent - val) * 0.15 + noise * (1 - (i / points) * 0.7);
     val = Math.max(2, Math.min(98, val));
     if (i === points - 1) val = percent;
-    data.push({ x: i, y: Math.round(val * 10) / 10 });
+    data.push({ time: labels[i] || `Day ${i + 1}`, probability: Math.round(val) });
   }
   return data;
-}
-
-function dataToSmoothPath(data: { x: number; y: number }[], w: number, h: number, pad: number): string {
-  if (data.length < 2) return "";
-  const xs = (i: number) => pad + (i / (data.length - 1)) * (w - pad * 2);
-  const ys = (v: number) => h - pad - (v / 100) * (h - pad * 2);
-  let path = `M ${xs(0)} ${ys(data[0].y)}`;
-  for (let i = 1; i < data.length; i++) {
-    const cp1x = xs(i - 1) + (xs(i) - xs(i - 1)) * 0.4;
-    const cp2x = xs(i) - (xs(i) - xs(i - 1)) * 0.4;
-    path += ` C ${cp1x} ${ys(data[i - 1].y)}, ${cp2x} ${ys(data[i].y)}, ${xs(i)} ${ys(data[i].y)}`;
-  }
-  return path;
-}
-
-function dataToAreaPath(data: { x: number; y: number }[], w: number, h: number, pad: number): string {
-  const line = dataToSmoothPath(data, w, h, pad);
-  const xs = (i: number) => pad + (i / (data.length - 1)) * (w - pad * 2);
-  return `${line} L ${xs(data.length - 1)} ${h - pad} L ${xs(0)} ${h - pad} Z`;
-}
-
-function getValueAtX(data: { x: number; y: number }[], xPos: number, w: number, pad: number): number {
-  const idx = ((xPos - pad) / (w - pad * 2)) * (data.length - 1);
-  const i = Math.max(0, Math.min(data.length - 2, Math.floor(idx)));
-  const t = idx - i;
-  return Math.round((data[i].y * (1 - t) + data[i + 1].y * t) * 10) / 10;
-}
-
-function generateDateLabels(count: number): string[] {
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(Date.now() - (count - 1 - i) * 86400000);
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  });
 }
 
 const OpinionDetail = () => {
@@ -86,20 +53,15 @@ const OpinionDetail = () => {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [activeTimeFilter, setActiveTimeFilter] = useState<typeof TIME_FILTERS[number]>("1W");
   const [activeCommentTab, setActiveCommentTab] = useState<typeof COMMENT_TABS[number]>("Comments");
-  const [hoverX, setHoverX] = useState<number | null>(null);
   const [countdown, setCountdown] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const chartRef = useRef<SVGSVGElement>(null);
+  const [activeChartOption, setActiveChartOption] = useState(0);
 
-  useEffect(() => {
-    if (id) fetchOpinion();
-  }, [id]);
+  useEffect(() => { if (id) fetchOpinion(); }, [id]);
 
   useEffect(() => {
     if (!opinion?.end_time) return;
-    const timer = setInterval(() => {
-      setCountdown(formatTimeLeft(opinion.end_time));
-    }, 1000);
+    const timer = setInterval(() => setCountdown(formatTimeLeft(opinion.end_time)), 1000);
     setCountdown(formatTimeLeft(opinion.end_time));
     return () => clearInterval(timer);
   }, [opinion?.end_time]);
@@ -110,8 +72,7 @@ const OpinionDetail = () => {
       const { data: op, error } = await supabase
         .from("opinions")
         .select(`*, topics(name, slug, icon, color), profiles(username, avatar_url)`)
-        .eq("id", id)
-        .single();
+        .eq("id", id).single();
 
       if (error || !op) { setLoading(false); return; }
       setOpinion(op);
@@ -121,26 +82,18 @@ const OpinionDetail = () => {
       }
 
       const { data: commentsData } = await supabase
-        .from("comments")
-        .select("*, profiles(username, avatar_url)")
-        .eq("opinion_id", id)
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .from("comments").select("*, profiles(username, avatar_url)")
+        .eq("opinion_id", id).order("created_at", { ascending: false }).limit(20);
       setComments(commentsData || []);
 
       if (isLoggedIn) {
         const { data: callData } = await supabase
-          .from("calls").select("*")
-          .eq("opinion_id", id)
-          .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
-          .single();
+          .from("calls").select("*").eq("opinion_id", id)
+          .eq("user_id", (await supabase.auth.getUser()).data.user?.id).single();
         setUserCall(callData);
       }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
 
   const handleCall = async () => {
@@ -152,25 +105,19 @@ const OpinionDetail = () => {
       if (!authUser) throw new Error("Not logged in");
 
       const { error } = await supabase.from("calls").upsert({
-        opinion_id: id,
-        user_id: authUser.id,
-        chosen_option: selectedOption,
+        opinion_id: id, user_id: authUser.id, chosen_option: selectedOption,
       }, { onConflict: "opinion_id,user_id" });
-
       if (error) throw error;
 
       await supabase.from("opinions")
-        .update({ call_count: (opinion.call_count || 0) + 1 })
-        .eq("id", id);
+        .update({ call_count: (opinion.call_count || 0) + 1 }).eq("id", id);
 
       setUserCall({ chosen_option: selectedOption });
       toast.success(`Called: ${selectedOption}`);
       fetchOpinion();
     } catch (e: any) {
       toast.error(e.message || "Failed to place call");
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
   const handleComment = async () => {
@@ -179,34 +126,12 @@ const OpinionDetail = () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) return;
-
       const { data } = await supabase.from("comments").insert({
-        opinion_id: id,
-        user_id: authUser.id,
-        content: commentInput.trim(),
+        opinion_id: id, user_id: authUser.id, content: commentInput.trim(),
       }).select("*, profiles(username, avatar_url)").single();
-
-      if (data) {
-        setComments(prev => [data, ...prev]);
-        setCommentInput("");
-        toast.success("Comment posted!");
-      }
-    } catch (e: any) {
-      toast.error(e.message);
-    }
+      if (data) { setComments(prev => [data, ...prev]); setCommentInput(""); toast.success("Comment posted!"); }
+    } catch (e: any) { toast.error(e.message); }
   };
-
-  const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
-    toast.success("Link copied!");
-  };
-
-  const handleChartMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!chartRef.current) return;
-    const rect = chartRef.current.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * CHART_W;
-    setHoverX(Math.max(CHART_PAD, Math.min(CHART_W - CHART_PAD, x)));
-  }, []);
 
   if (loading) return (
     <div className="min-h-screen bg-background">
@@ -228,10 +153,12 @@ const OpinionDetail = () => {
 
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const isOpen = opinion.status === "open";
-  const optionCount = options.length;
-  const basePercent = Math.round(100 / optionCount);
-  const dateLabels = generateDateLabels(7);
-  const allChartData = options.map((_, i) => generateChartData(basePercent + (i * 7 % 20) - 10, i * 17 + 42, 30));
+  const basePercent = Math.round(100 / options.length);
+  const chartData = generateChartPoint(
+    basePercent + (activeChartOption * 7 % 20) - 10,
+    activeChartOption * 17 + 42,
+    20
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -242,6 +169,7 @@ const OpinionDetail = () => {
           {/* LEFT COLUMN */}
           <div className="flex-[65] min-w-0">
 
+            {/* Breadcrumb */}
             <div className="flex items-center gap-2 mb-5">
               <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-gold transition-colors">
                 <ArrowLeft className="h-5 w-5" />
@@ -251,18 +179,17 @@ const OpinionDetail = () => {
               </span>
             </div>
 
+            {/* Tags */}
             <div className="flex items-center gap-2 flex-wrap mb-4">
               <span className="rounded-full bg-gold/10 px-3.5 py-1 text-xs font-semibold text-gold">
                 {opinion.topics?.icon} {opinion.topics?.name || "General"}
               </span>
-              {opinion.ai_generated && (
-                <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground">AI Generated</span>
-              )}
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${isOpen ? "bg-yes/15 text-yes" : "bg-muted text-muted-foreground"}`}>
                 {isOpen ? "Open" : "Closed"}
               </span>
             </div>
 
+            {/* Question */}
             <h1 className="font-headline text-3xl sm:text-4xl text-foreground leading-tight mb-4">
               {opinion.statement}
             </h1>
@@ -283,94 +210,48 @@ const OpinionDetail = () => {
               </Link>
             )}
 
-            {/* CHART */}
+            {/* CHART — Option switcher tabs + CallitPredictionCard */}
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
-              <div className="flex items-center gap-5 flex-wrap mb-4">
-                {options.map((opt, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: OPTION_HEX[i % OPTION_HEX.length] }} />
-                    <span className="text-sm text-foreground">{opt}</span>
-                    <div className="text-sm font-semibold flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                      <SlidingNumber value={basePercent} /><span>%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
 
-              <div className="w-full relative rounded-xl bg-card border border-border" style={{ height: CHART_H + 40 }}>
-                <svg
-                  ref={chartRef}
-                  viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-                  className="w-full"
-                  style={{ height: CHART_H }}
-                  preserveAspectRatio="none"
-                  onMouseMove={handleChartMouseMove}
-                  onMouseLeave={() => setHoverX(null)}
-                >
-                  {[0, 25, 50, 75, 100].map(v => {
-                    const y = CHART_H - CHART_PAD - (v / 100) * (CHART_H - CHART_PAD * 2);
-                    return <line key={v} x1={CHART_PAD} y1={y} x2={CHART_W - CHART_PAD} y2={y} stroke="hsl(var(--border))" strokeWidth="0.5" strokeDasharray="4 4" />;
-                  })}
-
-                  {allChartData.map((chartData, i) => (
-                    <g key={i}>
-                      <path d={dataToAreaPath(chartData, CHART_W, CHART_H, CHART_PAD)} fill={OPTION_HEX[i % OPTION_HEX.length]} opacity={0.08} />
-                      <motion.path
-                        d={dataToSmoothPath(chartData, CHART_W, CHART_H, CHART_PAD)}
-                        fill="none"
-                        stroke={OPTION_HEX[i % OPTION_HEX.length]}
-                        strokeWidth="2.5"
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 0.8, delay: 0.3 + i * 0.1 }}
-                      />
-                    </g>
-                  ))}
-
-                  {hoverX !== null && (
-                    <line x1={hoverX} y1={CHART_PAD} x2={hoverX} y2={CHART_H - CHART_PAD}
-                      stroke="hsl(var(--muted-foreground))" strokeWidth="1" strokeDasharray="4 3" opacity={0.5} />
-                  )}
-                </svg>
-
-                <div className="absolute right-3 top-0 flex flex-col justify-between py-[32px] pointer-events-none" style={{ height: CHART_H }}>
-                  {[100, 75, 50, 25, 0].map(v => (
-                    <span key={v} className="text-[11px] text-muted-foreground">{v}%</span>
-                  ))}
-                </div>
-
-                <AnimatePresence>
-                  {hoverX !== null && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="absolute top-2 rounded-lg border border-border bg-card px-3 py-2.5 pointer-events-none z-10"
-                      style={{ left: Math.min(hoverX / CHART_W * 100, 70) + "%", minWidth: 140 }}
+              {/* Option tabs to switch chart */}
+              {options.length > 1 && (
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  {options.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveChartOption(i)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${activeChartOption === i
+                          ? "border-2 text-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                        }`}
+                      style={activeChartOption === i ? {
+                        borderColor: OPTION_HEX[i % OPTION_HEX.length],
+                        background: OPTION_HEX[i % OPTION_HEX.length] + "15",
+                        color: OPTION_HEX[i % OPTION_HEX.length],
+                      } : {}}
                     >
-                      {allChartData.map((chartData, i) => (
-                        <div key={i} className="flex items-center gap-2 mb-0.5">
-                          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: OPTION_HEX[i % OPTION_HEX.length] }} />
-                          <span className="text-xs text-foreground">{options[i]}</span>
-                          <span className="text-xs font-bold ml-auto" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                            {getValueAtX(chartData, hoverX, CHART_W, CHART_PAD)}%
-                          </span>
-                        </div>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                <div className="flex justify-between px-8 pt-2">
-                  {dateLabels.map((label, i) => (
-                    <span key={i} className="text-[11px] text-muted-foreground">{label}</span>
+                      <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
+                      {opt}
+                    </button>
                   ))}
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-1 mt-4">
+              <CallitPredictionCard
+                title={`${options[activeChartOption]} — Probability`}
+                data={chartData}
+                color={OPTION_HEX[activeChartOption % OPTION_HEX.length]}
+              />
+
+              {/* Time filters */}
+              <div className="flex items-center gap-1 mt-3">
                 {TIME_FILTERS.map(tf => (
                   <button key={tf} onClick={() => setActiveTimeFilter(tf)}
-                    className={`px-3 py-1.5 text-[13px] font-medium rounded transition-all ${activeTimeFilter === tf ? "text-gold border-b-2 border-gold" : "text-muted-foreground hover:text-foreground"
-                      }`}>{tf}</button>
+                    className={`px-3 py-1.5 text-[13px] font-medium rounded transition-all ${activeTimeFilter === tf
+                        ? "text-gold border-b-2 border-gold"
+                        : "text-muted-foreground hover:text-foreground"
+                      }`}
+                  >{tf}</button>
                 ))}
               </div>
             </motion.div>
@@ -396,7 +277,8 @@ const OpinionDetail = () => {
                         className={`rounded-lg px-5 py-2.5 text-sm font-semibold transition-all ${selectedOption === opt
                             ? "bg-gold text-primary-foreground"
                             : "border border-border text-muted-foreground hover:border-gold hover:text-gold"
-                          }`}>
+                          }`}
+                      >
                         {selectedOption === opt ? "Selected" : "Pick"}
                       </button>
                     )}
@@ -408,7 +290,9 @@ const OpinionDetail = () => {
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <SlidingNumber value={opinion.call_count || 0} /> callers
                 </span>
-                <span className="text-sm text-muted-foreground">Ends {countdown || formatTimeLeft(opinion.end_time)}</span>
+                <span className="text-sm text-muted-foreground">
+                  Ends {countdown || formatTimeLeft(opinion.end_time)}
+                </span>
                 {opinion.source_url && (
                   <a href={opinion.source_url} target="_blank" rel="noopener noreferrer" className="text-sm text-gold hover:underline">
                     View source →
@@ -501,8 +385,10 @@ const OpinionDetail = () => {
               )}
             </motion.div>
 
+            {/* Actions */}
             <div className="flex items-center gap-3">
-              <button onClick={handleShare}
+              <button
+                onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copied!"); }}
                 className="rounded-xl border border-gold text-gold text-sm font-semibold py-3 px-6 flex items-center gap-2 hover:bg-gold hover:text-primary-foreground transition-all">
                 <Share2 className="h-4 w-4" /> Share
               </button>
@@ -546,8 +432,7 @@ const OpinionDetail = () => {
                 {isOpen ? (
                   <>
                     <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                      disabled={!selectedOption || submitting}
-                      onClick={handleCall}
+                      disabled={!selectedOption || submitting} onClick={handleCall}
                       className="w-full rounded-xl bg-gold py-4 text-base font-semibold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gold-pulse">
                       {submitting ? "Placing call..." : userCall ? "Update Call" : "Confirm Call"}
                     </motion.button>
@@ -573,6 +458,7 @@ const OpinionDetail = () => {
               </motion.div>
             </div>
           </div>
+
         </div>
       </div>
     </div>
