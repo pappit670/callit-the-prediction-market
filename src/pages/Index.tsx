@@ -3,16 +3,45 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
-import MiniGraph from "@/components/MiniGraph";
+import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
 import { Zap, ChevronLeft, ChevronRight, Timer, Users } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
 
+const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
+
+function generateFeaturedChartData(percent: number, seed: number, points = 20) {
+  const data: { time: string; probability: number }[] = [];
+  const labels = [
+    "Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20",
+    "Day 24", "Day 27", "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47",
+    "Day 50", "Day 54", "Day 57", "Now"
+  ];
+  let val = 40 + (seed % 20);
+  for (let i = 0; i < points; i++) {
+    const noise = Math.sin(seed * 13.37 + i * 2.1) * 8 + Math.cos(seed * 7.53 + i * 3.7) * 5;
+    val = val + (percent - val) * 0.15 + noise * (1 - (i / points) * 0.7);
+    val = Math.max(2, Math.min(98, val));
+    if (i === points - 1) val = percent;
+    data.push({ time: labels[i] || `Day ${i + 1}`, probability: Math.round(val) });
+  }
+  return data;
+}
+
 const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void }) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const basePercent = Math.round(100 / options.length);
-  const displayOptions = options.map((o: string) => ({ label: o, percent: basePercent }));
-  const seed = opinion.id?.toString().charCodeAt(0) || 3;
+
+  const optionSeries = options.map((o: string, i: number) => ({
+    label: o,
+    color: OPTION_HEX[i % OPTION_HEX.length],
+    data: generateFeaturedChartData(
+      basePercent + (i * 7 % 20) - 10,
+      i * 17 + 42,
+      20
+    ),
+  }));
+
   const timeLeft = opinion.end_time
     ? new Date(opinion.end_time) > new Date()
       ? `${Math.ceil((new Date(opinion.end_time).getTime() - Date.now()) / 86400000)} days left`
@@ -21,47 +50,56 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
 
   return (
     <motion.div
-      className="w-full bg-card border border-border rounded-2xl p-7 cursor-pointer hover:border-gold/50 transition-all min-h-[480px] flex flex-col justify-between"
+      className="w-full cursor-pointer"
       onClick={onClick}
       initial={{ opacity: 0, x: 20 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }}
       transition={{ duration: 0.35 }}
     >
-      <div>
+      <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-gold/50 transition-all min-h-[500px] flex flex-col">
+
         {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <div className="h-10 w-10 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-xl shrink-0">
-              {opinion.topics?.icon || "📰"}
+        <div className="p-6 pb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="h-10 w-10 rounded-full bg-gold/10 border border-gold/30 flex items-center justify-center text-xl shrink-0">
+                {opinion.topics?.icon || "📰"}
+              </div>
+              <div>
+                <p className="text-xs font-bold text-gold uppercase tracking-wider">
+                  {opinion.topics?.name || "General"}
+                </p>
+                <p className="text-[10px] text-muted-foreground">Featured Opinion</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs font-bold text-gold uppercase tracking-wider">
-                {opinion.topics?.name || "General"}
-              </p>
-              <p className="text-[10px] text-muted-foreground">Featured Opinion</p>
-            </div>
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <Users className="h-3 w-3" /> {opinion.call_count || 0} callers
+            </span>
           </div>
-          <span className="text-xs text-muted-foreground flex items-center gap-1">
-            <Users className="h-3 w-3" /> {opinion.call_count || 0} callers
-          </span>
+
+          {/* Big question */}
+          <h2 className="font-headline text-4xl md:text-5xl font-bold text-foreground leading-tight">
+            {opinion.statement}
+          </h2>
         </div>
 
-        {/* Question — big */}
-        <h2 className="font-headline text-4xl md:text-5xl font-bold text-foreground leading-tight mb-8">
-          {opinion.statement}
-        </h2>
+        {/* Chart — all options on one graph */}
+        <div className="px-3 flex-1">
+          <CallitPredictionCard
+            title={`${opinion.topics?.name || "Market"} Probability`}
+            optionSeries={optionSeries}
+            height={200}
+          />
+        </div>
 
-        {/* Graph */}
-        <MiniGraph options={displayOptions} seed={seed} />
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
-        <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-          <Timer className="h-3.5 w-3.5" /> {timeLeft}
-        </span>
-        <span className="text-sm font-bold text-gold">View Opinion →</span>
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-border mt-2">
+          <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Timer className="h-3.5 w-3.5" /> {timeLeft}
+          </span>
+          <span className="text-sm font-bold text-gold">View Opinion →</span>
+        </div>
       </div>
     </motion.div>
   );
@@ -79,9 +117,7 @@ const Index = () => {
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 9;
 
-  useEffect(() => {
-    if (hasSeenHero) fetchData();
-  }, [hasSeenHero, sort, page]);
+  useEffect(() => { if (hasSeenHero) fetchData(); }, [hasSeenHero, sort, page]);
 
   useEffect(() => {
     if (featured.length < 2) return;
@@ -201,12 +237,9 @@ const Index = () => {
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1 mr-1">
                     {featured.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setFeaturedIndex(i)}
+                      <button key={i} onClick={() => setFeaturedIndex(i)}
                         className={`h-1.5 rounded-full transition-all duration-300 ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border hover:bg-muted-foreground"
-                          }`}
-                      />
+                          }`} />
                     ))}
                   </div>
                   <button
@@ -226,7 +259,7 @@ const Index = () => {
             </div>
 
             {loading && featured.length === 0 ? (
-              <div className="h-[480px] rounded-2xl bg-secondary animate-pulse" />
+              <div className="h-[500px] rounded-2xl bg-secondary animate-pulse" />
             ) : featured.length > 0 ? (
               <AnimatePresence mode="wait">
                 <FeaturedCard
@@ -247,11 +280,8 @@ const Index = () => {
               {breaking.length === 0 ? (
                 <div className="p-4 text-sm text-muted-foreground text-center">Loading...</div>
               ) : breaking.map((item, i) => (
-                <button
-                  key={item.id}
-                  onClick={() => navigate(`/opinion/${item.id}`)}
-                  className="flex items-start gap-3 w-full px-4 py-3.5 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors text-left group"
-                >
+                <button key={item.id} onClick={() => navigate(`/opinion/${item.id}`)}
+                  className="flex items-start gap-3 w-full px-4 py-3.5 border-b border-border last:border-0 hover:bg-secondary/50 transition-colors text-left group">
                   <span className="text-xs text-muted-foreground font-mono mt-0.5 shrink-0 w-4">{i + 1}.</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground group-hover:text-gold transition-colors line-clamp-2 leading-snug">
@@ -296,11 +326,8 @@ const Index = () => {
           )}
 
           <div className="mt-8 flex justify-center">
-            <button
-              onClick={() => setPage(p => p + 1)}
-              disabled={loading}
-              className="py-3 px-8 text-sm font-bold border border-border rounded-xl hover:border-gold hover:text-gold transition-colors disabled:opacity-50"
-            >
+            <button onClick={() => setPage(p => p + 1)} disabled={loading}
+              className="py-3 px-8 text-sm font-bold border border-border rounded-xl hover:border-gold hover:text-gold transition-colors disabled:opacity-50">
               {loading ? "Loading..." : "Load More"}
             </button>
           </div>

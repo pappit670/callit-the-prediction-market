@@ -28,8 +28,11 @@ function formatTimeLeft(endTime: string): string {
 function generateChartPoint(percent: number, seed: number, points = 20) {
   const data: { time: string; probability: number }[] = [];
   let val = 40 + (seed % 20);
-  const labels = ["Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20", "Day 24", "Day 28",
-    "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47", "Day 50", "Day 54", "Day 57", "Now"];
+  const labels = [
+    "Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20",
+    "Day 24", "Day 28", "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47",
+    "Day 50", "Day 54", "Day 57", "Now"
+  ];
   for (let i = 0; i < points; i++) {
     const noise = Math.sin(seed * 13.37 + i * 2.1) * 8 + Math.cos(seed * 7.53 + i * 3.7) * 5;
     val = val + (percent - val) * 0.15 + noise * (1 - (i / points) * 0.7);
@@ -55,7 +58,6 @@ const OpinionDetail = () => {
   const [activeCommentTab, setActiveCommentTab] = useState<typeof COMMENT_TABS[number]>("Comments");
   const [countdown, setCountdown] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [activeChartOption, setActiveChartOption] = useState(0);
 
   useEffect(() => { if (id) fetchOpinion(); }, [id]);
 
@@ -103,15 +105,12 @@ const OpinionDetail = () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw new Error("Not logged in");
-
       const { error } = await supabase.from("calls").upsert({
         opinion_id: id, user_id: authUser.id, chosen_option: selectedOption,
       }, { onConflict: "opinion_id,user_id" });
       if (error) throw error;
-
       await supabase.from("opinions")
         .update({ call_count: (opinion.call_count || 0) + 1 }).eq("id", id);
-
       setUserCall({ chosen_option: selectedOption });
       toast.success(`Called: ${selectedOption}`);
       fetchOpinion();
@@ -129,7 +128,11 @@ const OpinionDetail = () => {
       const { data } = await supabase.from("comments").insert({
         opinion_id: id, user_id: authUser.id, content: commentInput.trim(),
       }).select("*, profiles(username, avatar_url)").single();
-      if (data) { setComments(prev => [data, ...prev]); setCommentInput(""); toast.success("Comment posted!"); }
+      if (data) {
+        setComments(prev => [data, ...prev]);
+        setCommentInput("");
+        toast.success("Comment posted!");
+      }
     } catch (e: any) { toast.error(e.message); }
   };
 
@@ -154,11 +157,13 @@ const OpinionDetail = () => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const isOpen = opinion.status === "open";
   const basePercent = Math.round(100 / options.length);
-  const chartData = generateChartPoint(
-    basePercent + (activeChartOption * 7 % 20) - 10,
-    activeChartOption * 17 + 42,
-    20
-  );
+
+  // Build all option series for the combined chart
+  const optionSeries = options.map((opt, i) => ({
+    label: opt,
+    color: OPTION_HEX[i % OPTION_HEX.length],
+    data: generateChartPoint(basePercent + (i * 7 % 20) - 10, i * 17 + 42, 20),
+  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -184,7 +189,8 @@ const OpinionDetail = () => {
               <span className="rounded-full bg-gold/10 px-3.5 py-1 text-xs font-semibold text-gold">
                 {opinion.topics?.icon} {opinion.topics?.name || "General"}
               </span>
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${isOpen ? "bg-yes/15 text-yes" : "bg-muted text-muted-foreground"}`}>
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${isOpen ? "bg-yes/15 text-yes" : "bg-muted text-muted-foreground"
+                }`}>
                 {isOpen ? "Open" : "Closed"}
               </span>
             </div>
@@ -202,7 +208,8 @@ const OpinionDetail = () => {
             )}
 
             {opinion.profiles && (
-              <Link to={`/user/${opinion.profiles.username}`} className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity mb-8">
+              <Link to={`/user/${opinion.profiles.username}`}
+                className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity mb-8">
                 <div className="h-7 w-7 rounded-full bg-secondary border border-border flex items-center justify-center text-[10px] font-bold text-muted-foreground">
                   {opinion.profiles.username?.[0]?.toUpperCase() || "C"}
                 </div>
@@ -210,37 +217,17 @@ const OpinionDetail = () => {
               </Link>
             )}
 
-            {/* CHART — Option switcher tabs + CallitPredictionCard */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="mb-8">
-
-              {/* Option tabs to switch chart */}
-              {options.length > 1 && (
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  {options.map((opt, i) => (
-                    <button
-                      key={i}
-                      onClick={() => setActiveChartOption(i)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${activeChartOption === i
-                          ? "border-2 text-foreground"
-                          : "border-border text-muted-foreground hover:text-foreground"
-                        }`}
-                      style={activeChartOption === i ? {
-                        borderColor: OPTION_HEX[i % OPTION_HEX.length],
-                        background: OPTION_HEX[i % OPTION_HEX.length] + "15",
-                        color: OPTION_HEX[i % OPTION_HEX.length],
-                      } : {}}
-                    >
-                      <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
-                      {opt}
-                    </button>
-                  ))}
-                </div>
-              )}
-
+            {/* CHART — all options on one graph */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="mb-8"
+            >
               <CallitPredictionCard
-                title={`${options[activeChartOption]} — Probability`}
-                data={chartData}
-                color={OPTION_HEX[activeChartOption % OPTION_HEX.length]}
+                title={`${opinion.topics?.name || "Market"} Probability`}
+                optionSeries={optionSeries}
+                height={260}
               />
 
               {/* Time filters */}
@@ -248,8 +235,8 @@ const OpinionDetail = () => {
                 {TIME_FILTERS.map(tf => (
                   <button key={tf} onClick={() => setActiveTimeFilter(tf)}
                     className={`px-3 py-1.5 text-[13px] font-medium rounded transition-all ${activeTimeFilter === tf
-                        ? "text-gold border-b-2 border-gold"
-                        : "text-muted-foreground hover:text-foreground"
+                      ? "text-gold border-b-2 border-gold"
+                      : "text-muted-foreground hover:text-foreground"
                       }`}
                   >{tf}</button>
                 ))}
@@ -257,26 +244,35 @@ const OpinionDetail = () => {
             </motion.div>
 
             {/* OPTIONS LIST */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }} className="mb-10">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }}
+              className="mb-10"
+            >
               <div className="divide-y divide-border">
                 {options.map((opt, i) => (
                   <div key={i} onClick={() => setSelectedOption(opt)}
-                    className={`flex items-center gap-5 py-5 cursor-pointer transition-colors hover:bg-secondary/40 px-2 -mx-2 rounded-lg ${selectedOption === opt ? "bg-secondary/30" : ""}`}>
+                    className={`flex items-center gap-5 py-5 cursor-pointer transition-colors hover:bg-secondary/40 px-2 -mx-2 rounded-lg ${selectedOption === opt ? "bg-secondary/30" : ""
+                      }`}>
+                    <div className="h-3 w-3 rounded-full flex-shrink-0"
+                      style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold text-foreground">{opt}</p>
                       <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
                         <SlidingNumber value={opinion.call_count || 0} /> callers
                       </p>
                     </div>
-                    <div className="text-2xl font-bold flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                    <div className="text-2xl font-bold flex items-center"
+                      style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
                       <SlidingNumber value={basePercent} /><span>%</span>
                     </div>
                     {isOpen && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setSelectedOption(opt); }}
                         className={`rounded-lg px-5 py-2.5 text-sm font-semibold transition-all ${selectedOption === opt
-                            ? "bg-gold text-primary-foreground"
-                            : "border border-border text-muted-foreground hover:border-gold hover:text-gold"
+                          ? "bg-gold text-primary-foreground"
+                          : "border border-border text-muted-foreground hover:border-gold hover:text-gold"
                           }`}
                       >
                         {selectedOption === opt ? "Selected" : "Pick"}
@@ -294,15 +290,19 @@ const OpinionDetail = () => {
                   Ends {countdown || formatTimeLeft(opinion.end_time)}
                 </span>
                 {opinion.source_url && (
-                  <a href={opinion.source_url} target="_blank" rel="noopener noreferrer" className="text-sm text-gold hover:underline">
-                    View source →
-                  </a>
+                  <a href={opinion.source_url} target="_blank" rel="noopener noreferrer"
+                    className="text-sm text-gold hover:underline">View source →</a>
                 )}
               </div>
             </motion.div>
 
             {/* COMMENTS */}
-            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }} className="mb-10">
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="mb-10"
+            >
               <h3 className="font-headline text-2xl mb-5">The Conversation</h3>
 
               <div className="flex items-center gap-6 border-b border-border mb-6">
@@ -312,7 +312,8 @@ const OpinionDetail = () => {
                       }`}>
                     {tab === "Comments" ? `Comments (${comments.length})` : tab}
                     {activeCommentTab === tab && (
-                      <motion.div layoutId="commentTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold rounded-full" />
+                      <motion.div layoutId="commentTab"
+                        className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold rounded-full" />
                     )}
                   </button>
                 ))}
@@ -370,9 +371,11 @@ const OpinionDetail = () => {
                   {options.map((opt, i) => (
                     <div key={i} className="rounded-xl bg-secondary p-4">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="h-3 w-3 rounded-full" style={{ backgroundColor: OPTION_HEX[i % OPTION_HEX.length] }} />
+                        <div className="h-3 w-3 rounded-full"
+                          style={{ backgroundColor: OPTION_HEX[i % OPTION_HEX.length] }} />
                         <span className="text-sm font-semibold text-foreground">{opt}</span>
-                        <div className="text-sm font-bold ml-auto flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                        <div className="text-sm font-bold ml-auto flex items-center"
+                          style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
                           <SlidingNumber value={basePercent} /><span>%</span>
                         </div>
                       </div>
@@ -402,7 +405,8 @@ const OpinionDetail = () => {
           {/* RIGHT COLUMN */}
           <div className="hidden lg:block flex-[35] min-w-[320px]">
             <div className="sticky top-24">
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3 }}
                 className="rounded-2xl border border-gold/30 bg-card p-6">
                 <h3 className="font-headline text-xl mb-2 text-foreground">Make Your Call</h3>
                 <p className="text-sm text-muted-foreground mb-5 line-clamp-2">{opinion.statement}</p>
@@ -418,11 +422,16 @@ const OpinionDetail = () => {
                   {options.map((opt, i) => (
                     <button key={i} onClick={() => setSelectedOption(opt)}
                       className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedOption === opt
-                          ? "border-gold bg-gold/10 text-foreground"
-                          : "border-border bg-secondary text-muted-foreground hover:border-gold/50 hover:text-foreground"
+                        ? "border-gold bg-gold/10 text-foreground"
+                        : "border-border bg-secondary text-muted-foreground hover:border-gold/50 hover:text-foreground"
                         }`}>
-                      <span>{opt}</span>
-                      <div className="flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full"
+                          style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
+                        <span>{opt}</span>
+                      </div>
+                      <div className="flex items-center"
+                        style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
                         <SlidingNumber value={basePercent} /><span>%</span>
                       </div>
                     </button>
@@ -450,7 +459,9 @@ const OpinionDetail = () => {
 
                 <div className="mt-5 pt-5 border-t border-border">
                   <p className="text-xs text-muted-foreground mb-1">Time remaining</p>
-                  <p className="text-base font-bold text-foreground">{countdown || formatTimeLeft(opinion.end_time)}</p>
+                  <p className="text-base font-bold text-foreground">
+                    {countdown || formatTimeLeft(opinion.end_time)}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                     <SlidingNumber value={opinion.call_count || 0} /> people have called
                   </p>

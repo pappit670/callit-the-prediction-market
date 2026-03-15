@@ -1,8 +1,8 @@
 "use client";
 
 import {
-    AreaChart,
-    Area,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     Tooltip,
@@ -10,22 +10,37 @@ import {
     CartesianGrid,
 } from "recharts";
 
-interface DataPoint {
+export type DataPoint = {
     time: string;
-    probability: number;
+    [key: string]: string | number;
+};
+
+interface SeriesConfig {
+    key: string;
+    label: string;
+    color: string;
 }
 
 interface CallitProbabilityChartProps {
     data: DataPoint[];
-    color?: string;
+    series: SeriesConfig[];
+    height?: number;
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-card border border-border rounded-xl px-3 py-2 shadow-lg">
-                <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-                <p className="text-sm font-bold text-gold">{payload[0].value}%</p>
+            <div className="bg-card border border-border rounded-xl px-3 py-2.5 shadow-lg">
+                <p className="text-xs text-muted-foreground mb-1.5">{label}</p>
+                {payload.map((p: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 mb-0.5">
+                        <div className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+                        <span className="text-xs text-foreground">{p.name}</span>
+                        <span className="text-xs font-bold ml-auto pl-4" style={{ color: p.color }}>
+                            {p.value}%
+                        </span>
+                    </div>
+                ))}
             </div>
         );
     }
@@ -34,59 +49,55 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function CallitProbabilityChart({
     data,
-    color = "#d4af37",
+    series,
+    height = 260,
 }: CallitProbabilityChartProps) {
-    const gradientId = "callitGradient";
-
     return (
-        <div className="w-full" style={{ height: 260 }}>
+        <div className="w-full" style={{ height }}>
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor={color} stopOpacity={0.25} />
-                            <stop offset="100%" stopColor={color} stopOpacity={0} />
-                        </linearGradient>
-                    </defs>
-
+                <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid
                         strokeDasharray="4 4"
                         stroke="hsl(var(--border))"
                         strokeOpacity={0.4}
                         vertical={false}
                     />
-
                     <XAxis
                         dataKey="time"
-                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                         axisLine={false}
                         tickLine={false}
                         dy={8}
                     />
-
                     <YAxis
                         domain={[0, 100]}
-                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(v) => `${v}%`}
                     />
-
                     <Tooltip
                         content={<CustomTooltip />}
-                        cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: "4 4" }}
+                        cursor={{ stroke: "hsl(var(--border))", strokeWidth: 1 }}
                     />
-
-                    <Area
-                        type="monotone"
-                        dataKey="probability"
-                        stroke={color}
-                        strokeWidth={2.5}
-                        fill={`url(#${gradientId})`}
-                        dot={{ r: 4, fill: color, strokeWidth: 0 }}
-                        activeDot={{ r: 6, fill: color, strokeWidth: 2, stroke: "hsl(var(--background))" }}
-                    />
-                </AreaChart>
+                    {series.map((s) => (
+                        <Line
+                            key={s.key}
+                            type="monotone"
+                            dataKey={s.key}
+                            name={s.label}
+                            stroke={s.color}
+                            strokeWidth={2.5}
+                            dot={false}
+                            activeDot={{
+                                r: 5,
+                                fill: s.color,
+                                strokeWidth: 2,
+                                stroke: "hsl(var(--background))",
+                            }}
+                        />
+                    ))}
+                </LineChart>
             </ResponsiveContainer>
         </div>
     );
