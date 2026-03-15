@@ -178,7 +178,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           )}
 
           {/* Question */}
-          <h3 className="text-[15px] font-semibold text-foreground leading-snug line-clamp-2 flex-1">
+          <h3 className="text-[17px] font-semibold text-foreground leading-snug line-clamp-2 flex-1">
             {question}
           </h3>
 
@@ -198,8 +198,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                         openStake(e, "yes", opt.label);
                       }}
                       className={`flex flex-col items-center justify-center px-2 py-3 rounded-xl border-2 font-semibold transition-all duration-150 ${isSelected
-                          ? `${c.bg} ${c.border} shadow-lg`
-                          : `border-border/40 bg-secondary/40 ${c.hoverBorder} ${c.hoverBg} ${c.glow}`
+                        ? `${c.bg} ${c.border} shadow-lg`
+                        : `border-border/40 bg-secondary/40 ${c.hoverBorder} ${c.hoverBg} ${c.glow}`
                         }`}
                     >
                       <span
@@ -234,8 +234,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                           openStake(e, "yes", opt.label);
                         }}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all duration-150 ${isSelected
-                            ? `${c.bg} ${c.border}`
-                            : `border-border/40 bg-secondary/40 ${c.hoverBorder} ${c.hoverBg} ${c.glow}`
+                          ? `${c.bg} ${c.border}`
+                          : `border-border/40 bg-secondary/40 ${c.hoverBorder} ${c.hoverBg} ${c.glow}`
                           }`}
                       >
                         <span className="flex-1 text-left text-sm font-semibold text-foreground">
