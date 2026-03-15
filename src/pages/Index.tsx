@@ -164,7 +164,7 @@ const Index = () => {
     question: op.statement,
     yesPercent: 50,
     noPercent: 50,
-    coins: (op.call_count || 0) * 100 || 100,
+    coins: op.call_count || 0,
     timeLeft: op.end_time
       ? new Date(op.end_time) > new Date()
         ? `${Math.ceil((new Date(op.end_time).getTime() - Date.now()) / 86400000)}d left`
@@ -174,6 +174,10 @@ const Index = () => {
     topicIcon: op.topics?.icon,
     topicColor: op.topics?.color,
     status: op.status,
+    creatorUsername: op.profiles?.username || null,
+    createdAt: op.created_at,
+    commentCount: op.comment_count || 0,
+    watcherCount: op.watcher_count || 0,
     options: Array.isArray(op.options)
       ? op.options.map((o: string) => ({ label: o, percent: Math.round(100 / op.options.length) }))
       : undefined,
