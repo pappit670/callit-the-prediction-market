@@ -1,2 +1,6 @@
 [nixpacks]
   nodeVersion = "20"
+
+[build]
+  installCommand = "npm install --legacy-peer-deps"
+  buildCommand = "npm run build"
