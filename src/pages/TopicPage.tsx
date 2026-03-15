@@ -318,8 +318,8 @@ const TopicPage = () => {
                                     key={f.id}
                                     onClick={() => setActiveFilter(f.id)}
                                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${activeFilter === f.id
-                                            ? "bg-foreground text-background border-foreground"
-                                            : "border-border text-muted-foreground hover:border-gold/50 hover:text-gold"
+                                        ? "bg-foreground text-background border-foreground"
+                                        : "border-border text-muted-foreground hover:border-gold/50 hover:text-gold"
                                         }`}
                                 >
                                     {f.icon} {f.label}
