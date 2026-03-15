@@ -1,212 +1,229 @@
-import { useState, useMemo, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
-import { Flame, Bookmark, BarChart2 } from "lucide-react";
-import { sampleCards } from "@/data/sampleCards";
-import { systemGeneratedCards } from "@/data/systemGeneratedCards";
+import { Flame, Bookmark, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
-import FloatingComments from "@/components/FloatingComments";
+import { supabase } from "@/supabaseClient";
 
 const Index = () => {
   const navigate = useNavigate();
   const { hasSeenHero, setHasSeenHero } = useApp();
-  
-  const allCards = useMemo(() => [...sampleCards, ...systemGeneratedCards], []);
-  
-  // Featured Opinion Mock Data
-  const featuredEvent = {
-    id: 1, // linked to a valid id for routing
-    topic: "Politics",
-    question: "Will the US Federal Reserve lower interest rates in the next meeting?",
-    yesProb: 65,
-    volume: "1.2M",
-    comments: 342,
+  const [opinions, setOpinions] = useState<any[]>([]);
+  const [featured, setFeatured] = useState<any>(null);
+  const [hotTopics, setHotTopics] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [sort, setSort] = useState("trending");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 9;
+
+  useEffect(() => { fetchData(); }, [sort, page]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      let query = supabase
+        .from("opinions")
+        .select(`*, topics(name, slug, icon, color)`)
+        .eq("status", "open")
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      if (sort === "newest") query = query.order("created_at", { ascending: false });
+      else if (sort === "volume") query = query.order("call_count", { ascending: false });
+      else query = query.order("call_count", { ascending: false });
+
+      const { data } = await query;
+      if (data) {
+        if (page === 0) {
+          setFeatured(data[0] || null);
+          setOpinions(data.slice(1));
+        } else {
+          setOpinions(prev => [...prev, ...data]);
+        }
+      }
+
+      const { data: topicsData } = await supabase
+        .from("topics")
+        .select("name, slug, icon")
+        .eq("type", "category")
+        .eq("active", true)
+        .limit(6);
+      if (topicsData) setHotTopics(topicsData);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Breaking News (Quick Yes/No) Mock Data
-  const breakingNews = [
-    { id: 2, question: "Apple announces new AR headset next week?", yes: 45, no: 55 },
-    { id: 3, question: "Bitcoin reaches $100K before EOY?", yes: 72, no: 28 },
-    { id: 4, question: "SpaceX successfully lands Starship?", yes: 88, no: 12 }
-  ];
-
-  // Hot Topics Mock Data
-  const hotTopics = [
-    { id: 1, name: "CPI", volume: "$240K" },
-    { id: 2, name: "Elon", volume: "$42M" },
-    { id: 3, name: "Maxx", volume: "$70K" },
-    { id: 4, name: "Georgia", volume: "$3M" },
-    { id: 5, name: "Barcelona", volume: "$15M" }
-  ];
+  const mapOpinionToCard = (op: any) => ({
+    id: op.id,
+    question: op.statement,
+    yesPercent: op.options?.[0] ? 50 : 50,
+    noPercent: 50,
+    coins: op.call_count * 100 || 100,
+    timeLeft: op.end_time ? new Date(op.end_time) > new Date()
+      ? `${Math.ceil((new Date(op.end_time).getTime() - Date.now()) / 86400000)} days left`
+      : "Ended"
+      : "30 days",
+    genre: op.topics?.name || "General",
+    status: op.status,
+    options: Array.isArray(op.options)
+      ? op.options.map((o: string, i: number) => ({ label: o, percent: Math.round(100 / op.options.length) }))
+      : undefined,
+  });
 
   return (
     <div className="w-full relative">
       <Navbar />
-      
-      {/* ── LANDING HERO SCREEN ── */}
+
+      {/* HERO */}
       {!hasSeenHero && (
         <div className="min-h-[calc(100vh-68px-45px)] w-full flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-700 relative z-10 bg-background">
           <div className="max-w-3xl space-y-12 mb-10">
             <h1 className="font-headline text-6xl md:text-8xl lg:text-9xl font-bold text-foreground leading-[1.05] tracking-tight">
-              My opinion.<br/>My call.<br/>My validation.
+              My opinion.<br />My call.<br />My validation.
             </h1>
-            <div>
-              <button 
-                onClick={() => {
-                  setHasSeenHero(true);
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="rounded-full bg-gold px-10 py-4 text-lg font-bold text-primary-foreground hover:bg-gold-hover hover:scale-105 transition-all shadow-xl animate-gold-pulse"
-              >
-                Call It Now
-              </button>
-            </div>
+            <button
+              onClick={() => { setHasSeenHero(true); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+              className="rounded-full bg-gold px-10 py-4 text-lg font-bold text-primary-foreground hover:bg-gold-hover hover:scale-105 transition-all shadow-xl animate-gold-pulse"
+            >
+              Call It Now
+            </button>
           </div>
         </div>
       )}
 
-      {/* ── MAIN HOME FEED PAGE ── */}
+      {/* MAIN FEED */}
       {hasSeenHero && (
         <div className="w-full pt-8 pb-20 animate-in slide-in-from-bottom-10 fade-in duration-700 bg-background relative z-10">
           <main className="mx-auto max-w-7xl px-4 md:px-6">
-            
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-              
-              {/* PRIMARY CONTENT COLUMN */}
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+
+              {/* LEFT */}
               <div className="flex flex-col gap-10">
-                
-                {/* 1. Featured Opinion Tab */}
-                <section>
-                  <div className="mb-3">
-                    <h2 className="text-sm font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
-                       <span className="h-2 w-2 rounded-full bg-gold animate-pulse"></span>
-                       Featured Opinion
-                    </h2>
-                  </div>
-                  <div 
-                    onClick={() => navigate(`/opinion/${featuredEvent.id}`)}
-                    className="w-full bg-card border border-border shadow-sm group hover:border-gold/50 transition-all p-6 relative overflow-hidden flex flex-col gap-6 cursor-pointer"
-                  >
-                    <div className="flex items-start justify-between">
-                      <span className="text-xs font-bold uppercase tracking-widest text-gold bg-gold/10 px-2 py-1">{featuredEvent.topic}</span>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); toast.success("Added to bookmarks"); }}
-                        className="text-muted-foreground hover:text-gold transition-colors"
-                      >
-                         <Bookmark className="h-5 w-5" />
-                      </button>
-                    </div>
-                    
-                    <h3 className="font-headline text-3xl md:text-4xl font-bold text-foreground leading-tight group-hover:text-gold transition-colors">
-                      {featuredEvent.question}
-                    </h3>
-                    
-                    {/* Graph Mockup */}
-                    <div className="w-full h-[140px] bg-secondary/30 rounded flex items-center justify-center border border-border relative overflow-hidden">
-                       <BarChart2 className="h-10 w-10 text-muted-foreground/30" />
-                       <span className="ml-2 text-sm text-muted-foreground font-medium">Live Probability Graph</span>
-                       <div className="absolute inset-0 bg-gradient-to-t from-gold/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    </div>
 
-                    <div className="flex items-center justify-between border-t border-border pt-4">
-                      <div className="flex items-center gap-6">
-                        <span className="text-sm font-semibold text-foreground flex items-center gap-1.5"><span className="text-muted-foreground font-normal">Vol</span> {featuredEvent.volume}</span>
-                        <span className="text-sm font-semibold text-foreground flex items-center gap-1.5"><span className="text-muted-foreground font-normal">Comments</span> {featuredEvent.comments}</span>
+                {/* Featured Opinion */}
+                {featured && (
+                  <section>
+                    <div className="mb-3">
+                      <h2 className="text-sm font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
+                        <span className="h-2 w-2 rounded-full bg-gold animate-pulse" />
+                        Featured Opinion
+                      </h2>
+                    </div>
+                    <div
+                      onClick={() => navigate(`/opinion/${featured.id}`)}
+                      className="w-full bg-card border border-border group hover:border-gold/50 transition-all p-6 rounded-2xl flex flex-col gap-4 cursor-pointer"
+                    >
+                      <div className="flex items-start justify-between">
+                        <span className="text-xs font-bold uppercase tracking-widest text-gold bg-gold/10 px-2 py-1 rounded">
+                          {featured.topics?.name || "General"}
+                        </span>
+                        <button onClick={(e) => { e.stopPropagation(); toast.success("Added to bookmarks"); }}>
+                          <Bookmark className="h-5 w-5 text-muted-foreground hover:text-gold transition-colors" />
+                        </button>
                       </div>
-                      <div className="flex gap-2">
-                        <span className="text-sm font-bold text-yes">{featuredEvent.yesProb}% Yes</span>
+                      <h3 className="font-headline text-3xl md:text-4xl font-bold text-foreground leading-tight group-hover:text-gold transition-colors">
+                        {featured.statement}
+                      </h3>
+                      {Array.isArray(featured.options) && featured.options.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {featured.options.map((opt: string, i: number) => (
+                            <span key={i} className="text-sm px-3 py-1.5 rounded-full border border-border bg-secondary text-foreground font-medium">
+                              {opt}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between border-t border-border pt-4">
+                        <span className="text-sm text-muted-foreground">
+                          <span className="font-semibold text-foreground">{featured.call_count || 0}</span> callers
+                        </span>
+                        <span className="text-sm font-bold text-gold flex items-center gap-1">
+                          <TrendingUp className="h-4 w-4" /> Trending
+                        </span>
                       </div>
                     </div>
-                  </div>
-                </section>
-
-                {/* 2. Breaking News Panel - Removed because it's now in the Navbar */}
-                
+                  </section>
+                )}
               </div>
 
-              {/* SECONDARY SIDEBAR COLUMN */}
-              <div className="flex flex-col gap-8">
-                
-                {/* 3. Hot Topics Panel */}
+              {/* SIDEBAR */}
+              <div className="flex flex-col gap-6">
                 <section>
                   <div className="mb-4">
                     <h2 className="text-sm font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-2">
-                      <Flame className="h-4 w-4 text-gold" /> Hot Topics
+                      <Flame className="h-4 w-4 text-gold" /> Categories
                     </h2>
                   </div>
-                  <div className="bg-secondary/20 border border-border p-5 flex flex-col gap-4">
+                  <div className="bg-secondary/20 border border-border rounded-2xl p-4 flex flex-col gap-2">
                     {hotTopics.map((topic, i) => (
-                      <div 
-                        key={topic.id} 
-                        onClick={() => navigate(`/topics?topic=${encodeURIComponent(topic.name)}`)}
-                        className="flex items-center justify-between pb-3 border-b border-border/50 last:border-0 last:pb-0 cursor-pointer group hover:bg-secondary/30 -mx-2 px-2 transition-colors rounded"
+                      <div
+                        key={topic.slug}
+                        onClick={() => navigate(`/topic/${topic.slug}`)}
+                        className="flex items-center justify-between py-2.5 border-b border-border/50 last:border-0 cursor-pointer group hover:bg-secondary/30 -mx-2 px-2 transition-colors rounded-lg"
                       >
                         <div className="flex items-center gap-3">
                           <span className="text-muted-foreground font-mono text-xs">{i + 1}.</span>
-                          <span className="font-semibold text-foreground group-hover:text-gold transition-colors">{topic.name}</span>
+                          <span className="font-semibold text-foreground group-hover:text-gold transition-colors">
+                            {topic.icon} {topic.name}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm text-muted-foreground group-hover:text-foreground transition-colors">{topic.volume} Today</span>
-                          <Flame className="h-3.5 w-3.5 text-gold fill-gold/20" />
-                        </div>
+                        <Flame className="h-3.5 w-3.5 text-gold fill-gold/20" />
                       </div>
                     ))}
-                    <button 
+                    <button
                       onClick={() => navigate("/topics")}
-                      className="mt-2 w-full py-2.5 text-sm font-bold text-foreground border border-border hover:border-gold hover:text-gold hover:bg-gold/5 transition-colors"
+                      className="mt-2 w-full py-2.5 text-sm font-bold text-foreground border border-border rounded-xl hover:border-gold hover:text-gold hover:bg-gold/5 transition-colors"
                     >
                       Explore All
                     </button>
                   </div>
                 </section>
-
               </div>
-              
             </div>
 
-            {/* 4. All Calls Grid */}
+            {/* ALL CALLS GRID */}
             <section className="mt-16 pt-10 border-t border-border">
-               {/* Same header... */}
-               <div className="mb-8 flex items-center justify-between">
-                <h2 className="font-headline text-3xl font-bold flex items-center gap-3">
-                  All Calls
-                </h2>
-                <div className="flex gap-2">
-                   <select className="bg-background border border-border text-sm px-3 py-1.5 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors">
-                     <option>Trending</option>
-                     <option>High Volume</option>
-                     <option>Ending Soon</option>
-                   </select>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {allCards.map((card, i) => (
-                  <div key={card.id}>
-                    <OpinionCard data={card} index={i} />
-                    {/* Add FloatingComments between some cards */}
-                    {(i === 1 || i === 4 || i === 7) && (
-                      <div className="col-span-1 md:col-span-2 lg:col-span-3 py-4">
-                        <FloatingComments delayOffset={i * 500} />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-              
-              <div className="mt-10 flex justify-center">
-                <button 
-                  onClick={() => toast("Loading more calls...")}
-                  className="py-3 px-8 text-sm font-bold border border-border hover:border-gold hover:text-gold hover:bg-gold/5 transition-colors"
+              <div className="mb-8 flex items-center justify-between">
+                <h2 className="font-headline text-3xl font-bold">All Calls</h2>
+                <select
+                  value={sort}
+                  onChange={(e) => { setSort(e.target.value); setPage(0); }}
+                  className="bg-background border border-border text-sm px-3 py-1.5 rounded-lg focus:outline-none focus:border-gold transition-colors"
                 >
-                  Load More Calls
+                  <option value="trending">Trending</option>
+                  <option value="volume">High Volume</option>
+                  <option value="newest">Newest</option>
+                </select>
+              </div>
+
+              {loading && page === 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} className="h-64 rounded-2xl bg-secondary animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {opinions.map((op, i) => (
+                    <OpinionCard key={op.id} data={mapOpinionToCard(op)} index={i} />
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-10 flex justify-center">
+                <button
+                  onClick={() => setPage(p => p + 1)}
+                  disabled={loading}
+                  className="py-3 px-8 text-sm font-bold border border-border rounded-xl hover:border-gold hover:text-gold hover:bg-gold/5 transition-colors disabled:opacity-50"
+                >
+                  {loading ? "Loading..." : "Load More Calls"}
                 </button>
               </div>
             </section>
-
           </main>
         </div>
       )}
