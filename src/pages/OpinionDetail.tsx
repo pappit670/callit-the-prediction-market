@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, Bookmark } from "lucide-react";
+import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, Bookmark, Coins, Users } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
@@ -46,7 +46,7 @@ function generateChartPoint(percent: number, seed: number, points = 20) {
 const OpinionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, isLoggedIn } = useApp();
+  const { user, isLoggedIn, setUser } = useApp();
 
   const [opinion, setOpinion] = useState<any>(null);
   const [comments, setComments] = useState<any[]>([]);
@@ -89,10 +89,13 @@ const OpinionDetail = () => {
       setComments(commentsData || []);
 
       if (isLoggedIn) {
-        const { data: callData } = await supabase
-          .from("calls").select("*").eq("opinion_id", id)
-          .eq("user_id", (await supabase.auth.getUser()).data.user?.id).single();
-        setUserCall(callData);
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const { data: callData } = await supabase
+            .from("calls").select("*")
+            .eq("opinion_id", id).eq("user_id", authUser.id).single();
+          setUserCall(callData || null);
+        }
       }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -101,22 +104,45 @@ const OpinionDetail = () => {
   const handleCall = async () => {
     if (!isLoggedIn) { toast.error("Log in to make a call!"); navigate("/auth"); return; }
     if (!selectedOption) { toast.error("Pick an option first"); return; }
+    if (submitting) return;
     setSubmitting(true);
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw new Error("Not logged in");
+
+      const isUpdate = !!userCall;
+
       const { error } = await supabase.from("calls").upsert({
-        opinion_id: id, user_id: authUser.id, chosen_option: selectedOption,
+        opinion_id: id,
+        user_id: authUser.id,
+        chosen_option: selectedOption,
       }, { onConflict: "opinion_id,user_id" });
       if (error) throw error;
-      await supabase.from("opinions")
-        .update({ call_count: (opinion.call_count || 0) + 1 }).eq("id", id);
+
+      // Deduct 50 coins only on new call, not update
+      if (!isUpdate) {
+        const newBalance = Math.max(0, (user.balance || 0) - 50);
+        await supabase.from("profiles")
+          .update({ balance: newBalance })
+          .eq("id", authUser.id);
+        setUser({ ...user, balance: newBalance });
+      }
+
       setUserCall({ chosen_option: selectedOption });
-      toast.success(`Called: ${selectedOption}`);
-      fetchOpinion();
+      toast.success(`✅ Called: ${selectedOption}${!isUpdate ? " · 50 coins deducted" : " updated"}`);
+
+      // Refresh without full page reload
+      const { data: refreshed } = await supabase
+        .from("opinions")
+        .select(`*, topics(name, slug, icon, color), profiles(username, avatar_url)`)
+        .eq("id", id).single();
+      if (refreshed) setOpinion(refreshed);
+
     } catch (e: any) {
       toast.error(e.message || "Failed to place call");
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleComment = async () => {
@@ -158,7 +184,6 @@ const OpinionDetail = () => {
   const isOpen = opinion.status === "open";
   const basePercent = Math.round(100 / options.length);
 
-  // Build all option series for the combined chart
   const optionSeries = options.map((opt, i) => ({
     label: opt,
     color: OPTION_HEX[i % OPTION_HEX.length],
@@ -187,7 +212,7 @@ const OpinionDetail = () => {
             {/* Tags */}
             <div className="flex items-center gap-2 flex-wrap mb-4">
               <span className="rounded-full bg-gold/10 px-3.5 py-1 text-xs font-semibold text-gold">
-                {opinion.topics?.icon} {opinion.topics?.name || "General"}
+                {opinion.topics?.name || "General"}
               </span>
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${isOpen ? "bg-yes/15 text-yes" : "bg-muted text-muted-foreground"
                 }`}>
@@ -217,92 +242,72 @@ const OpinionDetail = () => {
               </Link>
             )}
 
-            {/* CHART — all options on one graph */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="mb-8"
-            >
+            {/* CHART */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }} className="mb-8">
               <CallitPredictionCard
                 title={`${opinion.topics?.name || "Market"} Probability`}
                 optionSeries={optionSeries}
                 height={260}
               />
-
-              {/* Time filters */}
               <div className="flex items-center gap-1 mt-3">
                 {TIME_FILTERS.map(tf => (
                   <button key={tf} onClick={() => setActiveTimeFilter(tf)}
                     className={`px-3 py-1.5 text-[13px] font-medium rounded transition-all ${activeTimeFilter === tf
-                      ? "text-gold border-b-2 border-gold"
-                      : "text-muted-foreground hover:text-foreground"
-                      }`}
-                  >{tf}</button>
+                        ? "text-gold border-b-2 border-gold"
+                        : "text-muted-foreground hover:text-foreground"
+                      }`}>{tf}</button>
                 ))}
               </div>
             </motion.div>
 
             {/* OPTIONS LIST */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="mb-10"
-            >
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35 }} className="mb-10">
               <div className="divide-y divide-border">
                 {options.map((opt, i) => (
                   <div key={i} onClick={() => setSelectedOption(opt)}
-                    className={`flex items-center gap-5 py-5 cursor-pointer transition-colors hover:bg-secondary/40 px-2 -mx-2 rounded-lg ${selectedOption === opt ? "bg-secondary/30" : ""
+                    className={`flex items-center gap-5 py-4 cursor-pointer transition-colors hover:bg-secondary/40 px-2 -mx-2 rounded-lg ${selectedOption === opt ? "bg-secondary/30" : ""
                       }`}>
                     <div className="h-3 w-3 rounded-full flex-shrink-0"
                       style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold text-foreground">{opt}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1">
-                        <SlidingNumber value={opinion.call_count || 0} /> callers
-                      </p>
                     </div>
-                    <div className="text-2xl font-bold flex items-center"
+                    <div className="text-xl font-bold flex items-center"
                       style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
                       <SlidingNumber value={basePercent} /><span>%</span>
                     </div>
                     {isOpen && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setSelectedOption(opt); }}
-                        className={`rounded-lg px-5 py-2.5 text-sm font-semibold transition-all ${selectedOption === opt
-                          ? "bg-gold text-primary-foreground"
-                          : "border border-border text-muted-foreground hover:border-gold hover:text-gold"
-                          }`}
-                      >
-                        {selectedOption === opt ? "Selected" : "Pick"}
+                        className={`rounded-lg px-4 py-2 text-sm font-semibold transition-all ${selectedOption === opt
+                            ? "bg-gold text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:border-gold hover:text-gold"
+                          }`}>
+                        {selectedOption === opt ? "Selected ✓" : "Pick"}
                       </button>
                     )}
                   </div>
                 ))}
               </div>
 
-              <div className="flex items-center gap-8 mt-5 flex-wrap">
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
+              <div className="flex items-center gap-6 mt-4 flex-wrap text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Users className="h-3.5 w-3.5" />
                   <SlidingNumber value={opinion.call_count || 0} /> callers
                 </span>
-                <span className="text-sm text-muted-foreground">
-                  Ends {countdown || formatTimeLeft(opinion.end_time)}
-                </span>
+                <span>Ends {countdown || formatTimeLeft(opinion.end_time)}</span>
                 {opinion.source_url && (
                   <a href={opinion.source_url} target="_blank" rel="noopener noreferrer"
-                    className="text-sm text-gold hover:underline">View source →</a>
+                    className="text-gold hover:underline">View source →</a>
                 )}
               </div>
             </motion.div>
 
             {/* COMMENTS */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="mb-10"
-            >
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }} className="mb-10">
               <h3 className="font-headline text-2xl mb-5">The Conversation</h3>
 
               <div className="flex items-center gap-6 border-b border-border mb-6">
@@ -367,7 +372,7 @@ const OpinionDetail = () => {
               )}
 
               {activeCommentTab === "Positions" && (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {options.map((opt, i) => (
                     <div key={i} className="rounded-xl bg-secondary p-4">
                       <div className="flex items-center gap-2 mb-2">
@@ -379,9 +384,10 @@ const OpinionDetail = () => {
                           <SlidingNumber value={basePercent} /><span>%</span>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <SlidingNumber value={opinion.call_count || 0} /> callers total
-                      </p>
+                      <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${basePercent}%`, background: OPTION_HEX[i % OPTION_HEX.length] }} />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -402,69 +408,113 @@ const OpinionDetail = () => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN */}
+          {/* RIGHT COLUMN — scrollable, bigger question, compact options */}
           <div className="hidden lg:block flex-[35] min-w-[320px]">
-            <div className="sticky top-24">
+            <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
-                className="rounded-2xl border border-gold/30 bg-card p-6">
-                <h3 className="font-headline text-xl mb-2 text-foreground">Make Your Call</h3>
-                <p className="text-sm text-muted-foreground mb-5 line-clamp-2">{opinion.statement}</p>
+                className="rounded-2xl border border-gold/30 bg-card overflow-hidden">
 
-                {userCall && (
-                  <div className="mb-4 p-3 rounded-xl bg-gold/10 border border-gold/30">
-                    <p className="text-xs text-muted-foreground mb-0.5">Your call</p>
-                    <p className="text-sm font-bold text-gold">{userCall.chosen_option}</p>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2 mb-5">
-                  {options.map((opt, i) => (
-                    <button key={i} onClick={() => setSelectedOption(opt)}
-                      className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${selectedOption === opt
-                        ? "border-gold bg-gold/10 text-foreground"
-                        : "border-border bg-secondary text-muted-foreground hover:border-gold/50 hover:text-foreground"
-                        }`}>
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full"
-                          style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
-                        <span>{opt}</span>
-                      </div>
-                      <div className="flex items-center"
-                        style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                        <SlidingNumber value={basePercent} /><span>%</span>
-                      </div>
-                    </button>
-                  ))}
+                {/* Header */}
+                <div className="p-5 border-b border-border">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Make Your Call</p>
+                  <h2 className="font-headline text-2xl font-bold text-foreground leading-tight">
+                    {opinion.statement}
+                  </h2>
+                  {opinion.profiles?.username && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      by <span className="text-gold font-semibold">@{opinion.profiles.username}</span>
+                    </p>
+                  )}
                 </div>
 
-                {isOpen ? (
-                  <>
-                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                      disabled={!selectedOption || submitting} onClick={handleCall}
-                      className="w-full rounded-xl bg-gold py-4 text-base font-semibold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gold-pulse">
-                      {submitting ? "Placing call..." : userCall ? "Update Call" : "Confirm Call"}
-                    </motion.button>
-                    {!isLoggedIn && (
-                      <p className="text-xs text-muted-foreground text-center mt-2">
-                        <button onClick={() => navigate("/auth")} className="text-gold hover:underline">Log in</button> to make a call
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <div className="rounded-xl bg-muted py-3 text-center text-sm font-medium text-muted-foreground">
-                    {opinion.winning_option ? `${opinion.winning_option} Won` : "Opinion Closed"}
-                  </div>
-                )}
+                <div className="p-5 space-y-4">
 
-                <div className="mt-5 pt-5 border-t border-border">
-                  <p className="text-xs text-muted-foreground mb-1">Time remaining</p>
-                  <p className="text-base font-bold text-foreground">
-                    {countdown || formatTimeLeft(opinion.end_time)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                    <SlidingNumber value={opinion.call_count || 0} /> people have called
-                  </p>
+                  {/* Current call badge */}
+                  {userCall && (
+                    <div className="p-3 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Your current call</p>
+                        <p className="text-sm font-bold text-gold">{userCall.chosen_option}</p>
+                      </div>
+                      <span className="text-[10px] text-gold bg-gold/10 px-2 py-1 rounded-full font-semibold">Active</span>
+                    </div>
+                  )}
+
+                  {/* Options — compact */}
+                  <div className="flex flex-col gap-1.5">
+                    {options.map((opt, i) => (
+                      <button key={i} onClick={() => setSelectedOption(opt)}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${selectedOption === opt
+                            ? "border-2 text-foreground"
+                            : "border-border bg-secondary/50 text-muted-foreground hover:text-foreground hover:border-gold/50"
+                          }`}
+                        style={selectedOption === opt ? {
+                          borderColor: OPTION_HEX[i % OPTION_HEX.length],
+                          background: OPTION_HEX[i % OPTION_HEX.length] + "12",
+                        } : {}}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full flex-shrink-0"
+                            style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
+                          <span>{opt}</span>
+                        </div>
+                        <span className="text-xs font-bold"
+                          style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                          {basePercent}%
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* CTA */}
+                  {isOpen ? (
+                    <div className="space-y-2">
+                      <motion.button
+                        whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                        disabled={!selectedOption || submitting}
+                        onClick={handleCall}
+                        className="w-full rounded-xl bg-gold py-3.5 text-base font-bold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gold-pulse"
+                      >
+                        {submitting
+                          ? "Placing..."
+                          : userCall
+                            ? `Update → ${selectedOption}`
+                            : `Call It → ${selectedOption}`}
+                      </motion.button>
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        {userCall ? "Free to update your call" : "Costs 50 coins"} · Balance:{" "}
+                        <span className="text-gold font-bold">
+                          <Coins className="h-3 w-3 inline mr-0.5" />
+                          {(user?.balance || 0).toLocaleString()}
+                        </span>
+                      </p>
+                      {!isLoggedIn && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          <button onClick={() => navigate("/auth")} className="text-gold hover:underline">Log in</button> to make a call
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl bg-muted py-3 text-center text-sm font-medium text-muted-foreground">
+                      {opinion.winning_option ? `🏆 ${opinion.winning_option} Won` : "Opinion Closed"}
+                    </div>
+                  )}
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+                    <div className="bg-secondary/50 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Callers</p>
+                      <p className="text-lg font-bold text-foreground">
+                        <SlidingNumber value={opinion.call_count || 0} />
+                      </p>
+                    </div>
+                    <div className="bg-secondary/50 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Time Left</p>
+                      <p className="text-sm font-bold text-foreground leading-tight">
+                        {countdown || formatTimeLeft(opinion.end_time)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </motion.div>
             </div>
