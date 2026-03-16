@@ -46,13 +46,17 @@ const CARD_THEMES = [
   { accent: "#06B6D4", borderHover: "hover:border-[#06B6D4]/60", shadow: "hover:shadow-[0_0_24px_rgba(6,182,212,0.15)]", badge: "bg-[#06B6D4]/10 text-[#06B6D4]" },
 ];
 
-const OPTION_COLORS = [
-  { hex: "#F5C518", border: "border-[#F5C518]/40", bg: "bg-[#F5C518]/10", text: "text-[#F5C518]", hover: "hover:border-[#F5C518] hover:bg-[#F5C518]/20 hover:shadow-[0_0_16px_rgba(245,197,24,0.35)]" },
-  { hex: "#00C278", border: "border-[#00C278]/40", bg: "bg-[#00C278]/10", text: "text-[#00C278]", hover: "hover:border-[#00C278] hover:bg-[#00C278]/20 hover:shadow-[0_0_16px_rgba(0,194,120,0.35)]" },
-  { hex: "#3B82F6", border: "border-[#3B82F6]/40", bg: "bg-[#3B82F6]/10", text: "text-[#3B82F6]", hover: "hover:border-[#3B82F6] hover:bg-[#3B82F6]/20 hover:shadow-[0_0_16px_rgba(59,130,246,0.35)]" },
-  { hex: "#A855F7", border: "border-[#A855F7]/40", bg: "bg-[#A855F7]/10", text: "text-[#A855F7]", hover: "hover:border-[#A855F7] hover:bg-[#A855F7]/20 hover:shadow-[0_0_16px_rgba(168,85,247,0.35)]" },
-  { hex: "#F97316", border: "border-[#F97316]/40", bg: "bg-[#F97316]/10", text: "text-[#F97316]", hover: "hover:border-[#F97316] hover:bg-[#F97316]/20 hover:shadow-[0_0_16px_rgba(249,115,22,0.35)]" },
+// All available option colors — varied so each card's options look different
+const ALL_COLORS = [
+  "#F5C518", "#00C278", "#3B82F6", "#A855F7",
+  "#F97316", "#F43F5E", "#06B6D4", "#84CC16",
+  "#EC4899", "#EAB308", "#14B8A6", "#8B5CF6",
 ];
+
+function getOptionColor(cardIndex: number, optionIndex: number): string {
+  // Offset by card index so each card gets different starting colors
+  return ALL_COLORS[(cardIndex * 3 + optionIndex * 2 + optionIndex) % ALL_COLORS.length];
+}
 
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return "";
@@ -98,6 +102,10 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const theme = CARD_THEMES[index % CARD_THEMES.length];
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
   const cleanGenre = genre.replace(/\s*[\u{1F000}-\u{1FFFF}]/u, "").trim();
+
+  // Yes/No colors vary per card
+  const yesColor = getOptionColor(index, 0);
+  const noColor = getOptionColor(index, 1);
 
   const openStake = (e: React.MouseEvent, side: "yes" | "no", label?: string) => {
     e.stopPropagation();
@@ -225,40 +233,46 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           )}
 
-          {/* Probability bars */}
+          {/* Options — clean minimal with colored bar only */}
           {options && options.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {(showMore ? options : options.slice(0, 2)).map((opt, i) => {
-                const oc = OPTION_COLORS[i % OPTION_COLORS.length];
+                const color = getOptionColor(index, i);
                 const isSelected = selectedOption === opt.label;
                 return (
                   <button
                     key={i}
-                    onClick={(e) => { e.stopPropagation(); setSelectedOption(opt.label); openStake(e, "yes", opt.label); }}
-                    className={`w-full rounded-xl border-2 overflow-hidden transition-all duration-150 ${isSelected ? `${oc.bg} ${oc.border} shadow-lg` : `border-border/40 bg-secondary/40 ${oc.hover}`
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedOption(opt.label);
+                      openStake(e, "yes", opt.label);
+                    }}
+                    className={`w-full rounded-xl border transition-all duration-150 overflow-hidden ${isSelected ? "border-2 bg-secondary/50" : "border-border/40 bg-secondary/20 hover:bg-secondary/50"
                       }`}
+                    style={isSelected ? { borderColor: color } : {}}
                   >
-                    <div className="relative px-3 py-2.5">
-                      <div
-                        className="absolute inset-0 opacity-15 rounded-xl transition-all duration-500"
-                        style={{ width: `${opt.percent}%`, background: oc.hex }}
-                      />
-                      <div className="relative flex items-center justify-between">
-                        <span className={`text-sm font-bold ${isSelected ? oc.text : "text-foreground"}`}>
-                          {opt.label}
+                    <div className="px-3 py-2.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span
+                          className="text-sm font-bold"
+                          style={{ color: isSelected ? color : undefined }}
+                        >
+                          {isSelected ? <span style={{ color }}>{opt.label}</span> : <span className="text-foreground">{opt.label}</span>}
                         </span>
-                        <span className="text-sm font-bold" style={{ color: oc.hex }}>{opt.percent}%</span>
+                        <span className="text-sm font-bold" style={{ color }}>{opt.percent}%</span>
                       </div>
-                      <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
+                      {/* Clean colored bar only — no background fill */}
+                      <div className="h-[3px] rounded-full bg-border/60 overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${opt.percent}%`, background: oc.hex }}
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${opt.percent}%`, background: color }}
                         />
                       </div>
                     </div>
                   </button>
                 );
               })}
+
               {options.length > 2 && (
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowMore(!showMore); }}
@@ -269,34 +283,34 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
             </div>
           ) : (
+            /* Standard Yes/No — varied colors per card, clean bar only */
             <div className="flex flex-col gap-1.5">
               <button
                 onClick={(e) => openStake(e, "yes")}
-                className="w-full rounded-xl border-2 border-border/40 bg-secondary/40 hover:border-[#00C278] hover:bg-[#00C278]/15 hover:shadow-[0_0_18px_rgba(0,194,120,0.4)] transition-all duration-150 overflow-hidden"
+                className="w-full rounded-xl border border-border/40 bg-secondary/20 hover:bg-secondary/50 transition-all duration-150 overflow-hidden"
+                style={{ ["--hover-color" as any]: yesColor }}
               >
-                <div className="relative px-3 py-2.5">
-                  <div className="absolute inset-0 opacity-15 rounded-xl" style={{ width: `${yesPercent}%`, background: "#00C278" }} />
-                  <div className="relative flex items-center justify-between">
-                    <span className="text-sm font-bold text-[#00C278]">Agree</span>
-                    <span className="text-sm font-bold text-[#00C278]">{yesPercent}%</span>
+                <div className="px-3 py-2.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold" style={{ color: yesColor }}>Agree</span>
+                    <span className="text-sm font-bold" style={{ color: yesColor }}>{yesPercent}%</span>
                   </div>
-                  <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
-                    <div className="h-full rounded-full bg-[#00C278]" style={{ width: `${yesPercent}%` }} />
+                  <div className="h-[3px] rounded-full bg-border/60 overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${yesPercent}%`, background: yesColor }} />
                   </div>
                 </div>
               </button>
               <button
                 onClick={(e) => openStake(e, "no")}
-                className="w-full rounded-xl border-2 border-border/40 bg-secondary/40 hover:border-[#EF4444] hover:bg-[#EF4444]/15 hover:shadow-[0_0_18px_rgba(239,68,68,0.4)] transition-all duration-150 overflow-hidden"
+                className="w-full rounded-xl border border-border/40 bg-secondary/20 hover:bg-secondary/50 transition-all duration-150 overflow-hidden"
               >
-                <div className="relative px-3 py-2.5">
-                  <div className="absolute inset-0 opacity-15 rounded-xl" style={{ width: `${noPercent}%`, background: "#EF4444" }} />
-                  <div className="relative flex items-center justify-between">
-                    <span className="text-sm font-bold text-[#EF4444]">Disagree</span>
-                    <span className="text-sm font-bold text-[#EF4444]">{noPercent}%</span>
+                <div className="px-3 py-2.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-bold" style={{ color: noColor }}>Disagree</span>
+                    <span className="text-sm font-bold" style={{ color: noColor }}>{noPercent}%</span>
                   </div>
-                  <div className="relative mt-1.5 h-1 rounded-full bg-border overflow-hidden">
-                    <div className="h-full rounded-full bg-[#EF4444]" style={{ width: `${noPercent}%` }} />
+                  <div className="h-[3px] rounded-full bg-border/60 overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${noPercent}%`, background: noColor }} />
                   </div>
                 </div>
               </button>
@@ -336,13 +350,19 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           <div className="flex items-center gap-1 -mx-1 pt-1 border-t border-border/30">
             <button
               onClick={(e) => openStake(e, "yes")}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-[#00C278] hover:bg-[#00C278]/10 transition-colors flex-1 justify-center"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-colors flex-1 justify-center"
+              style={{ color: yesColor }}
+              onMouseEnter={e => (e.currentTarget.style.background = yesColor + "15")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Agree
             </button>
             <button
               onClick={(e) => openStake(e, "no")}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-[#EF4444] hover:bg-[#EF4444]/10 transition-colors flex-1 justify-center"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold transition-colors flex-1 justify-center"
+              style={{ color: noColor }}
+              onMouseEnter={e => (e.currentTarget.style.background = noColor + "15")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
             >
               <XCircle className="h-3.5 w-3.5" /> Disagree
             </button>

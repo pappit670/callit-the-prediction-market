@@ -167,7 +167,6 @@ const Auth = () => {
       setLoading(false);
     }
   };
-
   const createProfile = async (userId: string, username: string) => {
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -180,11 +179,13 @@ const Auth = () => {
       displayName: profile.username,
       initials: profile.username.slice(0, 2).toUpperCase(),
       bio: profile.bio || "Calling it like I see it",
-      balance: profile.balance || 1000,
+      balance: 1000,
       joinDate: new Date().toLocaleDateString("en-US", { month: "short", year: "numeric" }),
       wins: 0, losses: 0, total_calls: 0, avatar: "",
     });
-    setShowGift(true);
+
+    // Small delay so state updates before showing animation
+    setTimeout(() => setShowGift(true), 100);
   };
 
   const handleResend = async () => {
@@ -227,7 +228,7 @@ const Auth = () => {
               Check your email
             </h1>
             <p className="text-muted-foreground text-sm">
-              We sent a 6-digit code to
+              We sent a 8-digit code to
             </p>
             <p className="text-gold font-semibold text-sm mt-1">{email}</p>
           </div>

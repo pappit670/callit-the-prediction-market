@@ -301,22 +301,6 @@ const Navbar = () => {
                   </div>
                 )}
 
-                <div className="mt-6">
-                  <div className="px-4 pb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Topics</span>
-                  </div>
-                  <button onClick={() => navigate("/topic/trending")}
-                    className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-muted-foreground font-medium hover:bg-secondary hover:text-gold transition-colors">
-                    🔥 Trending
-                  </button>
-                  {navTopics.map((topic) => (
-                    <button key={topic.slug} onClick={() => navigate(`/topic/${topic.slug}`)}
-                      className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-muted-foreground font-medium hover:bg-secondary hover:text-gold transition-colors">
-                      {topic.icon} {topic.name}
-                    </button>
-                  ))}
-                </div>
-
                 <div className="space-y-1 mt-6 border-t border-border pt-6">
                   <div className="px-4 pb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Resources</span>
