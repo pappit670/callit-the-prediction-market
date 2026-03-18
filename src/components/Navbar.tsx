@@ -120,9 +120,6 @@ const Navbar = () => {
               <div className="flex items-center justify-end gap-3 shrink-0">
                 {!isLoggedIn ? (
                   <div className="flex items-center gap-3">
-                    <Link to="/how-it-works" className="hidden sm:block text-xs font-bold text-muted-foreground hover:text-gold transition-colors uppercase tracking-wider">
-                      How it works
-                    </Link>
                     <Link to="/auth" className="rounded-full border border-border px-4 py-1.5 text-xs font-bold hover:border-gold hover:text-gold transition-all">Log In</Link>
                     <Link to="/auth" className="rounded-full bg-gold text-primary-foreground px-4 py-1.5 text-xs font-bold hover:bg-gold-hover transition-all">Sign Up</Link>
                   </div>

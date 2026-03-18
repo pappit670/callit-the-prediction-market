@@ -399,7 +399,36 @@ const TopicPage = () => {
                             </div>
                         ) : opinions.length > 0 ? (
                             <motion.div className="flex flex-col gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                                {opinions.map((op, i) => (
+                                {/* LIVE section — pinned first */}
+                                {opinions.filter(op => {
+                                    const tl = op.end_time
+                                        ? new Date(op.end_time) > new Date()
+                                            ? `${Math.ceil((new Date(op.end_time).getTime() - Date.now()) / 86400000)}d left`
+                                            : "Ended"
+                                        : "30d left";
+                                    return tl.includes("min") || tl === "Live";
+                                }).length > 0 && (
+                                    <div className="mb-1">
+                                        <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5 mb-2">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse inline-block" /> Live Now
+                                        </p>
+                                        {opinions.filter(op => {
+                                            const tl = op.end_time ? (new Date(op.end_time) > new Date() ? `${Math.ceil((new Date(op.end_time).getTime() - Date.now()) / 86400000)}d left` : "Ended") : "30d left";
+                                            return tl.includes("min") || tl === "Live";
+                                        }).map((op, i) => (
+                                            <div key={op.id} onClick={() => setSelectedOpinion(op)} className={`cursor-pointer transition-all ${selectedOpinion?.id === op.id ? "ring-2 ring-destructive rounded-2xl" : ""}`}>
+                                                <OpinionCard data={mapToCard(op)} index={i} />
+                                            </div>
+                                        ))}
+                                        <div className="border-t border-border/50 my-3" />
+                                    </div>
+                                )}
+
+                                {/* Regular opinions */}
+                                {opinions.filter(op => {
+                                    const tl = op.end_time ? (new Date(op.end_time) > new Date() ? `${Math.ceil((new Date(op.end_time).getTime() - Date.now()) / 86400000)}d left` : "Ended") : "30d left";
+                                    return !tl.includes("min") && tl !== "Live";
+                                }).map((op, i) => (
                                     <div key={op.id}
                                         onClick={() => setSelectedOpinion(op)}
                                         className={`cursor-pointer transition-all ${selectedOpinion?.id === op.id ? "ring-2 ring-gold rounded-2xl" : ""}`}>
@@ -498,16 +527,23 @@ const TopicPage = () => {
                                                 />
                                             </div>
                                             {/* Quick amounts */}
-                                            <div className="flex gap-1.5 mt-2">
-                                                {[10, 50, 100, 500].map(amt => (
+                                            <div className="flex gap-1.5 mt-2 flex-wrap">
+                                                {[1, 5, 10, 50, 100, 150].map(amt => (
                                                     <button key={amt} onClick={() => setStakeAmount(amt)}
-                                                        className={`flex-1 py-1 rounded-lg text-[11px] font-semibold transition-colors border ${stakeAmount === amt
+                                                        className={`flex-1 py-1 rounded-lg text-[11px] font-semibold transition-colors border min-w-[30px] ${stakeAmount === amt
                                                             ? "bg-gold text-primary-foreground border-gold"
                                                             : "border-border text-muted-foreground hover:border-gold/50 hover:text-gold"
                                                             }`}>
                                                         {amt}
                                                     </button>
                                                 ))}
+                                                <button onClick={() => setStakeAmount(user.balance || 1000)}
+                                                    className={`flex-1 py-1 rounded-lg text-[11px] font-semibold transition-colors border min-w-[30px] ${stakeAmount === (user.balance || 1000)
+                                                        ? "bg-gold text-primary-foreground border-gold"
+                                                        : "border-border text-muted-foreground hover:border-gold/50 hover:text-gold"
+                                                        }`}>
+                                                    MAX
+                                                </button>
                                             </div>
                                         </div>
 

@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, Bookmark, Coins, Users } from "lucide-react";
+import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, Bookmark, Coins, Users, ChevronDown, Newspaper, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
@@ -42,6 +42,103 @@ function generateChartPoint(percent: number, seed: number, points = 20) {
   }
   return data;
 }
+
+// ─── Call Context & Rules Block ────────────────────────────────────────────
+const SAMPLE_NEWS_ITEMS = [
+  { source: "Reuters", headline: "Key developments around this prediction in the past 24 hours", time: "2h ago" },
+  { source: "Associated Press", headline: "Experts weigh in on the likely outcome based on current trends", time: "5h ago" },
+  { source: "The Guardian", headline: "Background context: how we got here and what to watch", time: "1d ago" },
+];
+
+const CallContextBlock = ({ opinion }: { opinion: any }) => {
+  const [open, setOpen] = useState(true);
+
+  const description = opinion.description ||
+    `This prediction asks whether the stated outcome will occur by the resolution date. The call is based on publicly observable events and verifiable outcomes.`;
+
+  const resolutionRule = opinion.resolution_notes ||
+    `This call resolves YES if the stated condition is met and confirmed by at least one major news source or official announcement before the end time. In the case of ambiguity, the call creator's stated intent takes precedence.`;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="mb-8"
+    >
+      {/* Expandable header */}
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full flex items-center justify-between py-3 border-b border-border text-left group"
+      >
+        <span className="text-sm font-bold text-foreground group-hover:text-gold transition-colors flex items-center gap-2">
+          <Info className="h-4 w-4 text-muted-foreground" />
+          Call Context & Rules
+        </span>
+        <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="pt-4 space-y-5">
+
+              {/* About */}
+              <div>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
+                  About this Call
+                </p>
+                <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
+              </div>
+
+              {/* Resolution Rules */}
+              <div className="bg-secondary/40 border border-border rounded-xl p-4">
+                <p className="text-[11px] font-bold text-gold uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-gold inline-block" />
+                  Resolution Rules
+                </p>
+                <p className="text-sm text-foreground/80 leading-relaxed">{resolutionRule}</p>
+              </div>
+
+              {/* News / Context */}
+              <div>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                  <Newspaper className="h-3 w-3" /> Relevant Context
+                </p>
+                <div className="space-y-2">
+                  {SAMPLE_NEWS_ITEMS.map((item, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-secondary/40 border border-border/60 hover:border-gold/30 transition-colors cursor-pointer group"
+                    >
+                      <div className="h-6 w-6 rounded bg-secondary border border-border flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[10px] font-bold text-muted-foreground">{item.source[0]}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground leading-snug group-hover:text-gold transition-colors line-clamp-2">
+                          {item.headline}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-1">{item.source} · {item.time}</p>
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5 group-hover:text-gold transition-colors" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+};
 
 const OpinionDetail = () => {
   const { id } = useParams();
@@ -250,7 +347,8 @@ const OpinionDetail = () => {
                 optionSeries={optionSeries}
                 height={260}
               />
-              <div className="flex items-center gap-1 mt-3">
+              {/* Time filter tabs */}
+              <div className="flex items-center gap-1 mt-3 border-b border-border pb-1">
                 {TIME_FILTERS.map(tf => (
                   <button key={tf} onClick={() => setActiveTimeFilter(tf)}
                     className={`px-3 py-1.5 text-[13px] font-medium rounded transition-all ${activeTimeFilter === tf
@@ -259,7 +357,30 @@ const OpinionDetail = () => {
                       }`}>{tf}</button>
                 ))}
               </div>
+
+              {/* Belief summary + live coin indicator */}
+              <div className="flex items-center justify-between mt-3 px-1">
+                <div className="flex items-center gap-3 flex-wrap">
+                  {options.map((opt, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
+                      <span className="text-xs text-muted-foreground">{opt}</span>
+                      <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>{basePercent}%</span>
+                      <span className="text-[10px] font-bold" style={{ color: i % 2 === 0 ? "#22C55E" : "#EF4444" }}>
+                        {i % 2 === 0 ? `↑ +${(i + 1) * 2}` : `↓ -${(i + 1) * 2}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-gold font-semibold">
+                  <Coins className="h-3 w-3" />
+                  <span>+{Math.max(1, opinion.call_count || 0)} active</span>
+                </div>
+              </div>
             </motion.div>
+
+            {/* ── Call Context & Rules ── */}
+            <CallContextBlock opinion={opinion} />
 
             {/* OPTIONS LIST */}
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}

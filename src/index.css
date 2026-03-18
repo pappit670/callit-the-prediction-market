@@ -39,7 +39,7 @@
     --gold: 47 91% 52%;
     --gold-hover: 43 75% 46%;
     --gold-border: 47 91% 52%;
-    --gold-glow: 47 91% 52% / 0.12;
+    --gold-glow: 47 91% 52% / 0.08;
 
     --yes: 142 71% 45%;
     --yes-faded: 142 71% 45% / 0.19;
@@ -56,71 +56,92 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
-  /* Force Dark mode variables to match Light mode to ensure absolute minimal white/black design everywhere */
   .dark {
-    --background: 0 0% 2%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 4%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 4%;
-    --popover-foreground: 0 0% 98%;
+    /* Layered dark tones — financial platform aesthetic */
+    --background: 220 18% 8%;
+    --foreground: 210 10% 91%;
+
+    --card: 220 10% 9.5%;
+    --card-foreground: 210 10% 91%;
+
+    --popover: 220 10% 9.5%;
+    --popover-foreground: 210 10% 91%;
+
     --primary: 47 91% 52%;
     --primary-foreground: 0 0% 4%;
-    --secondary: 0 0% 8%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 8%;
-    --muted-foreground: 0 0% 65%;
-    --accent: 0 0% 8%;
-    --accent-foreground: 0 0% 98%;
+
+    --secondary: 220 10% 12%;
+    --secondary-foreground: 210 10% 91%;
+
+    --muted: 220 10% 12%;
+    --muted-foreground: 210 10% 58%;
+
+    --accent: 220 10% 12%;
+    --accent-foreground: 210 10% 91%;
+
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5% 15%;
-    --input: 240 5% 15%;
+
+    --border: 220 10% 15.5%;
+    --input: 220 10% 15.5%;
     --ring: 47 91% 52%;
-    --sidebar-background: 0 0% 4%;
-    --sidebar-foreground: 240 5% 85%;
+
+    --gold: 47 91% 52%;
+    --gold-hover: 43 75% 46%;
+    --gold-border: 47 91% 52%;
+    --gold-glow: 47 91% 52% / 0.08;
+
+    --sidebar-background: 220 10% 9.5%;
+    --sidebar-foreground: 210 10% 75%;
     --sidebar-primary: 47 91% 52%;
     --sidebar-primary-foreground: 0 0% 4%;
-    --sidebar-accent: 240 5% 12%;
-    --sidebar-accent-foreground: 240 5% 98%;
-    --sidebar-border: 240 5% 15%;
+    --sidebar-accent: 220 10% 14%;
+    --sidebar-accent-foreground: 210 10% 91%;
+    --sidebar-border: 220 10% 15.5%;
     --sidebar-ring: 47 91% 52%;
   }
 
-  @keyframes gold-pulse {
-    0%, 100% {
-      box-shadow: 0 0 8px hsl(47 91% 52% / 0.1);
-    }
-    50% {
-      box-shadow: 0 0 24px hsl(47 91% 52% / 0.2);
-    }
-  }
-
-  .animate-gold-pulse {
-    animation: gold-pulse 2s ease-in-out infinite;
-  }
+  /* animate-gold-pulse removed — no glow on buttons, information dominates */
 
   @keyframes pool-pulse {
     0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.05); opacity: 0.85; }
+    50%       { transform: scale(1.05); opacity: 0.85; }
   }
   .animate-pool-pulse {
     animation: pool-pulse 1.5s ease-in-out;
   }
 
   @keyframes ticker {
-    0% { transform: translateX(0); }
+    0%   { transform: translateX(0); }
     100% { transform: translateX(-50%); }
   }
   .animate-ticker {
     animation: ticker 20s linear infinite;
   }
+
+  /* Live arguments scroll upward */
+  @keyframes scroll-up {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+  }
+  .animate-scroll-up {
+    animation: scroll-up 18s linear infinite;
+  }
+
+  /* Belief delta flash */
+  @keyframes delta-flash {
+    0%   { opacity: 0; transform: translateY(4px); }
+    20%  { opacity: 1; transform: translateY(0); }
+    80%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .animate-delta-flash {
+    animation: delta-flash 3s ease-in-out infinite;
+  }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+  * { @apply border-border; }
 
   body {
     @apply bg-background text-foreground font-body antialiased;
@@ -139,11 +160,10 @@
 
   .card-gold {
     border: 1px solid hsl(var(--border));
-    border-radius: 0px; 
+    border-radius: 0px;
     box-shadow: none;
     transition: transform 300ms ease, border-color 300ms ease;
   }
-
   .card-gold:hover {
     transform: translateY(-2px);
     border-color: hsl(var(--gold));
@@ -151,14 +171,23 @@
 
   .compact-card {
     border: 1px solid hsl(var(--border));
-    border-radius: 0px; 
+    border-radius: 0px;
     padding: 16px;
     box-shadow: none;
     transition: transform 200ms ease, border-color 200ms ease;
   }
-
   .compact-card:hover {
     transform: translateY(-2px);
     border-color: hsl(var(--foreground) / 0.2);
   }
+
+  /* Fade mask for live scrolling feeds — fades top + bottom */
+  .feed-fade-mask {
+    mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%);
+  }
+
+  /* No scrollbar */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 }
