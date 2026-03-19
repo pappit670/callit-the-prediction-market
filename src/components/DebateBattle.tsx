@@ -25,7 +25,8 @@ export function DebateBattle({ opinionId, options, optionColors = ["#F5C518", "#
     const fetchArguments = async () => {
         const { data } = await supabase
             .from("arguments")
-            .select("*, profiles(username, reputation_score)")
+            .select("*, profiles(username, reputation)")
+
             .eq("opinion_id", opinionId)
             .order("upvotes", { ascending: false })
             .limit(20);
@@ -164,9 +165,9 @@ export function DebateBattle({ opinionId, options, optionColors = ["#F5C518", "#
                                                             <span className="text-[11px] font-semibold text-foreground">
                                                                 @{arg.profiles?.username || "anon"}
                                                             </span>
-                                                            {arg.profiles?.reputation_score && (
+                                                            {arg.profiles?.reputation && (
                                                                 <span className="text-[9px] text-muted-foreground">
-                                                                    {Math.round(arg.profiles.reputation_score)}% acc
+                                                                    {Math.round(arg.profiles.reputation)}% acc
                                                                 </span>
                                                             )}
                                                         </div>

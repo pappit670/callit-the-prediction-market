@@ -197,8 +197,8 @@ const FeaturedCard = ({
               <p className="text-xs text-muted-foreground">
                 by <span className="font-semibold" style={{ color: accentColor }}>@{opinion.profiles.username}</span>
                 {opinion.profiles?.reputation_score && (
-                  <span className="ml-2 text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">
-                    {Math.round(opinion.profiles.reputation_score)}% accuracy
+                    <span className="ml-2 text-[10px] text-muted-foreground bg-secondary px-1.5 py-0.5 rounded-full">
+                    {Math.round(opinion.profiles.reputation)}% accuracy
                   </span>
                 )}
               </p>
@@ -324,7 +324,8 @@ const Index = () => {
     try {
       const { data } = await supabase
         .from("opinions")
-        .select("*, topics(name, slug, icon, color), profiles(username, reputation_score)")
+        .select("*, topics(name, slug, icon, color), profiles(username, reputation)")
+
         .eq("status", "open")
         .order("call_count", { ascending: false })
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
@@ -362,8 +363,9 @@ const Index = () => {
     topicColor: op.topics?.color,
     status: op.status,
     creatorUsername: op.profiles?.username || null,
-    creatorReputation: op.profiles?.reputation_score
-      ? Math.round(op.profiles.reputation_score) : undefined,
+    creatorReputation: op.profiles?.reputation
+      ? Math.round(op.profiles.reputation) : undefined,
+
     createdAt: op.created_at,
     commentCount: 0,
     followerCount: op.follower_count || 0,
