@@ -320,8 +320,12 @@ const Index = () => {
     createdAt: op.created_at,
     followerCount: op.follower_count || 0,
     isRising: (op.rising_score || 0) > 10,
-    options: Array.isArray(op.options)
-      ? op.options.map((o: string) => ({ label: o, percent: Math.round(100 / op.options.length) }))
+    // Safe options handling
+    options: Array.isArray(op.options) && op.options.length > 0
+      ? op.options.map((o: any) => ({
+          label: typeof o === "string" ? o : String(o),
+          percent: Math.round(100 / op.options.length),
+        }))
       : undefined,
   });
 
@@ -362,7 +366,8 @@ const Index = () => {
       <Navbar />
 
       {/* Bottom Category Navbar */}
-      < BottomNav active={activeCategory} onChange={(c) => { setActiveCategory(c); setPage(0); setOpinions([]); }} />
+      <BottomNav active={activeCategory} onChange={(c) => { setActiveCategory(c); setPage(0); setOpinions([]); }} />
+
 
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">

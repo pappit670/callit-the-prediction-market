@@ -227,13 +227,15 @@ const TopicPage = () => {
         createdAt: op.created_at,
         followerCount: op.follower_count || 0,
         isRising: (op.rising_score || 0) > 10,
-        options: Array.isArray(op.options)
-            ? op.options.map((o: string, i: number) => ({
-                label: o,
+        // Safe options handling
+        options: Array.isArray(op.options) && op.options.length > 0
+            ? op.options.map((o: any, i: number) => ({
+                label: typeof o === "string" ? o : String(o),
                 percent: Math.round(100 / op.options.length),
                 color: OPTION_COLORS[(i * 3) % OPTION_COLORS.length],
             }))
             : undefined,
+
     });
 
     const selectedOptions = selectedOpinion && Array.isArray(selectedOpinion.options)
