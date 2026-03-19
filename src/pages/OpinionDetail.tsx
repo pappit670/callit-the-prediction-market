@@ -8,7 +8,7 @@ import Navbar from "@/components/Navbar";
 import { useApp } from "@/context/AppContext";
 import { SlidingNumber } from "@/components/ui/sliding-number";
 import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
-import { DebatePanel } from "@/components/debate/DebatePanel";
+
 
 
 const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
@@ -517,21 +517,7 @@ const OpinionDetail = () => {
               )}
             </motion.div>
             
-            {/* DEBATE PANEL */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 }}
-              className="mb-10"
-              id="debate"
-            >
-              <h3 className="font-headline text-2xl mb-4">Take a Stand</h3>
-              <DebatePanel
-                opinionId={id!}
-                opinionStatement={opinion.statement}
-                defaultExpanded={true}
-              />
-            </motion.div>
+
 
 
             {/* Actions */}
