@@ -4,8 +4,7 @@ import { Bookmark, Activity, Timer, Share2, MessageCircle, Eye, Users, CheckCirc
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
-import { PositionModal } from "./debate/PositionModal";
-import { DebatePanel } from "./debate/DebatePanel";
+
 
 
 export interface OpinionCardData {
@@ -107,7 +106,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [followed, setFollowed] = useState(false);
   const [showMore, setShowMore] = useState(false);
-  const [positionModal, setPositionModal] = useState<"agree" | "disagree" | null>(null);
+
 
 
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
@@ -119,12 +118,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
 
   const openDebate = (e: React.MouseEvent, stance: "agree" | "disagree" | "challenge") => {
     e.stopPropagation();
-    if (!isLoggedIn) { toast.error("Log in to join the debate!"); navigate("/auth"); return; }
-    if (stance === "challenge") {
-      navigate(`/opinion/${data.id}#debate`);
-    } else {
-      setPositionModal(stance);
-    }
+    navigate(`/opinion/${data.id}`);
   };
 
 
@@ -393,14 +387,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         </div>
       </motion.div>
 
-      {positionModal && (
-        <PositionModal
-          opinionId={String(data.id)}
-          opinionStatement={question}
-          stance={positionModal}
-          onClose={() => setPositionModal(null)}
-        />
-      )}
+
     </>
 
   );
