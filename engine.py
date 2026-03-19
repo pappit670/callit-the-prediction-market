@@ -1,1052 +1,933 @@
 import requests
-import google.generativeai as genai
 from datetime import datetime, timedelta
 import json
 import time
 import xml.etree.ElementTree as ET
-from urllib.parse import quote_plus
+import os
+import hashlib
+import re
+from dotenv import load_dotenv
 
 # ═══════════════════════════════════════════════════════
-#  CONFIGURATION
+#  CONFIG
 # ═══════════════════════════════════════════════════════
-GEMINI_API_KEY   = "AIzaSyAaHQ2Y_D0dJyH6wtTAN62jc23tQWCMzww"
-WORLDNEWS_KEY    = "219ae2287c8e44019ec82bd6c554c419"
-FOOTBALL_KEY     = "44b75ff978d048988ba88a39694779f8"
-SEARCHAPI_KEY    = "Hwg23MPnEEF4V5KEodaSe3Qi"
-SPORTSDB_KEY     = "e89ad8a315f14bd49c6bb19013ae8aa6"   # TheSportsDB v2 (esports + gaming)
-RAPIDAPI_KEY     = "18d10f848cmshaff837ebc4d403cp167e19jsnb513356cfea8"  # NSE RapidAPI
+load_dotenv()
 
-SUPABASE_URL     = "https://rzfyhkksaolyodlddrpo.supabase.co"
-SUPABASE_KEY     = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ6Znloa2tzYW9seW9kbGRkcnBvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMzc4OTUsImV4cCI6MjA4ODkxMzg5NX0.VT7xBnWpjEBz6-9Mr5Bj0WCgv57gx8qgl5oFOlqfv-U"
+GROQ_API_KEY   = os.getenv("GROQ_API_KEY")
+OPENROUTER_KEY = os.getenv("OPENROUTER_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+WORLDNEWS_KEY  = os.getenv("WORLDNEWS_API_KEY")
+FOOTBALL_KEY   = os.getenv("FOOTBALL_API_KEY")
+SEARCHAPI_KEY  = os.getenv("SEARCHAPI_API_KEY")
+RAPIDAPI_KEY   = os.getenv("RAPIDAPI_API_KEY")
+SUPABASE_URL   = os.getenv("VITE_SUPABASE_URL")
+SUPABASE_KEY   = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("VITE_SUPABASE_ANON_KEY")
 
-KPL_LEAGUE_ID    = 692
-SPORTSDB_BASE    = "https://www.thesportsdb.com/api/v2/json"
+print(f"[INIT] Supabase:   {SUPABASE_URL}")
+print(f"[INIT] Groq:       {'✓' if GROQ_API_KEY else '✗'}")
+print(f"[INIT] WorldNews:  {'✓' if WORLDNEWS_KEY else '✗'}")
+print(f"[INIT] Football:   {'✓' if FOOTBALL_KEY else '✗'}")
+print(f"[INIT] SearchAPI:  {'✓' if SEARCHAPI_KEY else '✗'}")
 
-# TheSportsDB league IDs for esports / gaming tournaments
-ESPORTS_LEAGUES = [
-    ("4479", "League of Legends World Championship", "Esports", "MOBA"),
-    ("4480", "Dota 2 The International",             "Esports", "MOBA"),
-    ("4481", "CS:GO / CS2 Major Championship",       "Esports", "FPS"),
-    ("4482", "FIFA eWorld Cup",                       "Esports", "Sports Gaming"),
-    ("4483", "Call of Duty League",                  "Esports", "FPS"),
-    ("4484", "Valorant Champions Tour",              "Esports", "FPS"),
-    ("4485", "NBA 2K League",                        "Esports", "Sports Gaming"),
-]
+SEARCHAPI_BASE = "https://www.searchapi.io/api/v1/search"
+KPL_LEAGUE_ID  = 692
 
-# NSE top stocks to track via RapidAPI
-NSE_STOCKS = [
-    "SCOM",  # Safaricom
-    "EQTY",  # Equity Group
-    "KCB",   # KCB Group
-    "COOP",  # Co-op Bank
-    "BAMB",  # Bamburi Cement
-    "EABL",  # East African Breweries
-    "BAT",   # British American Tobacco Kenya
-    "ABSA",  # Absa Bank Kenya
-    "NCBA",  # NCBA Group
-    "DTK",   # Diamond Trust Bank
-]
+# ── Topic IDs ──────────────────────────────────────────
+TOPIC_IDS = {
+    "sports":             "141f2cd1-15ca-4994-8022-b85c059e4a4a",
+    "politics":           "08372f93-25ea-4300-bc20-c88d459a8db6",
+    "business":           "cfe0e786-7db4-4954-b2bc-0f1affd98e70",
+    "tech":               "4f0f99d2-462c-4de3-a25d-7b776da123c8",
+    "entertainment":      "b53d326b-4904-449f-a257-0451ec43f024",
+    "world":              "6d7080dc-297f-4c90-81c5-52302331501b",
+    "kpl":                "d902dba9-3548-4536-8e46-07703af45de5",
+    "epl":                "5db924b2-dce3-4935-8164-a16123ea2283",
+    "nba":                "4035b994-bcbf-4f87-a9ec-eec108ff191e",
+    "ucl":                "807e9aa7-927a-4be2-b736-9b4b0cb5fdca",
+    "la-liga":            "983adf79-cfb7-4133-b3fd-d1067e88a863",
+    "bundesliga":         "3d85ffa2-3de8-4cbf-997f-dffa1fbee0ec",
+    "crypto-bitcoin":     "39a94231-b025-4dd2-93a8-a1a6456c1880",
+    "crypto-ethereum":    "5a100055-7284-430a-aeec-c3cd5e3ea84e",
+    "crypto-altcoins":    "afc48809-329a-4321-83bc-c0cf2c90a4bc",
+    "tech-ai":            "b9675f06-2e99-4951-952f-f9b8b97d260d",
+    "business-kenya":     "e70540b8-e072-4780-992f-e2da06489641",
+    "politics-kenya":     "cea4d881-f6ca-421a-9f6f-b2c154575f16",
+    "politics-elections": "2c5076e2-e483-41c8-b3ab-fea1ac45574b",
+    "business-stocks":    "0b9342e8-54d4-4346-b99f-f53b7a272090",
+    "world-conflict":     "d857e33e-4b92-474a-ae32-9d08be129db1",
+    "business-energy":    "7c081ac1-228b-43f7-9803-b2b3231c0089",
+    "tech-gaming":        "1c53a8b9-b24c-4e9a-8b18-49a9aff292ae",
+    "business-forex":     "434d40fe-49a0-4e0f-b041-30c4a1f6eb23",
+    "business-vc":        "c6176c96-7dfa-481f-bb66-2c17db37fdd4",
+    "tech-startups":      "b5bc4d1d-8d98-4a37-ae84-a8ee174c2019",
+    "tech-tesla":         "df65e096-6651-4d2e-a27c-744419bf2795",
+    "tech-apple":         "88847188-9453-4d52-8279-2d192ba1f4e2",
+    "tech-google":        "2befcd8f-c802-475e-9c17-651eb3c90eec",
+    "tech-social":        "f0aec887-122f-427d-b631-d7735173b3b2",
+    "tech-space":         "b726c3cf-20eb-466a-a034-462cb9b3b6b5",
+    "world-climate":      "8f90d39b-6de5-4b4b-bda2-11027f9518b7",
+}
 
-SEARCHAPI_BASE  = "https://www.searchapi.io/api/v1/search"
-
-# ── Finance symbols to track ──
-KE_FINANCE_QUERIES = [
-    ("SCOM:NAIROBI", "Safaricom",       "Kenya Economy", "Capital Markets"),
-    ("KCB:NAIROBI",  "KCB Group",       "Kenya Economy", "Capital Markets"),
-    ("EQTY:NAIROBI", "Equity Bank",     "Kenya Economy", "Capital Markets"),
-    ("KES-USD",      "Kenyan Shilling", "Kenya Economy", "Currency"),
-    ("BTC-USD",      "Bitcoin",         "Crypto",        "Markets"),
-    ("ETH-USD",      "Ethereum",        "Crypto",        "Markets"),
-    ("SOL-USD",      "Solana",          "Crypto",        "Markets"),
-]
-
-NEWS_QUERIES = [
-    ("Kenya politics Ruto parliament 2025",   "Kenya Politics", "Government"),
-    ("Kenya economy inflation shilling 2025", "Kenya Economy",  "Macroeconomics"),
-    ("Kenya elections 2025",                  "Kenya Politics", "Elections"),
-    ("Safaricom KCB NSE Kenya",               "Kenya Economy",  "Capital Markets"),
-    ("Kenya technology startup",              "Technology",     "Innovation"),
-    ("Kenya climate floods 2025",             "Global Events",  "Climate"),
-    ("Africa geopolitics 2025",               "Global Events",  "World Affairs"),
-    ("Kenya football KPL",                    "Kenya Sports",   "Football"),
-]
-
-EVENTS_QUERIES = [
-    ("Sports events Nairobi Kenya",  "Kenya Sports",  "Events"),
-    ("Business conferences Nairobi", "Kenya Economy", "Business"),
-    ("Political events Kenya 2025",  "Kenya Politics","Government"),
-]
-
-YOUTUBE_QUERIES = [
-    ("Kenya news today",           "Kenya Politics", "Media"),
-    ("Kenyan music trending 2025", "Global Events",  "Entertainment"),
-    ("Kenya business finance",     "Kenya Economy",  "Business"),
-]
+CATEGORY_TO_SLUG = {
+    "Kenya Politics": "politics",
+    "Kenya Economy":  "business-kenya",
+    "Kenya Sports":   "kpl",
+    "Crypto":         "crypto-bitcoin",
+    "Technology":     "tech",
+    "Global Events":  "world",
+    "Esports":        "tech-gaming",
+    "Sports":         "sports",
+    "Politics":       "politics",
+    "Business":       "business",
+    "World":          "world",
+}
 
 # ═══════════════════════════════════════════════════════
-#  GEMINI SETUP
+#  AI PROVIDER SETUP
+#  Priority: Groq → OpenRouter → Gemini
 # ═══════════════════════════════════════════════════════
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+AI_PROVIDER    = None
+AI_MODEL       = None
+_GEMINI_CLIENT = None
 
-
-# ═══════════════════════════════════════════════════════
-#  SEARCHAPI HELPER
-# ═══════════════════════════════════════════════════════
-def searchapi(engine, extra_params):
-    params = {"engine": engine, "api_key": SEARCHAPI_KEY, **extra_params}
+# ── 1. Groq (primary — 14,400 req/day free) ───────────
+if GROQ_API_KEY:
     try:
-        r = requests.get(SEARCHAPI_BASE, params=params, timeout=15)
-        if r.status_code == 200:
-            return r.json()
-        print(f"    [!] SearchAPI {engine} → {r.status_code}: {r.text[:100]}")
-        return {}
+        r = requests.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+            json={"model": "llama-3.1-8b-instant", "messages": [{"role": "user", "content": "Say OK"}], "max_tokens": 5},
+            timeout=10
+        )
+        if r.ok:
+            AI_PROVIDER = "groq"
+            AI_MODEL    = "llama-3.1-8b-instant"
+            print(f"[INIT] AI ✓  Provider=Groq  Model={AI_MODEL}")
+        else:
+            print(f"[INIT] Groq failed: {r.status_code} — {r.text[:100]}")
     except Exception as e:
-        print(f"    [!] SearchAPI {engine}: {e}")
-        return {}
+        print(f"[INIT] Groq error: {e}")
 
+# ── 2. OpenRouter (fallback — free models) ─────────────
+if not AI_PROVIDER and OPENROUTER_KEY:
+    for model in [
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "mistralai/mistral-7b-instruct:free",
+        "google/gemma-3-12b-it:free",
+    ]:
+        try:
+            r = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json",
+                         "HTTP-Referer": "https://callit.app", "X-Title": "Callit"},
+                json={"model": model, "messages": [{"role": "user", "content": "Say OK"}], "max_tokens": 5},
+                timeout=10
+            )
+            if r.ok:
+                AI_PROVIDER = "openrouter"
+                AI_MODEL    = model
+                print(f"[INIT] AI ✓  Provider=OpenRouter  Model={AI_MODEL}")
+                break
+        except:
+            continue
 
-# ═══════════════════════════════════════════════════════
-#  SOURCE 1 — WORLDNEWS
-# ═══════════════════════════════════════════════════════
-def fetch_worldnews(query, number=2):
-    params = {"text": query, "source-country": "ke", "language": "en",
-              "number": number, "api-key": WORLDNEWS_KEY}
+# ── 3. Gemini (last resort) ─────────────────────────────
+if not AI_PROVIDER and GEMINI_API_KEY:
     try:
-        r = requests.get("https://api.worldnewsapi.com/search-news", params=params, timeout=10)
-        return [
-            {"title": a.get("title",""), "text": a.get("text","")[:400],
-             "url": a.get("url",""), "source": "WorldNewsAPI", "pub": a.get("publish_date","")}
-            for a in r.json().get("news", []) if a.get("title")
-        ]
+        from google import genai as _genai
+        from google.genai import types as _gtypes
+        _gc = _genai.Client(api_key=GEMINI_API_KEY)
+        for gm in ["gemini-2.0-flash-lite", "gemini-1.5-flash-8b", "gemini-2.0-flash"]:
+            try:
+                t = _gc.models.generate_content(model=gm, contents="Say OK")
+                if t.text:
+                    AI_PROVIDER = "gemini"
+                    AI_MODEL    = gm
+                    _GEMINI_CLIENT = _gc
+                    print(f"[INIT] AI ✓  Provider=Gemini  Model={AI_MODEL}")
+                    break
+            except Exception as ge:
+                if "429" in str(ge):
+                    print(f"[INIT] Gemini {gm} quota exceeded")
+                continue
+    except ImportError:
+        pass
+
+if not AI_PROVIDER:
+    print("[INIT] ✗ NO AI PROVIDER — add GROQ_API_KEY to .env")
+    print("[INIT]   Free key: https://console.groq.com")
+
+
+# ═══════════════════════════════════════════════════════
+#  UNIFIED AI CALL
+# ═══════════════════════════════════════════════════════
+def ai_generate(prompt: str, max_tokens: int = 512) -> str | None:
+    if not AI_PROVIDER:
+        return None
+    for attempt in range(3):
+        try:
+            if AI_PROVIDER == "groq":
+                r = requests.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                    json={"model": AI_MODEL, "messages": [{"role": "user", "content": prompt}],
+                          "max_tokens": max_tokens, "temperature": 0.75},
+                    timeout=30
+                )
+                if r.ok:
+                    return r.json()["choices"][0]["message"]["content"].strip()
+                elif r.status_code == 429:
+                    wait = 30
+                    try:
+                        msg = r.json().get("error", {}).get("message", "")
+                        m   = re.search(r"try again in ([\d.]+)s", msg)
+                        if m: wait = int(float(m.group(1))) + 2
+                    except: pass
+                    print(f"    [!] Groq rate limit — waiting {wait}s...")
+                    time.sleep(wait)
+                    continue
+                else:
+                    print(f"    [!] Groq {r.status_code}: {r.text[:100]}")
+                    return None
+
+            elif AI_PROVIDER == "openrouter":
+                r = requests.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json",
+                             "HTTP-Referer": "https://callit.app", "X-Title": "Callit"},
+                    json={"model": AI_MODEL, "messages": [{"role": "user", "content": prompt}],
+                          "max_tokens": max_tokens, "temperature": 0.75},
+                    timeout=30
+                )
+                if r.ok:
+                    return r.json()["choices"][0]["message"]["content"].strip()
+                elif r.status_code == 429:
+                    time.sleep(20); continue
+                else:
+                    print(f"    [!] OpenRouter {r.status_code}: {r.text[:100]}")
+                    return None
+
+            elif AI_PROVIDER == "gemini":
+                from google.genai import types as _gt
+                resp = _GEMINI_CLIENT.models.generate_content(
+                    model=AI_MODEL, contents=prompt,
+                    config=_gt.GenerateContentConfig(temperature=0.75, max_output_tokens=max_tokens)
+                )
+                return resp.text.strip() if resp.text else None
+
+        except Exception as e:
+            err = str(e)
+            if "429" in err:
+                time.sleep(30); continue
+            print(f"    [!] AI error: {err[:120]}")
+            return None
+    return None
+
+
+# ═══════════════════════════════════════════════════════
+#  DEDUPLICATION
+# ═══════════════════════════════════════════════════════
+_seen: set = set()
+
+def is_duplicate(text: str) -> bool:
+    h = hashlib.md5(text.lower().strip()[:120].encode()).hexdigest()
+    if h in _seen: return True
+    _seen.add(h); return False
+
+
+# ═══════════════════════════════════════════════════════
+#  SUPABASE
+# ═══════════════════════════════════════════════════════
+def sb_headers():
+    return {"Content-Type": "application/json", "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"}
+
+def sb_get(table, params):
+    try:
+        r = requests.get(f"{SUPABASE_URL}/rest/v1/{table}", params=params,
+                         headers=sb_headers(), timeout=10)
+        return r.json() if r.ok else []
+    except: return []
+
+def sb_post(table, payload, prefer="return=representation"):
+    try:
+        r = requests.post(f"{SUPABASE_URL}/rest/v1/{table}", json=payload,
+                          headers={**sb_headers(), "Prefer": prefer}, timeout=10)
+        return r.json() if r.ok else None
+    except: return None
+
+
+# ═══════════════════════════════════════════════════════
+#  SLUGIFY
+# ═══════════════════════════════════════════════════════
+def slugify(text: str) -> str:
+    text = re.sub(r"[^\w\s-]", "", text.lower().strip())
+    return re.sub(r"[-\s]+", "-", text)[:60]
+
+
+# ═══════════════════════════════════════════════════════
+#  AUTO-SUBTOPIC CREATOR
+# ═══════════════════════════════════════════════════════
+_subtopic_cache: dict = {}
+
+def get_or_create_subtopic(name, slug, parent_slug, icon="📌", color="#F5C518", source_event=""):
+    if slug in _subtopic_cache:
+        return _subtopic_cache[slug]
+    existing = sb_get("topics", {"slug": f"eq.{slug}", "select": "id"})
+    if existing and isinstance(existing, list) and existing:
+        tid = existing[0]["id"]
+        _subtopic_cache[slug] = tid
+        return tid
+    result = sb_post("topics", {
+        "name": name, "slug": slug, "type": "subtopic",
+        "subtopic_of": parent_slug, "parent_id": TOPIC_IDS.get(parent_slug),
+        "icon": icon, "color": color, "active": True,
+        "auto_update": True, "auto_created": True, "source_event": source_event,
+    })
+    if result and isinstance(result, list) and result:
+        tid = result[0]["id"]
+        _subtopic_cache[slug] = tid
+        print(f"  [NEW SUBTOPIC] {name} ({slug}) → '{parent_slug}'")
+        return tid
+    fallback = TOPIC_IDS.get(parent_slug, TOPIC_IDS["world"])
+    _subtopic_cache[slug] = fallback
+    return fallback
+
+
+# ═══════════════════════════════════════════════════════
+#  CATEGORY AUTO-DETECT
+# ═══════════════════════════════════════════════════════
+def auto_cat_from_text(text: str) -> tuple:
+    t = text.lower()
+    if any(k in t for k in ["vs ", " fc", "football", "soccer", "match", "goal", "league",
+                              "premier", "champions", "bundesliga", "la liga", "serie a",
+                              "tottenham", "arsenal", "chelsea", "barcelona", "madrid", "bayern",
+                              "atletico", "crystal palace", "atalanta", "lyon", "celta",
+                              "nba", "basketball", "lakers", "warriors", "celtics", "lebron",
+                              "rugby", "cricket", "wimbledon", "tennis", "ufc", "boxing",
+                              "f1", "grand prix", "formula", "kpl", "gor mahia", "afc leopards"]):
+        return "Kenya Sports", "Global Sports"
+    if any(k in t for k in ["bitcoin","btc","eth","crypto","solana","bnb","defi","nft","token","coin"]):
+        return "Crypto", "Markets"
+    if any(k in t for k in ["ruto","odinga","parliament","election","vote","iebc","senator"]):
+        return "Kenya Politics", "Government"
+    if any(k in t for k in ["inflation","shilling","kes","nse","safaricom","kcb","fuel","tax","budget"]):
+        return "Kenya Economy", "Macroeconomics"
+    if any(k in t for k in ["ai ","openai","chatgpt","google","apple","tech","startup","iphone","nvidia"]):
+        return "Technology", "Innovation"
+    if any(k in t for k in ["war","conflict","missile","attack","nato","ukraine","israel","military"]):
+        return "Global Events", "Conflict"
+    if any(k in t for k in ["kenya","nairobi","mombasa","kisumu","africa"]):
+        return "Kenya Politics", "Government"
+    return "Global Events", "World Affairs"
+
+
+# ═══════════════════════════════════════════════════════
+#  SUBTOPIC INFERENCE
+# ═══════════════════════════════════════════════════════
+def infer_subtopic(item: dict, category: str) -> tuple:
+    title  = item.get("title", "").lower()
+    source = item.get("source", "")
+    meta   = item.get("meta", {})
+
+    if category == "Kenya Sports":
+        home = meta.get("home", "")
+        away = meta.get("away", "")
+        if home and away and source in ("API-Football", "TheSportsDB"):
+            slug = slugify(f"kpl-{home}-vs-{away}")
+            tid  = get_or_create_subtopic(f"{home} vs {away}", slug, "kpl", "⚽", "#006600")
+            return tid, f"{home} vs {away}", slug, "⚽", "#006600"
+        if any(k in title for k in ["gor mahia","afc leopards","kogalo","ingwe"]):
+            tid = get_or_create_subtopic("KPL Derbies", "kpl-derbies", "kpl", "🔥", "#C9082A")
+            return tid, "KPL Derbies", "kpl-derbies", "🔥", "#C9082A"
+        if any(k in title for k in ["harambee stars","kenya national"]):
+            tid = get_or_create_subtopic("Harambee Stars", "harambee-stars", "sports", "🇰🇪", "#006600")
+            return tid, "Harambee Stars", "harambee-stars", "🇰🇪", "#006600"
+        if any(k in title for k in ["marathon","athletics","track","field"]):
+            tid = get_or_create_subtopic("Kenya Athletics", "kenya-athletics", "sports", "🏃", "#FFD700")
+            return tid, "Kenya Athletics", "kenya-athletics", "🏃", "#FFD700"
+        if any(k in title for k in ["premier league","epl","man city","liverpool","chelsea","arsenal","man utd","tottenham"]):
+            return TOPIC_IDS.get("epl"), "English Premier League", "epl", "⚽", "#3B0764"
+        if any(k in title for k in ["champions league","ucl","atalanta","atletico"]):
+            return TOPIC_IDS.get("ucl"), "UEFA Champions League", "ucl", "⚽", "#1A237E"
+        if any(k in title for k in ["nba","basketball","lakers","warriors","celtics","lebron"]):
+            return TOPIC_IDS.get("nba"), "NBA", "nba", "🏀", "#C9082A"
+        if any(k in title for k in ["bundesliga","bayern","dortmund","leverkusen"]):
+            return TOPIC_IDS.get("bundesliga"), "Bundesliga", "bundesliga", "⚽", "#D62828"
+        if any(k in title for k in ["la liga","barcelona","real madrid","sevilla"]):
+            return TOPIC_IDS.get("la-liga"), "La Liga", "la-liga", "⚽", "#FF4500"
+        if any(k in title for k in ["rugby","sevens"]):
+            tid = get_or_create_subtopic("Kenya Rugby", "kenya-rugby", "sports", "🏉", "#006600")
+            return tid, "Kenya Rugby", "kenya-rugby", "🏉", "#006600"
+        if any(k in title for k in ["wimbledon","tennis","djokovic","alcaraz"]):
+            tid = get_or_create_subtopic("Tennis", "tennis-global", "sports", "🎾", "#006400")
+            return tid, "Tennis", "tennis-global", "🎾", "#006400"
+        if any(k in title for k in ["ufc","boxing","mma","fight"]):
+            tid = get_or_create_subtopic("Combat Sports", "combat-sports", "sports", "🥊", "#EF4444")
+            return tid, "Combat Sports", "combat-sports", "🥊", "#EF4444"
+        if any(k in title for k in ["f1","formula 1","grand prix","verstappen","hamilton"]):
+            tid = get_or_create_subtopic("Formula 1", "formula-1", "sports", "🏎️", "#E10600")
+            return tid, "Formula 1", "formula-1", "🏎️", "#E10600"
+        return TOPIC_IDS.get("kpl"), "Kenya Premier League", "kpl", "⚽", "#006600"
+
+    if category == "Crypto":
+        if any(k in title for k in ["bitcoin","btc"]):
+            return TOPIC_IDS.get("crypto-bitcoin"), "Bitcoin", "crypto-bitcoin", "₿", "#F7931A"
+        if any(k in title for k in ["ethereum","eth","defi","smart contract"]):
+            return TOPIC_IDS.get("crypto-ethereum"), "Ethereum", "crypto-ethereum", "⟠", "#627EEA"
+        if any(k in title for k in ["solana","sol"]):
+            tid = get_or_create_subtopic("Solana", "crypto-solana", "tech", "◎", "#9945FF")
+            return tid, "Solana", "crypto-solana", "◎", "#9945FF"
+        if any(k in title for k in ["xrp","ripple"]):
+            tid = get_or_create_subtopic("XRP / Ripple", "crypto-xrp", "tech", "💧", "#346AA9")
+            return tid, "XRP / Ripple", "crypto-xrp", "💧", "#346AA9"
+        if any(k in title for k in ["binance","bnb"]):
+            tid = get_or_create_subtopic("Binance", "crypto-binance", "tech", "🟡", "#F3BA2F")
+            return tid, "Binance", "crypto-binance", "🟡", "#F3BA2F"
+        if any(k in title for k in ["dogecoin","doge"]):
+            tid = get_or_create_subtopic("Dogecoin", "crypto-doge", "tech", "🐕", "#C2A633")
+            return tid, "Dogecoin", "crypto-doge", "🐕", "#C2A633"
+        if any(k in title for k in ["cardano","ada"]):
+            tid = get_or_create_subtopic("Cardano", "crypto-cardano", "tech", "🔵", "#0033AD")
+            return tid, "Cardano", "crypto-cardano", "🔵", "#0033AD"
+        if any(k in title for k in ["nft","opensea"]):
+            tid = get_or_create_subtopic("NFTs", "crypto-nfts", "tech", "🖼️", "#E24B4A")
+            return tid, "NFTs", "crypto-nfts", "🖼️", "#E24B4A"
+        if any(k in title for k in ["regulation","sec ","ban","legal"]):
+            tid = get_or_create_subtopic("Crypto Regulation", "crypto-regulation", "tech", "⚖️", "#888780")
+            return tid, "Crypto Regulation", "crypto-regulation", "⚖️", "#888780"
+        return TOPIC_IDS.get("crypto-altcoins"), "Altcoins", "crypto-altcoins", "🪙", "#F5C518"
+
+    if category == "Kenya Politics":
+        if any(k in title for k in ["election","vote","ballot","2027","iebc"]):
+            return TOPIC_IDS.get("politics-elections"), "Kenya Elections", "politics-elections", "🗳️", "#534AB7"
+        if any(k in title for k in ["ruto","william ruto","state house"]):
+            tid = get_or_create_subtopic("President Ruto", "ruto-presidency", "politics", "🏛️", "#534AB7")
+            return tid, "President Ruto", "ruto-presidency", "🏛️", "#534AB7"
+        if any(k in title for k in ["odinga","raila","azimio"]):
+            tid = get_or_create_subtopic("Raila Odinga", "raila-odinga", "politics", "🏛️", "#EF4444")
+            return tid, "Raila Odinga", "raila-odinga", "🏛️", "#EF4444"
+        if any(k in title for k in ["parliament","senate"," mp ","bill","legislation","assembly"]):
+            tid = get_or_create_subtopic("Kenya Parliament", "kenya-parliament", "politics", "🏛️", "#534AB7")
+            return tid, "Kenya Parliament", "kenya-parliament", "🏛️", "#534AB7"
+        if any(k in title for k in ["protest","demonstration","gen z","finance bill","strike","march"]):
+            tid = get_or_create_subtopic("Kenya Protests", "kenya-protests", "politics", "✊", "#EF4444")
+            return tid, "Kenya Protests", "kenya-protests", "✊", "#EF4444"
+        if any(k in title for k in ["court","supreme court","judiciary","ruling","judge","verdict"]):
+            tid = get_or_create_subtopic("Kenya Judiciary", "kenya-judiciary", "politics", "⚖️", "#534AB7")
+            return tid, "Kenya Judiciary", "kenya-judiciary", "⚖️", "#534AB7"
+        if any(k in title for k in ["county","governor","devolution","ward"]):
+            tid = get_or_create_subtopic("County Government", "kenya-counties", "politics", "🗺️", "#3B82F6")
+            return tid, "County Government", "kenya-counties", "🗺️", "#3B82F6"
+        return TOPIC_IDS.get("politics-kenya"), "Kenya Politics", "politics-kenya", "🏛️", "#534AB7"
+
+    if category == "Kenya Economy":
+        if any(k in title for k in ["safaricom","mpesa","m-pesa"]):
+            tid = get_or_create_subtopic("Safaricom", "safaricom", "business", "📱", "#4CAF50")
+            return tid, "Safaricom", "safaricom", "📱", "#4CAF50"
+        if any(k in title for k in ["fuel","petrol","diesel","pump price","epra"]):
+            tid = get_or_create_subtopic("Kenya Fuel Prices", "kenya-fuel", "business", "⛽", "#FF6B35")
+            return tid, "Kenya Fuel Prices", "kenya-fuel", "⛽", "#FF6B35"
+        if any(k in title for k in ["shilling","kes","exchange rate","forex","dollar"]):
+            return TOPIC_IDS.get("business-forex"), "Kenyan Shilling", "business-forex", "💱", "#185FA5"
+        if any(k in title for k in ["inflation","cost of living","cpi"]):
+            tid = get_or_create_subtopic("Kenya Inflation", "kenya-inflation", "business", "📊", "#EF4444")
+            return tid, "Kenya Inflation", "kenya-inflation", "📊", "#EF4444"
+        if any(k in title for k in ["nse","stock","shares","equity","nairobi stock"]):
+            return TOPIC_IDS.get("business-stocks"), "NSE Stock Market", "business-stocks", "📈", "#1D9E75"
+        if any(k in title for k in ["kcb","equity bank","co-op","ncba","absa","bank kenya"]):
+            tid = get_or_create_subtopic("Kenya Banking", "kenya-banking", "business", "🏦", "#185FA5")
+            return tid, "Kenya Banking", "kenya-banking", "🏦", "#185FA5"
+        if any(k in title for k in ["imf","world bank","debt","eurobond","loan"]):
+            tid = get_or_create_subtopic("Kenya Public Debt", "kenya-debt", "business", "💰", "#EF4444")
+            return tid, "Kenya Public Debt", "kenya-debt", "💰", "#EF4444"
+        if any(k in title for k in ["budget","tax","kra","revenue","treasury"]):
+            tid = get_or_create_subtopic("Kenya Budget & Tax", "kenya-budget", "business", "📋", "#534AB7")
+            return tid, "Kenya Budget & Tax", "kenya-budget", "📋", "#534AB7"
+        return TOPIC_IDS.get("business-kenya"), "Kenya Economy", "business-kenya", "🇰🇪", "#006600"
+
+    if category == "Technology":
+        if any(k in title for k in ["openai","chatgpt","gpt","llm","claude","gemini","deepseek","copilot"]):
+            return TOPIC_IDS.get("tech-ai"), "AI Models", "tech-ai", "🤖", "#534AB7"
+        if any(k in title for k in ["tesla","elon musk","spacex","neuralink"]):
+            return TOPIC_IDS.get("tech-tesla"), "Tesla & Elon Musk", "tech-tesla", "⚡", "#E31937"
+        if any(k in title for k in ["apple","iphone","ipad","mac","ios"]):
+            return TOPIC_IDS.get("tech-apple"), "Apple", "tech-apple", "🍎", "#555555"
+        if any(k in title for k in ["google","alphabet","android","youtube","deepmind"]):
+            return TOPIC_IDS.get("tech-google"), "Google", "tech-google", "🔍", "#4285F4"
+        if any(k in title for k in ["startup","funding","series a","series b","silicon savannah","venture"]):
+            return TOPIC_IDS.get("tech-startups"), "Tech Startups", "tech-startups", "🚀", "#F5C518"
+        if any(k in title for k in ["gaming","esports","video game","playstation","xbox"]):
+            return TOPIC_IDS.get("tech-gaming"), "Gaming", "tech-gaming", "🎮", "#9945FF"
+        if any(k in title for k in ["space","nasa","satellite","rocket","starlink"]):
+            return TOPIC_IDS.get("tech-space"), "Space", "tech-space", "🛸", "#0a1128"
+        if any(k in title for k in ["social media","twitter","tiktok","instagram","facebook","meta"]):
+            return TOPIC_IDS.get("tech-social"), "Social Media", "tech-social", "📱", "#1DA1F2"
+        if any(k in title for k in ["nvidia","chip","semiconductor","gpu"]):
+            tid = get_or_create_subtopic("Chips & AI Hardware", "tech-chips", "tech", "🔬", "#76B900")
+            return tid, "Chips & AI Hardware", "tech-chips", "🔬", "#76B900"
+        return TOPIC_IDS.get("tech"), "Technology", "tech", "💻", "#185FA5"
+
+    if category == "Global Events":
+        if any(k in title for k in ["war","conflict","military","attack","bomb","missile","invasion"]):
+            return TOPIC_IDS.get("world-conflict"), "Global Conflict", "world-conflict", "⚔️", "#EF4444"
+        if any(k in title for k in ["climate","global warming","emissions","cop","carbon","flood","drought"]):
+            return TOPIC_IDS.get("world-climate"), "Climate", "world-climate", "🌱", "#1D9E75"
+        if any(k in title for k in ["fed","federal reserve","interest rate","recession","gdp","imf"]):
+            return TOPIC_IDS.get("business-stocks"), "Global Finance", "business-stocks", "📊", "#1D9E75"
+        if any(k in title for k in ["election","president","prime minister","vote"]):
+            return TOPIC_IDS.get("politics-elections"), "Global Elections", "politics-elections", "🗳️", "#534AB7"
+        if any(k in title for k in ["usa","united states","washington","white house","trump","biden","congress"]):
+            tid = get_or_create_subtopic("USA Politics", "world-usa", "world", "🇺🇸", "#B22234")
+            return tid, "USA Politics", "world-usa", "🇺🇸", "#B22234"
+        if any(k in title for k in ["china","beijing","xi jinping"]):
+            tid = get_or_create_subtopic("China", "world-china", "world", "🇨🇳", "#DE2910")
+            return tid, "China", "world-china", "🇨🇳", "#DE2910"
+        if any(k in title for k in ["africa","au ","african union","east africa"]):
+            tid = get_or_create_subtopic("Africa News", "world-africa-news", "world", "🌍", "#FFD700")
+            return tid, "Africa News", "world-africa-news", "🌍", "#FFD700"
+        return TOPIC_IDS.get("world"), "World Events", "world", "🌍", "#3B6D11"
+
+    slug = CATEGORY_TO_SLUG.get(category, "world")
+    return TOPIC_IDS.get(slug, TOPIC_IDS["world"]), category, slug, "📌", "#888888"
+
+
+# ═══════════════════════════════════════════════════════
+#  VARIATION TEMPLATES
+# ═══════════════════════════════════════════════════════
+VARIATION_TEMPLATES = {
+    "sports_match": [
+        {"angle": "match_result",  "prompt": "Who wins this match? Use the team names as outcomes."},
+        {"angle": "goals",         "prompt": "Over or under 2.5 goals in this match?"},
+        {"angle": "btts",          "prompt": "Will both teams score (BTTS)? Outcomes: [Yes - BTTS, No - Clean sheet]."},
+        {"angle": "clean_sheet",   "prompt": "Will either team keep a clean sheet? Outcomes: [Home clean sheet, Away clean sheet, Neither]."},
+        {"angle": "red_card",      "prompt": "Will there be a red card? Outcomes: [Yes - red card, No - no red card]."},
+        {"angle": "first_scorer",  "prompt": "Which team scores first? Outcomes: [Home team first, Away team first, No goals]."},
+    ],
+    "crypto": [
+        {"angle": "price_30d",     "prompt": "Will this crypto reach 10% above current price within 30 days?"},
+        {"angle": "price_90d",     "prompt": "Will this crypto reach 20% above current price within 90 days?"},
+        {"angle": "momentum",      "prompt": "Will this crypto continue its current price trend this week?"},
+        {"angle": "dominance",     "prompt": "Generate a market dominance or adoption prediction for this cryptocurrency."},
+    ],
+    "politics": [
+        {"angle": "approval",       "prompt": "Generate a public approval/confidence prediction about this political news."},
+        {"angle": "policy_outcome", "prompt": "Will the policy or decision mentioned actually be implemented?"},
+        {"angle": "timeline",       "prompt": "When will this political situation resolve? Generate a timeline prediction."},
+        {"angle": "impact",         "prompt": "What economic or social impact will this political news have?"},
+    ],
+    "economy": [
+        {"angle": "direction",       "prompt": "Which direction will this economic indicator move — up or down?"},
+        {"angle": "timeline",        "prompt": "When will this economic situation improve or change?"},
+        {"angle": "consumer_impact", "prompt": "How will this affect everyday Kenyans — cost of living, jobs, etc.?"},
+        {"angle": "comparison",      "prompt": "Will this metric be better or worse than the same period last year?"},
+    ],
+    "general": [
+        {"angle": "main",     "prompt": "Generate a direct prediction about the main outcome in this headline."},
+        {"angle": "timeline", "prompt": "When will this situation resolve or change? Generate a timeline prediction."},
+        {"angle": "impact",   "prompt": "What is the broader consequence or impact of this news?"},
+    ],
+}
+
+def get_variation_type(category: str, item: dict) -> str:
+    if item.get("meta", {}).get("home") and item.get("meta", {}).get("away"):
+        return "sports_match"
+    if category == "Crypto": return "crypto"
+    if category in ("Kenya Politics", "Global Events"): return "politics"
+    if category == "Kenya Economy": return "economy"
+    return "general"
+
+
+# ═══════════════════════════════════════════════════════
+#  MULTI-VARIATION GENERATOR
+# ═══════════════════════════════════════════════════════
+def generate_variations(item: dict, category: str, subtopic_name: str,
+                        topic_id: str, event_cluster: str) -> list:
+    if not AI_PROVIDER:
+        return []
+
+    var_type  = get_variation_type(category, item)
+    templates = VARIATION_TEMPLATES.get(var_type, VARIATION_TEMPLATES["general"])
+    title     = item.get("title", "")
+    text      = item.get("text", "")[:300]
+    source    = item.get("source", "")
+    meta      = item.get("meta", {})
+    results   = []
+
+    base = f"""You write prediction questions for Callit — a Kenyan social prediction market.
+
+EVENT: {title}
+DETAIL: {text}
+SOURCE: {source} | CATEGORY: {category} | SUBTOPIC: {subtopic_name}"""
+
+    if meta.get("home") and meta.get("away"):
+        base += f"\nHOME: {meta['home']} | AWAY: {meta['away']}"
+
+    for i, template in enumerate(templates):
+        angle  = template["angle"]
+        prompt = template["prompt"]
+
+        if is_duplicate(f"{event_cluster}:{angle}"):
+            continue
+
+        full_prompt = f"""{base}
+
+TASK: {prompt}
+
+RULES:
+- ONE prediction question only
+- Binary questions: start with "Will...?" → outcomes ["YES", "NO"]
+- Multi-outcome: start with "Who/Which/What will...?" → use real named options
+- Be specific — include names, numbers, timeframes
+- Write 2-3 sentence educational context for Kenyan users
+- Respond ONLY with valid JSON, no markdown:
+
+{{
+  "question":     "Will...?",
+  "outcomes":     ["YES", "NO"],
+  "context":      "2-3 sentences explaining this topic to everyday Kenyans...",
+  "expires_days": 30
+}}"""
+
+        raw = ai_generate(full_prompt, max_tokens=400)
+        if not raw:
+            continue
+
+        try:
+            # Strip markdown fences
+            if "```" in raw:
+                raw = raw.split("```")[1]
+                if raw.startswith("json"):
+                    raw = raw[4:]
+            data = json.loads(raw.strip())
+            q    = data.get("question", "").strip()
+            if not q or len(q) < 10 or is_duplicate(q):
+                continue
+            results.append({
+                "question":        q,
+                "outcomes":        data.get("outcomes", ["YES", "NO"]),
+                "context":         data.get("context", "").strip(),
+                "expires_days":    int(data.get("expires_days", 30)),
+                "category":        category,
+                "subcategory":     subtopic_name,
+                "source":          source,
+                "source_url":      item.get("url", ""),
+                "source_headline": title,
+                "image_url":       item.get("image_url", ""),
+                "topic_id":        topic_id,
+                "event_cluster":   event_cluster,
+                "variation_index": i,
+                "variation_angle": angle,
+            })
+            time.sleep(0.4)
+        except Exception as e:
+            print(f"    [!] Parse error [{angle}]: {e} | raw: {raw[:80]}")
+            time.sleep(0.2)
+
+    return results
+
+
+# ═══════════════════════════════════════════════════════
+#  SAVE TO SUPABASE
+# ═══════════════════════════════════════════════════════
+def save_opinion(pred: dict) -> bool:
+    expires = (datetime.utcnow() + timedelta(days=pred.get("expires_days", 30))).isoformat() + "Z"
+    payload = {
+        "statement":       pred["question"],
+        "description":     pred.get("context", ""),
+        "options":         pred.get("outcomes", ["YES", "NO"]),
+        "end_time":        expires,
+        "status":          "open",
+        "ai_generated":    True,
+        "auto_generated":  True,
+        "topic_id":        pred.get("topic_id"),
+        "source_url":      pred.get("source_url", ""),
+        "source_name":     pred.get("source", ""),
+        "source_headline": pred.get("source_headline", ""),
+        "image_url":       pred.get("image_url", ""),
+        "event_cluster":   pred.get("event_cluster", ""),
+        "variation_index": pred.get("variation_index", 0),
+    }
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/rest/v1/opinions",
+            json=payload,
+            headers={**sb_headers(), "Prefer": "return=minimal"},
+            timeout=10
+        )
+        if not r.ok:
+            print(f"    [!] Supabase {r.status_code}: {r.text[:150]}")
+        return r.ok
     except Exception as e:
-        print(f"    [!] WorldNewsAPI: {e}"); return []
+        print(f"    [!] Supabase: {e}")
+        return False
 
 
 # ═══════════════════════════════════════════════════════
-#  SOURCE 2 — API-FOOTBALL
+#  ITEM PIPELINE
 # ═══════════════════════════════════════════════════════
-def fetch_kpl_fixtures(next_n=6):
+def process_item(item: dict, default_cat: str, default_sub: str, stats: dict):
+    title = item.get("title", "")
+    if not title or is_duplicate(title):
+        return
+
+    cat = item.get("category") or default_cat
+    sub = item.get("subcategory") or default_sub
+    if not cat:
+        cat, sub = auto_cat_from_text(title)
+
+    print(f"\n  ▶ [{item.get('source','?')}] {title[:78]}")
+    topic_id, sub_name, sub_slug, icon, color = infer_subtopic(item, cat)
+    print(f"    → Subtopic: {sub_name}")
+
+    event_cluster = slugify(f"{sub_slug}-{title[:40]}")
+    variations    = generate_variations(item, cat, sub_name, topic_id, event_cluster)
+    stats["fetched"] += 1
+
+    if not variations:
+        stats["failed"] += 1
+        return
+
+    saved = 0
+    for pred in variations:
+        stats["generated"] += 1
+        if save_opinion(pred):
+            stats["saved"] += 1
+            saved += 1
+            print(f"    ✓ [{pred['variation_angle']}] {pred['question'][:70]}")
+        else:
+            print(f"    ✗ [{pred['variation_angle']}] save failed")
+
+    print(f"    → {saved}/{len(variations)} saved")
+
+def process_batch(items: list, default_cat: str, default_sub: str,
+                  stats: dict, max_items: int = 10):
+    for item in items[:max_items]:
+        process_item(item, default_cat, default_sub, stats)
+
+
+# ═══════════════════════════════════════════════════════
+#  DATA SOURCES
+# ═══════════════════════════════════════════════════════
+def searchapi_call(engine: str, params: dict) -> dict:
+    if not SEARCHAPI_KEY: return {}
+    try:
+        r = requests.get(SEARCHAPI_BASE,
+                         params={"engine": engine, "api_key": SEARCHAPI_KEY, **params},
+                         timeout=15)
+        return r.json() if r.ok else {}
+    except: return {}
+
+def fetch_worldnews(query: str, number: int = 3) -> list:
+    if not WORLDNEWS_KEY: return []
+    try:
+        r = requests.get("https://api.worldnewsapi.com/search-news",
+                         params={"text": query, "source-country": "ke",
+                                 "language": "en", "number": number,
+                                 "api-key": WORLDNEWS_KEY}, timeout=10)
+        return [{"title": a.get("title",""), "text": a.get("text","")[:400],
+                 "url": a.get("url",""), "source": "WorldNewsAPI"}
+                for a in r.json().get("news",[]) if a.get("title")]
+    except Exception as e:
+        print(f"  [!] WorldNews: {e}"); return []
+
+def fetch_kpl_fixtures() -> list:
+    if not FOOTBALL_KEY: return []
     try:
         r = requests.get("https://v3.football.api-sports.io/fixtures",
-                         params={"league": KPL_LEAGUE_ID, "next": next_n},
+                         params={"league": KPL_LEAGUE_ID, "next": 8},
                          headers={"x-apisports-key": FOOTBALL_KEY}, timeout=10)
         items = []
         for f in r.json().get("response", []):
             home  = f["teams"]["home"]["name"]
             away  = f["teams"]["away"]["name"]
-            date  = f["fixture"]["date"]
             venue = f["fixture"].get("venue", {}).get("name", "TBD")
-            fd    = datetime.fromisoformat(date.replace("Z","+00:00")).strftime("%A %d %B %Y")
             items.append({
-                "title": f"{home} vs {away} — KPL",
-                "text":  f"KPL fixture on {fd} at {venue}.",
-                "url":   "https://ke.soccerway.com",
-                "source": "API-Football", "pub": date,
-                "category": "Kenya Sports", "subcategory": "Football",
-                "meta": {"home": home, "away": away},
+                "title":    f"{home} vs {away} — KPL",
+                "text":     f"KPL fixture at {venue}.",
+                "url":      "https://ke.soccerway.com",
+                "source":   "API-Football",
+                "category": "Kenya Sports",
+                "subcategory": "Football",
+                "meta":     {"home": home, "away": away},
             })
+        print(f"  [KPL] {len(items)} fixtures")
         return items
     except Exception as e:
-        print(f"    [!] API-Football fixtures: {e}"); return []
+        print(f"  [!] KPL: {e}"); return []
 
-
-def fetch_kpl_results(last_n=4):
+def fetch_rss(url: str, source_name: str, max_items: int = 5) -> list:
     try:
-        r = requests.get("https://v3.football.api-sports.io/fixtures",
-                         params={"league": KPL_LEAGUE_ID, "last": last_n, "status": "FT"},
-                         headers={"x-apisports-key": FOOTBALL_KEY}, timeout=10)
-        items = []
-        for f in r.json().get("response", []):
-            home = f["teams"]["home"]["name"]; away = f["teams"]["away"]["name"]
-            hg   = f["goals"]["home"];         ag   = f["goals"]["away"]
-            winner = home if hg > ag else (away if ag > hg else "Draw")
-            items.append({
-                "title": f"{home} {hg}-{ag} {away} — KPL result",
-                "text":  f"Final: {home} {hg} - {ag} {away}. Winner: {winner}.",
-                "url":   "https://ke.soccerway.com",
-                "source": "API-Football", "pub": f["fixture"]["date"],
-                "category": "Kenya Sports", "subcategory": "Football",
-            })
-        return items
-    except Exception as e:
-        print(f"    [!] API-Football results: {e}"); return []
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 3 — GOOGLE FINANCE
-# ═══════════════════════════════════════════════════════
-def fetch_google_finance():
-    items = []
-    for query, name, cat, sub in KE_FINANCE_QUERIES:
-        data    = searchapi("google_finance", {"q": query})
-        summary = data.get("summary", {})
-        if not summary: continue
-        price   = summary.get("price", 0)
-        change  = summary.get("price_change", {})
-        pct     = change.get("percentage", 0)
-        move    = change.get("movement", "")
-        items.append({
-            "title":  f"{name} {'up' if move=='Up' else 'down'} {abs(pct):.2f}% — at {price}",
-            "text":   f"{name} ({query}): {price}. Change: {move} {abs(pct):.2f}%.",
-            "url":    f"https://www.google.com/finance/quote/{query}",
-            "source": "Google Finance", "pub": datetime.utcnow().isoformat(),
-            "category": cat, "subcategory": sub,
-            "price": price, "change_pct": pct,
-        })
-        time.sleep(0.4)
-    return items
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 4 — GOOGLE NEWS
-# ═══════════════════════════════════════════════════════
-def fetch_google_news(query, num=2):
-    data = searchapi("google_news", {"q": query, "gl": "ke", "hl": "en", "num": num})
-    return [
-        {"title": r.get("title",""), "text": r.get("snippet",""),
-         "url": r.get("link",""), "source": "Google News", "pub": r.get("date","")}
-        for r in data.get("organic_results", [])[:num] if r.get("title")
-    ]
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 5 — GOOGLE EVENTS
-# ═══════════════════════════════════════════════════════
-def fetch_google_events(query):
-    data = searchapi("google_events", {"q": query, "location": "Kenya", "gl": "ke"})
-    items = []
-    for e in data.get("events", [])[:4]:
-        title = e.get("title","")
-        if not title: continue
-        d = e.get("date", {})
-        items.append({
-            "title":  f"{title} — {e.get('address','Kenya')}",
-            "text":   f"Event: {title}. {e.get('duration','')}. {e.get('address','')}.",
-            "url":    e.get("link",""), "source": "Google Events",
-            "pub":    f"{d.get('month','')} {d.get('day','')} 2025",
-        })
-    return items
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 6 — GOOGLE TRENDS
-# ═══════════════════════════════════════════════════════
-def fetch_google_trends():
-    data = searchapi("google_trends_trending_now", {"geo": "KE"})
-    items = []
-    for t in data.get("trends", [])[:8]:
-        q = t.get("query",""); v = t.get("search_volume",0); pct = t.get("percentage_increase",0)
-        if not q: continue
-        items.append({
-            "title": f'"{q}" trending in Kenya — {v:,} searches (+{pct}%)',
-            "text":  f'"{q}" is surging in Kenya with {v:,} searches, up {pct}%.',
-            "url":   f"https://trends.google.com/trends/explore?q={q}&geo=KE",
-            "source": "Google Trends", "pub": datetime.utcnow().isoformat(),
-        })
-    return items
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 7 — YOUTUBE
-# ═══════════════════════════════════════════════════════
-def fetch_youtube(query, num=2):
-    data = searchapi("youtube", {"q": query, "gl": "KE", "num": num})
-    items = []
-    for v in data.get("video_results", [])[:num]:
-        title = v.get("title",""); ch = v.get("channel",{}).get("name","")
-        if not title: continue
-        items.append({
-            "title":  f'YouTube: "{title}" by {ch}',
-            "text":   f'{v.get("description","")[:200]} — {v.get("views","")} views',
-            "url":    v.get("link","https://youtube.com"),
-            "source": "YouTube", "pub": v.get("published_date",""),
-        })
-    return items
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 8 — POLYMARKET
-# ═══════════════════════════════════════════════════════
-def fetch_polymarket(limit=40):
-    print("    Fetching from Gamma API (questions + volume)…")
-    gamma_url = "https://gamma-api.polymarket.com/markets"
-    params = {"active": "true", "closed": "false", "limit": limit, "order": "volume", "ascending": "false"}
-    try:
-        r = requests.get(gamma_url, params=params, timeout=15)
-        raw = r.json()
-        markets = raw if isinstance(raw, list) else raw.get("data", [])
-    except Exception as e:
-        print(f"    [!] Gamma API: {e}"); return []
-    if not markets:
-        print("    [!] Gamma API returned no markets"); return []
-    print(f"    Gamma API ✓ {len(markets)} markets")
-
-    print("    Fetching live probabilities from CLOB API…")
-    clob_map = {}
-    try:
-        clob_url = "https://clob.polymarket.com/simplified-markets"
-        clob_r   = requests.get(clob_url, timeout=15)
-        clob_data = clob_r.json().get("data", [])
-        for m in clob_data:
-            cid    = m.get("condition_id","")
-            tokens = m.get("tokens", [])
-            if cid and tokens:
-                clob_map[cid] = [
-                    {"outcome": t.get("outcome",""), "probability": round(t.get("price", 0) * 100, 1),
-                     "token_id": t.get("token_id",""), "winner": t.get("winner", False)}
-                    for t in tokens
-                ]
-        print(f"    CLOB API ✓ {len(clob_map)} markets with live probabilities")
-    except Exception as e:
-        print(f"    [!] CLOB API: {e} — continuing without live probabilities")
-
-    items = []
-    for m in markets:
-        question   = m.get("question","").strip()
-        volume     = float(m.get("volume", 0))
-        end_date   = m.get("endDate","")
-        slug       = m.get("slug","")
-        cid        = m.get("conditionId","") or m.get("condition_id","")
-        desc       = m.get("description","")
-        outcomes_raw = m.get("outcomes","[]")
-        tags       = [t.get("label","") for t in m.get("tags", [])] if m.get("tags") else []
-
-        if not question or volume < 500:
-            continue
-
-        outcomes = []
-        if isinstance(outcomes_raw, str):
-            try: outcomes = json.loads(outcomes_raw)
-            except: outcomes = []
-        elif isinstance(outcomes_raw, list):
-            outcomes = outcomes_raw
-
-        if len(outcomes) == 2 and set(o.upper() for o in outcomes) == {"YES", "NO"}:
-            q_type = "binary"
-        elif len(outcomes) > 2:
-            q_type = "multi"
-        else:
-            q_type = "binary"
-
-        clob_outcomes = clob_map.get(cid, [])
-        outcome_probs = {}
-        for co in clob_outcomes:
-            outcome_probs[co["outcome"]] = co["probability"]
-
-        if clob_outcomes:
-            prob_str = " | ".join(f"{co['outcome']}: {co['probability']}%"
-                                  for co in sorted(clob_outcomes, key=lambda x: x["probability"], reverse=True))
-        else:
-            prob_str = "probabilities unavailable"
-
-        expires_days = 30
-        if end_date:
-            try:
-                end_dt = datetime.fromisoformat(end_date.replace("Z",""))
-                delta  = (end_dt - datetime.utcnow()).days
-                expires_days = max(1, min(delta, 90))
-            except: pass
-
-        cat, sub = polymarket_category(question, tags)
-
-        items.append({
-            "title":        question,
-            "text":         desc[:400] if desc else f"Active Polymarket market with ${volume:,.0f} volume. Current odds: {prob_str}",
-            "url":          f"https://polymarket.com/event/{slug}",
-            "source":       "Polymarket",
-            "pub":          datetime.utcnow().isoformat(),
-            "volume_usd":   volume,
-            "expires_days": expires_days,
-            "question_type": q_type,
-            "outcomes":     outcomes,
-            "outcome_probs": outcome_probs,
-            "prob_str":     prob_str,
-            "condition_id": cid,
-            "tags":         tags,
-            "category":     cat,
-            "subcategory":  sub,
-        })
-    items.sort(key=lambda x: x["volume_usd"], reverse=True)
-    print(f"    Built {len(items)} Polymarket items")
-    return items
-
-def polymarket_category(question, tags):
-    q = question.lower()
-    t = " ".join(tags).lower()
-    combined = q + " " + t
-    if any(k in combined for k in ["bitcoin","btc","ethereum","eth","crypto","solana","bnb","defi","token"]):
-        return "Crypto", "Markets"
-    if any(k in combined for k in ["kenya","nairobi","ruto","odinga","kpl","safaricom"]):
-        return auto_category(question)
-    if any(k in combined for k in ["football","soccer","nba","nfl","premier league","champions league","world cup","ufc","f1"]):
-        return "Kenya Sports", "Global Sports"
-    if any(k in combined for k in ["election","president","senate","congress","prime minister","parliament","vote","poll"]):
-        return "Global Events", "Politics"
-    if any(k in combined for k in ["fed","interest rate","inflation","gdp","recession","stock","nasdaq","s&p"]):
-        return "Global Events", "Finance"
-    if any(k in combined for k in ["ai","openai","tech","apple","google","microsoft","startup"]):
-        return "Technology", "Innovation"
-    if any(k in combined for k in ["war","conflict","ukraine","israel","military","nato"]):
-        return "Global Events", "Conflict"
-    return "Global Events", "Prediction Markets"
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 9 — KALSHI 
-# ═══════════════════════════════════════════════════════
-KALSHI_BASE = "https://api.elections.kalshi.com/trade-api/v2"
-KALSHI_SERIES = [
-    ("KXBTC",      "Crypto",       "Bitcoin Markets"),
-    ("KXETH",      "Crypto",       "Ethereum Markets"),
-    ("KXFED",      "Global Events","Interest Rates"),
-    ("KXINFL",     "Global Events","Inflation"),
-    ("KXNASDAQ",   "Global Events","Finance"),
-    ("KXOIL",      "Kenya Economy","Energy"),
-    ("KXPOTUS",    "Global Events","Politics"),
-    ("KXUKPOL",    "Global Events","Politics"),
-    ("KXAIPOL",    "Technology",   "AI Policy"),
-    ("KXNBA",      "Kenya Sports", "Global Sports"),
-    ("KXSOCCER",   "Kenya Sports", "Global Sports"),
-    ("KXUFC",      "Kenya Sports", "Global Sports"),
-    ("KXAI",       "Technology",   "AI"),
-    ("KXTECH",     "Technology",   "Innovation"),
-    ("KXUNEMP",    "Global Events","Employment"),
-    ("KXGDP",      "Global Events","Finance"),
-]
-
-def fetch_kalshi_markets(limit=50):
-    headers = {"Content-Type": "application/json"}
-    all_markets = []
-    seen_tickers = set()
-
-    for series_ticker, cat, sub in KALSHI_SERIES:
-        try:
-            url = f"{KALSHI_BASE}/markets?series_ticker={series_ticker}&status=open&limit=5"
-            r   = requests.get(url, headers=headers, timeout=10)
-            if r.status_code != 200: continue
-            for m in r.json().get("markets", []):
-                ticker = m.get("ticker","")
-                if ticker in seen_tickers: continue
-                seen_tickers.add(ticker)
-                all_markets.append({**m, "_cat": cat, "_sub": sub})
-            time.sleep(0.2)
-        except: continue
-
-    try:
-        url = f"{KALSHI_BASE}/markets?status=open&limit={limit}&order_by=volume"
-        r   = requests.get(url, headers=headers, timeout=15)
-        if r.status_code == 200:
-            for m in r.json().get("markets", []):
-                ticker = m.get("ticker","")
-                if ticker in seen_tickers: continue
-                seen_tickers.add(ticker)
-                all_markets.append(m)
-    except: pass
-
-    items = []
-    for m in all_markets:
-        title       = m.get("title","").strip()
-        subtitle    = m.get("subtitle","") or ""
-        yes_bid     = m.get("yes_bid",0) or 0
-        yes_ask     = m.get("yes_ask",0) or 0
-        no_bid      = m.get("no_bid",0) or 0
-        volume      = float(m.get("volume",0) or m.get("volume_fp",0) or 0)
-        open_int    = float(m.get("open_interest",0) or 0)
-        close_time  = m.get("close_time","") or m.get("expiration_time","")
-        ticker      = m.get("ticker","")
-        event_tick  = m.get("event_ticker","")
-        rules       = m.get("rules_primary","") or ""
-        cat         = m.get("_cat") or kalshi_category(title)
-        sub         = m.get("_sub") or "Prediction Markets"
-        if not title or volume < 100: continue
-        
-        yes_prob = round((yes_bid + yes_ask) / 2, 1) if yes_bid and yes_ask else yes_bid
-        no_prob  = round(100 - yes_prob, 1)
-        result_type = m.get("result_type","binary") or "binary"
-        q_type      = "multi" if result_type in ("scalar","multi") else "binary"
-        outcomes    = ["YES","NO"] if q_type == "binary" else []
-
-        expires_days = 30
-        if close_time:
-            try:
-                close_dt = datetime.fromisoformat(close_time.replace("Z",""))
-                delta    = (close_dt - datetime.utcnow()).days
-                expires_days = max(1, min(delta, 90))
-            except: pass
-
-        items.append({
-            "title":         title,
-            "text":          f"{subtitle} {rules[:300]}".strip() or f"Kalshi market: {title}. YES probability: {yes_prob}%. Volume: ${volume:,.0f}. Open interest: ${open_int:,.0f}.",
-            "url":           f"https://kalshi.com/markets/{event_tick}/{ticker}",
-            "source":        "Kalshi",
-            "pub":           datetime.utcnow().isoformat(),
-            "category":      cat,
-            "subcategory":   sub,
-            "question_type": q_type,
-            "outcomes":      outcomes,
-            "outcome_probs": {"YES": yes_prob, "NO": no_prob},
-            "prob_str":      f"YES: {yes_prob}% | NO: {no_prob}%",
-            "volume_usd":    volume,
-            "open_interest": open_int,
-            "expires_days":  expires_days,
-            "ticker":        ticker,
-            "event_ticker":  event_tick,
-        })
-    items.sort(key=lambda x: x["volume_usd"], reverse=True)
-    return items
-
-def kalshi_category(title):
-    t = title.lower()
-    if any(k in t for k in ["bitcoin","btc","ethereum","eth","crypto","solana"]): return "Crypto", "Markets"
-    if any(k in t for k in ["fed","interest rate","fomc","inflation","cpi","gdp","recession","unemployment"]): return "Global Events", "Finance"
-    if any(k in t for k in ["election","president","congress","senate","prime minister","vote","poll","party"]): return "Global Events", "Politics"
-    if any(k in t for k in ["nba","nfl","mlb","nhl","soccer","ufc","mma","golf","tennis","world cup"]): return "Kenya Sports", "Global Sports"
-    if any(k in t for k in ["ai","openai","gpt","llm","nvidia","tech","apple","google","microsoft","amazon"]): return "Technology", "Innovation"
-    if any(k in t for k in ["oil","crude","gas","energy","opec"]): return "Kenya Economy", "Energy"
-    if any(k in t for k in ["weather","hurricane","temperature","rainfall","climate"]): return "Global Events", "Climate"
-    if any(k in t for k in ["kenya","africa","nairobi"]): return auto_category(title)
-    return "Global Events", "Prediction Markets"
-
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 9 — THESPORTSDB v2 
-# ═══════════════════════════════════════════════════════
-def fetch_sportsdb_esports():
-    headers = {"X-API-KEY": SPORTSDB_KEY, "Content-Type": "application/json"}
-    items = []
-    for league_id, league_name, cat, sub in ESPORTS_LEAGUES:
-        try:
-            url = f"{SPORTSDB_BASE}/schedule/next/league/{league_id}"
-            r   = requests.get(url, headers=headers, timeout=10)
-            if r.status_code != 200: continue
-            events = r.json().get("schedule", []) or r.json().get("events", [])
-            for e in events[:3]:
-                home  = e.get("strHomeTeam","")
-                away  = e.get("strAwayTeam","")
-                date  = e.get("dateEvent","")
-                title = e.get("strEvent", f"{home} vs {away}")
-                sport = e.get("strSport", league_name)
-                thumb = e.get("strThumb","") or e.get("strBanner","")
-                if not title: continue
-                items.append({
-                    "title":      f"{title} — {league_name}",
-                    "text":       f"Upcoming {sport} event: {home} vs {away} on {date}. Part of {league_name}.",
-                    "url":        f"https://www.thesportsdb.com/event/{e.get('idEvent','')}",
-                    "source":     "TheSportsDB",
-                    "pub":        date,
-                    "category":   cat,
-                    "subcategory": sub,
-                    "image_url":  thumb,
-                    "meta":       {"home": home, "away": away, "league": league_name},
-                })
-            time.sleep(0.3)
-        except Exception as e: print(f"    [!] TheSportsDB {league_name}: {e}")
-    return items
-
-def fetch_sportsdb_livescores():
-    headers = {"X-API-KEY": SPORTSDB_KEY, "Content-Type": "application/json"}
-    items, sports = [], ["soccer", "basketball", "tennis", "cricket", "esports"]
-    for sport in sports:
-        try:
-            url = f"{SPORTSDB_BASE}/livescore/{sport}"
-            r   = requests.get(url, headers=headers, timeout=10)
-            if r.status_code != 200: continue
-            scores = r.json().get("livescore", []) or []
-            for s in scores[:4]:
-                home, away = s.get("strHomeTeam",""), s.get("strAwayTeam","")
-                hgoals, agoals = s.get("intHomeScore","?"), s.get("intAwayScore","?")
-                league, status = s.get("strLeague",""), s.get("strStatus","")
-                if not home or not away: continue
-                items.append({
-                    "title":      f"{home} {hgoals}-{agoals} {away} [{status}] — {league}",
-                    "text":       f"Live {sport}: {home} vs {away}. Score: {hgoals}-{agoals}. Status: {status}.",
-                    "url":        "https://www.thesportsdb.com",
-                    "source":     "TheSportsDB",
-                    "pub":        datetime.utcnow().isoformat(),
-                    "category":   "Kenya Sports",
-                    "subcategory": sport.title(),
-                })
-            time.sleep(0.3)
-        except Exception as e: print(f"    [!] TheSportsDB livescore/{sport}: {e}")
-    return items
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 10 — NSE via RapidAPI
-# ═══════════════════════════════════════════════════════
-def fetch_nse_stocks():
-    headers = {"x-rapidapi-key": RAPIDAPI_KEY, "x-rapidapi-host": "nairobi-stock-exchange-nse.p.rapidapi.com"}
-    items = []
-    try:
-        r = requests.get("https://nairobi-stock-exchange-nse.p.rapidapi.com/stocks", headers=headers, timeout=10)
-        if r.status_code == 200:
-            stocks = r.json()
-            if isinstance(stocks, dict): stocks = stocks.get("stocks", [])
-            for s in (stocks or [])[:20]:
-                ticker = s.get("ticker","") or s.get("symbol","")
-                name   = s.get("name","") or ticker
-                price  = s.get("price","") or s.get("current","")
-                change = s.get("change","") or s.get("change_pct","")
-                if not ticker or not price: continue
-                items.append({
-                    "title":      f"{name} ({ticker}) at KSh {price} — NSE {change}",
-                    "text":       f"NSE stock: {name} trading at KSh {price}. Change: {change}. Volume: {s.get('volume','')}.",
-                    "url":        f"https://www.nse.co.ke/market-statistics/equity-statistics/",
-                    "source":     "NSE",
-                    "pub":        datetime.utcnow().isoformat(),
-                    "category":   "Kenya Economy",
-                    "subcategory": "Capital Markets",
-                    "price":      price,
-                    "change_pct": change,
-                })
-            if items: return items
-    except: pass
-
-    for ticker in NSE_STOCKS[:8]:
-        query = f"{ticker}:NAIROBI"
-        s = searchapi("google_finance", {"q": query}).get("summary", {})
-        if not s: continue
-        price, change = s.get("price", 0), s.get("price_change", {})
-        pct, move = change.get("percentage", 0), change.get("movement","")
-        items.append({
-            "title":      f"{ticker} (NSE) {'▲' if move=='Up' else '▼'} {abs(pct):.2f}% — KSh {price}",
-            "text":       f"NSE stock {ticker} trading at KSh {price}. {move} {abs(pct):.2f}% today.",
-            "url":        f"https://www.google.com/finance/quote/{query}",
-            "source":     "NSE (via Google Finance)",
-            "pub":        datetime.utcnow().isoformat(),
-            "category":   "Kenya Economy",
-            "subcategory": "Capital Markets",
-        })
-        time.sleep(0.3)
-    return items
-
-# ═══════════════════════════════════════════════════════
-#  SOURCE 11 — IEBC
-# ═══════════════════════════════════════════════════════
-def fetch_iebc_data():
-    items = []
-    try:
-        r = requests.get("https://iebc-api.mynttech.com/counties", timeout=10)
-        if r.status_code == 200:
-            counties = r.json()
-            if isinstance(counties, dict): counties = counties.get("counties", [])
-            for c in (counties or [])[:10]:
-                name, voters = c.get("name",""), c.get("registered_voters", 0) or c.get("voters","")
-                seats = c.get("constituencies", 0) or c.get("seats","")
-                if not name: continue
-                items.append({
-                    "title":      f"{name} County — {voters:,} registered voters" if isinstance(voters, int) else f"{name} County electoral data",
-                    "text":       f"{name} County has {voters} registered voters across {seats} constituencies. Kenya 2027 elections approaching.",
-                    "url":        "https://www.iebc.or.ke",
-                    "source":     "IEBC",
-                    "pub":        datetime.utcnow().isoformat(),
-                    "category":   "Kenya Politics",
-                    "subcategory": "Elections",
-                    "county":     name,
-                })
-            if items: return items
-    except: pass
-    election_queries = ["Kenya 2027 elections candidates", "Kenya voter registration IEBC 2025", "Kenya county governor election", "Kenya political parties alliances 2025"]
-    for q in election_queries:
-        for n in fetch_google_news(q, num=1):
-            n["category"], n["subcategory"] = "Kenya Politics", "Elections"
-            items.append(n)
-    return items
-
-# ═══════════════════════════════════════════════════════
-#  IMAGE THUMBNAIL
-# ═══════════════════════════════════════════════════════
-def fetch_image_url(query):
-    data = searchapi("google_images", {"q": query, "num": 1, "safe": "active"})
-    images = data.get("images", [])
-    if images: return images[0].get("thumbnail", images[0].get("original",""))
-    return ""
-
-def auto_category(title):
-    t = title.lower()
-    if any(k in t for k in ["bitcoin","crypto","ethereum","btc","eth","defi","nft","solana","binance"]): return "Crypto", "Markets"
-    if any(k in t for k in ["league of legends","valorant","cs2","csgo","dota","call of duty","fifa esport","nba 2k","esport","gaming tournament"]): return "Esports", "Gaming"
-    if any(k in t for k in ["gor mahia","afc leopard","kpl","tusker","bandari","harambee","football","rugby","marathon"]): return "Kenya Sports", "Football"
-    if any(k in t for k in ["ruto","odinga","parliament","senate","governor","cabinet","minister","election","uhuru","gachagua"]): return "Kenya Politics", "Government"
-    if any(k in t for k in ["shilling","kes","fuel","kcb","equity","safaricom","mpesa","nse","cbk","inflation","budget","tax"]): return "Kenya Economy", "Macroeconomics"
-    if any(k in t for k in ["ai","startup","5g","tech","innovation","silicon savannah"]): return "Technology", "Innovation"
-    if any(k in t for k in ["kenya","nairobi","mombasa","kisumu"]): return "Kenya Politics", "Government"
-    return "Global Events", "World Affairs"
-
-
-# ═══════════════════════════════════════════════════════
-#  FREE CONTEXT SOURCES
-# ═══════════════════════════════════════════════════════
-def fetch_rss(url, max_items=3):
-    try:
-        r = requests.get(url, timeout=10, headers={"User-Agent": "Callit/1.0"})
+        r    = requests.get(url, timeout=10, headers={"User-Agent": "Callit/1.0"})
         root = ET.fromstring(r.content)
-        ns   = {"atom": "http://www.w3.org/2005/Atom"}
         items = []
         for item in root.findall(".//item")[:max_items]:
-            t, d, l, p = item.findtext("title","").strip(), item.findtext("description","").strip(), item.findtext("link","").strip(), item.findtext("pubDate","").strip()
-            if t: items.append({"title":t, "summary":d[:300], "url":l, "pub":p})
-        if not items:
-            for entry in root.findall("atom:entry", ns)[:max_items]:
-                t, s, l_node, p = entry.findtext("atom:title","",ns).strip(), entry.findtext("atom:summary","",ns).strip(), entry.find("atom:link",ns), entry.findtext("atom:updated","",ns).strip()
-                l = l_node.get("href","") if l_node is not None else ""
-                if t: items.append({"title":t, "summary":s[:300], "url":l, "pub":p})
+            t = item.findtext("title","").strip()
+            d = item.findtext("description","").strip()
+            l = item.findtext("link","").strip()
+            if t:
+                items.append({"title": t, "text": d[:300], "url": l, "source": source_name})
         return items
     except: return []
 
-def ctx_bbc_africa(query=""):
-    items = fetch_rss("https://feeds.bbci.co.uk/news/world/africa/rss.xml", max_items=5)
-    if query: items = [i for i in items if any(w in (i["title"]+i["summary"]).lower() for w in query.lower().split())]
-    return [{"source":"BBC Africa","title":i["title"],"text":i["summary"],"url":i["url"]} for i in items[:3]]
+def fetch_all_rss() -> list:
+    feeds = [
+        ("Nation",     "https://nation.africa/kenya/rss.xml"),
+        ("Standard",   "https://www.standardmedia.co.ke/rss/headlines.php"),
+        ("Citizen",    "https://www.citizen.digital/feed"),
+        ("EastAfrica", "https://www.theeastafrican.co.ke/tea/rss.xml"),
+        ("BBC Africa", "https://feeds.bbci.co.uk/news/world/africa/rss.xml"),
+        ("Al Jazeera", "https://www.aljazeera.com/xml/rss/all.xml"),
+        ("Reuters",    "https://feeds.reuters.com/reuters/AFRICANews"),
+    ]
+    all_items = []
+    for source, url in feeds:
+        items = fetch_rss(url, source, max_items=5)
+        all_items.extend(items)
+        print(f"  [RSS] {source}: {len(items)} items")
+    return all_items
 
-def ctx_guardian_africa(query=""):
-    items = fetch_rss("https://www.theguardian.com/world/africa/rss", max_items=5)
-    if query: items = [i for i in items if any(w in (i["title"]+i["summary"]).lower() for w in query.lower().split())]
-    return [{"source":"The Guardian","title":i["title"],"text":i["summary"],"url":i["url"]} for i in items[:3]]
-
-def ctx_reuters(query=""):
-    items = fetch_rss("https://feeds.reuters.com/reuters/AFRICANews", max_items=5)
-    if not items: items = fetch_rss("https://feeds.reuters.com/reuters/topNews", max_items=5)
-    if query: items = [i for i in items if any(w in (i["title"]+i["summary"]).lower() for w in query.lower().split())]
-    return [{"source":"Reuters","title":i["title"],"text":i["summary"],"url":i["url"]} for i in items[:3]]
-
-def ctx_nation():
-    items = []
-    for feed in ["https://nation.africa/kenya/rss.xml", "https://nation.africa/kenya/news/rss.xml", "https://nation.africa/kenya/business/rss.xml", "https://nation.africa/kenya/sports/rss.xml"]:
-        items.extend(fetch_rss(feed, max_items=3))
-        if len(items) >= 8: break
-    return [{"source":"Nation Africa","title":i["title"],"text":i["summary"],"url":i["url"]} for i in items[:5]]
-
-def ctx_standard():
-    items = []
-    for feed in ["https://www.standardmedia.co.ke/rss/headlines.php", "https://www.standardmedia.co.ke/rss/business.php", "https://www.standardmedia.co.ke/rss/sports.php"]:
-        items.extend(fetch_rss(feed, max_items=3))
-        if len(items) >= 6: break
-    return [{"source":"Standard Media","title":i["title"],"text":i["summary"],"url":i["url"]} for i in items[:4]]
-
-def ctx_citizen():
-    return [{"source":"Citizen Digital","title":i["title"],"text":i["summary"],"url":i["url"]} for i in fetch_rss("https://www.citizen.digital/feed", max_items=5)[:3]]
-
-def ctx_eastafrican():
-    return [{"source":"The East African","title":i["title"],"text":i["summary"],"url":i["url"]} for i in fetch_rss("https://www.theeastafrican.co.ke/tea/rss.xml", max_items=5)[:3]]
-
-def ctx_aljazeera():
-    items = fetch_rss("https://www.aljazeera.com/xml/rss/all.xml", max_items=6)
-    af = [i for i in items if any(k in (i["title"]+i["summary"]).lower() for k in ["africa","kenya","nairobi","east africa"])]
-    return [{"source":"Al Jazeera","title":i["title"],"text":i["summary"],"url":i["url"]} for i in (af or items)[:3]]
-
-def ctx_world_bank(indicator="NY.GDP.MKTP.KD.ZG", label="GDP growth"):
-    try:
-        url = f"https://api.worldbank.org/v2/country/KE/indicator/{indicator}?format=json&mrv=3&per_page=3"
-        r = requests.get(url, timeout=10)
-        d = r.json()
-        if not d or len(d) < 2: return []
-        entries = [e for e in d[1] if e.get("value") is not None]
-        if not entries: return []
-        latest = entries[0]
-        val, year = round(latest["value"], 2), latest["date"]
-        return [{
-            "source": "World Bank",
-            "title":  f"Kenya {label}: {val}% ({year})",
-            "text":   f"World Bank data: Kenya's {label} was {val}% in {year}. Previous: {round(entries[1]['value'],2) if len(entries)>1 else 'N/A'}% ({entries[1]['date'] if len(entries)>1 else ''}).",
-            "url":    f"https://data.worldbank.org/indicator/{indicator}?locations=KE",
-        }]
-    except: return []
-
-def ctx_world_bank_all():
-    indicators = [("NY.GDP.MKTP.KD.ZG", "GDP growth rate"), ("FP.CPI.TOTL.ZG", "inflation rate"), ("SL.UEM.TOTL.ZS", "unemployment rate"), ("BX.KLT.DINV.WD.GD.ZS","foreign direct investment"), ("GC.DOD.TOTL.GD.ZS", "government debt % of GDP")]
-    results = []
-    for ind, label in indicators:
-        results.extend(ctx_world_bank(ind, label))
-        time.sleep(0.2)
-    return results
-
-def ctx_coingecko_news():
+def fetch_coingecko() -> list:
     items = []
     try:
-        r = requests.get("https://api.coingecko.com/api/v3/search/trending", timeout=10)
-        if r.ok:
-            for c in r.json().get("coins", [])[:5]:
-                coin = c.get("item", {})
-                items.append({
-                    "source": "CoinGecko Trending",
-                    "title":  f"{coin.get('name','')} ({coin.get('symbol','')}) — trending #{coin.get('score',0)+1} globally",
-                    "text":   f"{coin.get('name','')} is one of the most searched cryptocurrencies on CoinGecko right now.",
-                    "url":    f"https://www.coingecko.com/en/coins/{coin.get('id','')}",
-                })
-    except: pass
-    try:
-        r = requests.get("https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=volume_desc&per_page=5&page=1&price_change_percentage=24h", timeout=10)
+        r = requests.get(
+            "https://api.coingecko.com/api/v3/coins/markets"
+            "?vs_currency=usd&order=volume_desc&per_page=10&price_change_percentage=24h",
+            timeout=10)
         if r.ok:
             for c in r.json():
-                chg = round(c.get("price_change_percentage_24h",0), 2)
+                chg   = round(c.get("price_change_percentage_24h", 0), 2)
+                price = c["current_price"]
+                price_str = f"${price:,.2f}" if price >= 1 else f"${price:.6f}"
                 items.append({
-                    "source": "CoinGecko",
-                    "title":  f"{c['name']} ${c['current_price']:,.2f} ({'+' if chg>=0 else ''}{chg}% 24h)",
-                    "text":   f"{c['name']} trading at ${c['current_price']:,.2f} with {chg}% change in 24h.",
-                    "url":    f"https://www.coingecko.com/en/coins/{c['id']}",
+                    "title":       f"{c['name']} {price_str} ({'+' if chg>=0 else ''}{chg}% 24h)",
+                    "text":        f"{c['name']} at {price_str}, {chg}% 24h. Market cap ${c['market_cap']:,.0f}.",
+                    "url":         f"https://www.coingecko.com/en/coins/{c['id']}",
+                    "source":      "CoinGecko",
+                    "category":    "Crypto",
+                    "subcategory": "Markets",
+                    "coin_id":     c["id"],
+                    "price":       price,
+                    "change":      chg,
                 })
-    except: pass
+        print(f"  [CoinGecko] {len(items)} coins")
+    except Exception as e:
+        print(f"  [!] CoinGecko: {e}")
     return items
 
-def ctx_hackernews():
+def fetch_polymarket(limit: int = 25) -> list:
     try:
-        r = requests.get("https://hacker-news.firebaseio.com/v0/topstories.json", timeout=8)
-        items = []
-        for sid in r.json()[:8]:
-            s = requests.get(f"https://hacker-news.firebaseio.com/v0/item/{sid}.json", timeout=5).json()
-            if s.get("title") and s.get("score", 0) > 100:
-                items.append({
-                    "source": "HackerNews",
-                    "title":  f"{s.get('title','')} ({s.get('score',0)} points)",
-                    "text":   f"Trending on HackerNews with {s.get('score',0)} points and {s.get('descendants',0)} comments.",
-                    "url":    s.get("url","") or f"https://news.ycombinator.com/item?id={sid}",
-                })
-            time.sleep(0.1)
-        return items[:4]
-    except: return []
-
-def ctx_reddit(subreddit="Kenya", limit=5):
-    try:
-        r = requests.get(f"https://www.reddit.com/r/{subreddit}/hot.json?limit={limit}", timeout=10, headers={"User-Agent": "Callit/1.0"})
-        items = []
-        for p in r.json()["data"]["children"]:
-            d = p["data"]
-            if not d.get("stickied"):
-                items.append({
-                    "source": f"Reddit r/{subreddit}",
-                    "title":  d.get("title",""),
-                    "text":   d.get("selftext","")[:300] or d.get("title",""),
-                    "url":    f"https://reddit.com{d.get('permalink','')}",
-                    "score":  d.get("score", 0),
-                    "comments": d.get("num_comments", 0),
-                })
+        r = requests.get("https://gamma-api.polymarket.com/markets",
+                         params={"active":"true","closed":"false","limit":limit,
+                                 "order":"volume","ascending":"false"}, timeout=15)
+        raw     = r.json()
+        markets = raw if isinstance(raw, list) else raw.get("data", [])
+        items   = []
+        for m in markets:
+            q      = m.get("question","").strip()
+            volume = float(m.get("volume", 0))
+            if not q or volume < 500: continue
+            outcomes_raw = m.get("outcomes","[]")
+            outcomes     = json.loads(outcomes_raw) if isinstance(outcomes_raw,str) else outcomes_raw
+            cat, sub     = auto_cat_from_text(q)
+            items.append({
+                "title":    q,
+                "text":     m.get("description","")[:300] or f"${volume:,.0f} staked on Polymarket",
+                "url":      f"https://polymarket.com/event/{m.get('slug','')}",
+                "source":   "Polymarket",
+                "category": cat,
+                "subcategory": sub,
+                "outcomes": outcomes,
+                "volume_usd": volume,
+            })
+        items.sort(key=lambda x: x["volume_usd"], reverse=True)
+        print(f"  [Polymarket] {len(items)} markets")
         return items
-    except: return []
+    except Exception as e:
+        print(f"  [!] Polymarket: {e}"); return []
 
-def ctx_reddit_all():
+def fetch_google_trends() -> list:
+    data  = searchapi_call("google_trends_trending_now", {"geo": "KE"})
     items = []
-    for sub in ["Kenya","nairobi","africa","CryptoCurrency","worldnews","soccer","GlobalMarkets"]:
-        items.extend(ctx_reddit(sub, limit=3))
-        time.sleep(0.3)
+    for t in data.get("trends", [])[:10]:
+        q   = t.get("query","")
+        v   = t.get("search_volume", 0)
+        pct = t.get("percentage_increase", 0)
+        if not q: continue
+        cat, sub = auto_cat_from_text(q)
+        items.append({
+            "title":       f'"{q}" trending in Kenya — {v:,} searches (+{pct}%)',
+            "text":        f'"{q}" is surging in Kenya with {v:,} searches, up {pct}% recently.',
+            "url":         f"https://trends.google.com/trends/explore?q={q}&geo=KE",
+            "source":      "Google Trends",
+            "category":    cat,
+            "subcategory": sub,
+        })
+    print(f"  [Google Trends] {len(items)} trends")
     return items
 
-def ctx_wikipedia(topic):
-    try:
-        url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + quote_plus(topic)
-        r = requests.get(url, timeout=8)
-        if r.ok:
-            d = r.json()
-            return [{"source": "Wikipedia", "title": d.get("title",""), "text": d.get("extract","")[:500], "url": d.get("content_urls",{}).get("desktop",{}).get("page","")}]
-    except: pass
-    return []
+def fetch_google_news(query: str, num: int = 3) -> list:
+    data = searchapi_call("google_news", {"q": query, "gl": "ke", "hl": "en", "num": num})
+    return [{"title": r.get("title",""), "text": r.get("snippet",""),
+             "url": r.get("link",""), "source": "Google News"}
+            for r in data.get("organic_results",[])[:num] if r.get("title")]
 
-def ctx_kenya_weather():
-    try:
-        url = "https://api.open-meteo.com/v1/forecast?latitude=-1.2921&longitude=36.8219&current=temperature_2m,precipitation,weathercode&daily=temperature_2m_max,precipitation_sum&forecast_days=7&timezone=Africa/Nairobi"
-        r = requests.get(url, timeout=8)
-        if r.ok:
-            d = r.json()
-            cur = d.get("current",{})
-            return [{"source": "Open-Meteo", "title": f"Nairobi weather: {cur.get('temperature_2m','')}°C, {cur.get('precipitation','')}mm", "text": "Current conditions.", "url": "https://open-meteo.com"}]
-    except: pass
-    return []
-
-_rss_cache = {}
-def get_cached_rss(key, fetch_fn):
-    if key not in _rss_cache: _rss_cache[key] = fetch_fn()
-    return _rss_cache[key]
-
-def build_context(item, category):
-    title = item.get("title","")
-    keywords = extract_keywords(title, category)
-    ctx = []
-    bbc = get_cached_rss("bbc", ctx_bbc_africa)
-    guardian = get_cached_rss("guardian", ctx_guardian_africa)
-    reuters = get_cached_rss("reuters", ctx_reuters)
-    nation = get_cached_rss("nation", ctx_nation)
-    standard = get_cached_rss("standard", ctx_standard)
-    citizen = get_cached_rss("citizen", ctx_citizen)
-    eastaf = get_cached_rss("eastaf", ctx_eastafrican)
-    alj = get_cached_rss("alj", ctx_aljazeera)
-    reddit = get_cached_rss("reddit", ctx_reddit_all)
-    all_news = bbc + guardian + reuters + nation + standard + citizen + eastaf + alj
-    relevant_news = [n for n in all_news if any(kw in (n["title"]+n.get("text","")).lower() for kw in keywords)]
-    ctx.extend(relevant_news[:6])
-    relevant_reddit = [r for r in reddit if any(kw in (r["title"]+r.get("text","")).lower() for kw in keywords)]
-    ctx.extend(relevant_reddit[:3])
-    if category == "Crypto":
-        cg = get_cached_rss("coingecko", ctx_coingecko_news)
-        ctx.extend([c for c in cg if any(kw in (c["title"]+c.get("text","")).lower() for kw in keywords)][:3])
-    if category == "Technology": ctx.extend(get_cached_rss("hackernews", ctx_hackernews)[:3])
-    if category in ("Kenya Economy", "Kenya Politics", "Global Events"): ctx.extend(get_cached_rss("worldbank", ctx_world_bank_all)[:3])
-    if category in ("Kenya Economy", "Global Events"): ctx.extend(get_cached_rss("weather", ctx_kenya_weather)[:1])
-    wiki_topic = get_wiki_topic(title, category)
-    if wiki_topic: ctx.extend(ctx_wikipedia(wiki_topic)[:1])
-    if not ctx: ctx = all_news[:4]
-    return ctx[:12]
-
-def extract_keywords(title, category):
-    cat_kw = {
-        "Kenya Politics":  ["kenya","ruto","odinga","parliament"],
-        "Kenya Economy":   ["kenya","economy","shilling","inflation"],
-        "Kenya Sports":    ["kenya","football","kpl","sport"],
-        "Crypto":          ["bitcoin","btc","ethereum","eth","crypto"],
-        "Technology":      ["ai","tech","startup","innovation"],
-        "Global Events":   ["africa","world","global"],
-        "Esports":         ["esports","gaming","league","valorant"],
-    }.get(category, ["kenya","africa"])
-    stop = {"the","and","for","are","was","with","this","that","from","will","has","have","been","its","not","but","they"}
-    title_words = [w.lower() for w in title.replace("-"," ").split() if len(w) > 3 and w.lower() not in stop]
-    return list(set(cat_kw + title_words))
-
-def get_wiki_topic(title, category):
-    import re
-    for pat in [r"(Safaricom|KCB|Equity Bank|Gor Mahia|AFC Leopards|Tusker FC|Bitcoin|Ethereum|Solana)", r"(Ruto|Odinga|Gachagua|Uhuru)"]:
-        m = re.search(pat, title, re.IGNORECASE)
-        if m: return m.group(1)
-    return {"Kenya Politics":"Politics of Kenya", "Kenya Economy":"Economy of Kenya", "Kenya Sports":"Kenyan Premier League", "Crypto":"Cryptocurrency", "Technology":"Technology in Kenya", "Global Events":"Africa", "Esports":"Esports"}.get(category, "")
+NEWS_QUERIES = [
+    ("Kenya politics Ruto parliament 2025",        "Kenya Politics", "Government"),
+    ("Kenya economy inflation shilling fuel 2025", "Kenya Economy",  "Macroeconomics"),
+    ("Kenya elections 2027 IEBC",                  "Kenya Politics", "Elections"),
+    ("Safaricom KCB equity NSE Nairobi stock",     "Kenya Economy",  "Capital Markets"),
+    ("Kenya AI startup Silicon Savannah tech",     "Technology",     "Innovation"),
+    ("Kenya football KPL Gor Mahia AFC Leopards",  "Kenya Sports",   "Football"),
+    ("Kenya floods drought climate 2025",          "Global Events",  "Climate"),
+    ("Africa geopolitics conflict 2025",           "Global Events",  "World Affairs"),
+]
 
 
 # ═══════════════════════════════════════════════════════
-#  GEMINI — GENERATE PREDICTION QUESTION
+#  MAIN RUN
 # ═══════════════════════════════════════════════════════
-def generate_prediction(item, category, subcategory):
-    is_polymarket = item.get("source") == "Polymarket"
-    q_type        = item.get("question_type", "binary")
-    outcomes      = item.get("outcomes", [])
-    prob_str      = item.get("prob_str", "")
-    volume_usd    = item.get("volume_usd", 0)
-
-    if q_type == "binary":
-        type_instruction = """- YES/NO question only\n- outcomes: ["YES", "NO"]\n- question starts with "Will..." """
-    elif q_type == "multi":
-        type_instruction = f"- MULTI-OUTCOME question\n- outcomes: {json.dumps(outcomes[:6]) if outcomes else '[\"Option A\",\"Option B\",\"Option C\"]'}\n- question starts with \"Who/Which/What will...\""
-    else: type_instruction = "- Pick the most appropriate type for this item"
-
-    poly_note = f"\n- From Polymarket — ${volume_usd:,.0f} staked globally. Current odds: {prob_str}\n- Localise for Kenya if US/EU politics." if is_polymarket else ""
-
-    context_snippets = build_context(item, category)
-    context_block = ""
-    if context_snippets:
-        context_block = "\n\nADDITIONAL CONTEXT FROM MULTIPLE SOURCES:\n"
-        for i, s in enumerate(context_snippets, 1): context_block += f"{i}. [{s['source']}] {s['title']}: {s.get('text','')[:200]}\n"
-
-    prompt = f"""
-You are the prediction question writer for Callit, a social prediction market in Kenya.
-Your job:
-1. Write ONE compelling prediction question users can stake on
-2. Write a rich "context" paragraph (4-6 sentences) that EDUCATES the user about this topic.
-
-Question type: {q_type}
-{type_instruction}
-{poly_note}
-
-Main item: Title: {item['title']} - Detail: {item.get('text','')[:400]}
-Source: {item.get('source','')} - Category: {category}
-{context_block}
-
-Respond ONLY with valid JSON, no markdown:
-{{
-  "question":      "...",
-  "question_type": "{q_type}",
-  "outcomes":      {json.dumps(outcomes if outcomes else ["YES","NO"])},
-  "context":       "4-6 sentence educational paragraph here...",
-  "expires_days":  30
-}}
-"""
-    try:
-        response = model.generate_content(prompt)
-        raw = response.text.strip()
-        if "```" in raw:
-            raw = raw.split("```")[1]
-            if raw.startswith("json"): raw = raw[4:]
-        data = json.loads(raw.strip())
-        return {
-            "question":      data.get("question","").strip(),
-            "question_type": data.get("question_type", q_type),
-            "outcomes":      data.get("outcomes", outcomes or ["YES","NO"]),
-            "context":       data.get("context","").strip(),
-            "expires_days":  int(data.get("expires_days", 30)),
-            "category":      item.get("category", category),
-            "subcategory":   item.get("subcategory", subcategory),
-            "source":        item.get("source",""),
-            "source_url":    item.get("url",""),
-            "ai_provider":   "gemini-1.5-flash",
-            "poly_volume":   item.get("volume_usd"),
-            "outcome_probs": item.get("outcome_probs"),
-            "condition_id":  item.get("condition_id"),
-        }
-    except Exception as e:
-        print(f"      [!] Gemini failed: {e}"); return None
-
-# ═══════════════════════════════════════════════════════
-#  SUPABASE
-# ═══════════════════════════════════════════════════════
-def push_to_supabase(pred):
-    now = datetime.utcnow().isoformat() + "Z"
-    expires = (datetime.utcnow() + timedelta(days=pred["expires_days"])).isoformat() + "Z"
-    payload = {
-        "question":      pred["question"],
-        "question_type": pred.get("question_type", "binary"),
-        "outcomes":      json.dumps(pred.get("outcomes", ["YES","NO"])),
-        "outcome_probs": json.dumps(pred.get("outcome_probs")) if pred.get("outcome_probs") else None,
-        "category":      pred["category"],
-        "subcategory":   pred["subcategory"],
-        "source":        pred["source"],
-        "source_url":    pred["source_url"],
-        "context":       pred.get("context"),
-        "ai_provider":   pred.get("ai_provider"),
-        "image_url":     pred.get("image_url"),
-        "poly_volume":   pred.get("poly_volume"),
-        "condition_id":  pred.get("condition_id"),
-        "created_at":    now,
-        "expires_at":    expires,
-    }
-    headers = {"Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}", "Prefer": "return=minimal"}
-    try:
-        r = requests.post(f"{SUPABASE_URL}/rest/v1/calls", json=payload, headers=headers, timeout=10)
-        return r.ok
-    except Exception as e:
-        print(f"      [!] Supabase: {e}"); return False
-
-def process_items(items, default_cat, default_sub, stats, fetch_images=True):
-    for item in items:
-        title = item.get("title","")
-        if not title: continue
-        cat = item.get("category") or default_cat
-        sub = item.get("subcategory") or default_sub
-        if not cat: cat, sub = auto_category(title)
-        q_type = item.get("question_type","binary")
-        print(f"    • [{q_type}] {title[:68]}")
-        pred = generate_prediction(item, cat, sub)
-        if not pred or not pred["question"]:
-            print(f"      [!] Skipped"); stats["failed"] += 1
-            time.sleep(1); continue
-        stats["generated"] += 1
-        print(f"      Q: {pred['question'][:75]}")
-        if fetch_images:
-            img = fetch_image_url(f"{cat} {title[:35]} Kenya")
-            if img: pred["image_url"] = img
-            time.sleep(0.3)
-        if push_to_supabase(pred):
-            stats["saved"] += 1; print(f"      ✓ Saved to Supabase")
-        else: print(f"      ✗ Save failed")
-        time.sleep(1.5)
-
 def run():
-    print("  CALLIT PREDICTION ENGINE STARTING...")
+    print("\n" + "═"*65)
+    print("  CALLIT PREDICTION ENGINE")
+    print("  Auto-Subtopics + Multi-Variation + Groq AI")
+    print("═"*65)
     stats = {"fetched": 0, "generated": 0, "saved": 0, "failed": 0}
-    
-    # Very short run test
-    WN_TOPICS = [("Kenya politics Ruto", "Kenya Politics", "Government")]
-    for query, cat, sub in WN_TOPICS:
-        items = fetch_worldnews(query, number=1)
-        if not items: continue
-        stats["fetched"] += len(items)
-        process_items(items, cat, sub, stats)
+    start = time.time()
 
-    print("  PIPELINE COMPLETE")
+    print("\n[1/7] RSS FEEDS")
+    process_batch(fetch_all_rss(), "Kenya Politics", "Government", stats, max_items=8)
+
+    print("\n[2/7] WORLDNEWS API")
+    for query, cat, sub in NEWS_QUERIES:
+        process_batch(fetch_worldnews(query, number=2), cat, sub, stats, max_items=2)
+        time.sleep(0.3)
+
+    print("\n[3/7] GOOGLE NEWS")
+    for query, cat, sub in NEWS_QUERIES[:5]:
+        process_batch(fetch_google_news(query, num=2), cat, sub, stats, max_items=2)
+        time.sleep(0.3)
+
+    print("\n[4/7] KPL FIXTURES")
+    process_batch(fetch_kpl_fixtures(), "Kenya Sports", "Football", stats, max_items=8)
+
+    print("\n[5/7] COINGECKO CRYPTO")
+    process_batch(fetch_coingecko(), "Crypto", "Markets", stats, max_items=8)
+
+    print("\n[6/7] POLYMARKET")
+    process_batch(fetch_polymarket(limit=25), "Global Events", "Prediction Markets", stats, max_items=12)
+
+    print("\n[7/7] GOOGLE TRENDS KENYA")
+    process_batch(fetch_google_trends(), "", "", stats, max_items=6)
+
+    elapsed = round(time.time() - start, 1)
+    print("\n" + "═"*65)
+    print(f"  DONE in {elapsed}s")
+    print(f"  Processed:  {stats['fetched']}")
+    print(f"  Generated:  {stats['generated']}")
+    print(f"  Saved:      {stats['saved']}")
+    print(f"  Failed:     {stats['failed']}")
+    print("═"*65 + "\n")
 
 if __name__ == "__main__":
     run()
