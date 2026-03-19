@@ -4,7 +4,9 @@ import { Bookmark, Activity, Timer, Share2, MessageCircle, Eye, Users, CheckCirc
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
-import DebateModal from "@/components/DebateModal";
+import { PositionModal } from "./debate/PositionModal";
+import { DebatePanel } from "./debate/DebatePanel";
+
 
 export interface OpinionCardData {
   id: number | string;
@@ -105,8 +107,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [followed, setFollowed] = useState(false);
   const [showMore, setShowMore] = useState(false);
-  const [debateOpen, setDebateOpen] = useState(false);
-  const [debateStance, setDebateStance] = useState<"agree" | "disagree" | "challenge">("challenge");
+  const [positionModal, setPositionModal] = useState<"agree" | "disagree" | null>(null);
+
 
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
   // Strip emoji from genre string for clean display
@@ -118,9 +120,13 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const openDebate = (e: React.MouseEvent, stance: "agree" | "disagree" | "challenge") => {
     e.stopPropagation();
     if (!isLoggedIn) { toast.error("Log in to join the debate!"); navigate("/auth"); return; }
-    setDebateStance(stance);
-    setDebateOpen(true);
+    if (stance === "challenge") {
+      navigate(`/opinion/${data.id}#debate`);
+    } else {
+      setPositionModal(stance);
+    }
   };
+
 
   const handleFollow = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -387,18 +393,16 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         </div>
       </motion.div>
 
-      <DebateModal
-        isOpen={debateOpen}
-        onClose={() => setDebateOpen(false)}
-        opinion={{
-          id: data.id,
-          question: data.question,
-          genre: cleanGenre,
-          topicIcon: topicIcon,
-        }}
-        initialStance={debateStance}
-      />
+      {positionModal && (
+        <PositionModal
+          opinionId={String(data.id)}
+          opinionStatement={question}
+          stance={positionModal}
+          onClose={() => setPositionModal(null)}
+        />
+      )}
     </>
+
   );
 };
 
