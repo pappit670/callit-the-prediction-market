@@ -14,10 +14,19 @@ const tickerItems = [
   "Local markets show resilience amid global volatility"
 ];
 
+const NAV_TOPICS = [
+  { label: "Politics", slug: "politics" },
+  { label: "Sports", slug: "sports" },
+  { label: "Crypto", slug: "crypto-bitcoin" },
+  { label: "Business", slug: "business" },
+  { label: "Tech", slug: "tech" },
+  { label: "Entertainment", slug: "entertainment" },
+  { label: "World", slug: "world" },
+];
+
 const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [navTopics, setNavTopics] = useState<any[]>([]);
   const [showProfilePopover, setShowProfilePopover] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -30,12 +39,6 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => { setIsDrawerOpen(false); }, [location.pathname]);
-
-  useEffect(() => {
-    supabase.from("topics").select("name, slug, icon")
-      .eq("type", "category").eq("active", true).order("name")
-      .then(({ data }) => { if (data) setNavTopics(data); });
-  }, []);
 
   const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -85,8 +88,8 @@ const Navbar = () => {
           </div>
         ) : (
           <>
+            {/* ── Main bar ── */}
             <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-4 md:px-6 gap-4">
-
               <Link to="/" className="font-headline text-2xl font-bold tracking-tight text-foreground select-none shrink-0 hover:text-gold transition-colors">
                 Callit
               </Link>
@@ -102,8 +105,8 @@ const Navbar = () => {
               <div className="hidden lg:flex flex-1 max-w-[280px] items-center gap-3 overflow-hidden bg-secondary/20 rounded-full px-3 py-1.5 border border-border/50">
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600"></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
                   </span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Live</span>
                 </div>
@@ -134,14 +137,13 @@ const Navbar = () => {
                     <button onClick={() => navigate("/notifications")}
                       className="p-2 text-muted-foreground hover:text-gold transition-colors relative">
                       <Bell className="h-5 w-5" />
-                      <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-gold rounded-full border-2 border-background"></span>
+                      <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-gold rounded-full border-2 border-background" />
                     </button>
 
                     <Link to="/call-it" className="hidden md:flex rounded-full bg-gold text-primary-foreground px-5 py-1.5 text-sm font-bold hover:bg-gold-hover transition-all animate-gold-pulse">
                       Call It
                     </Link>
 
-                    {/* Profile Avatar with Hover Popover */}
                     <div className="relative ml-1"
                       onMouseEnter={() => setShowProfilePopover(true)}
                       onMouseLeave={() => setShowProfilePopover(false)}>
@@ -170,28 +172,21 @@ const Navbar = () => {
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-bold text-foreground truncate">{user.username || "Caller"}</p>
                                   <p className="text-xs text-muted-foreground">{user.joinDate}</p>
-                                  {user.bio && <p className="text-xs text-muted-foreground truncate mt-0.5">{user.bio}</p>}
                                 </div>
                               </div>
                               <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border">
-                                <div className="text-center">
-                                  <div className="text-sm font-bold text-gold flex items-center justify-center">
-                                    <SlidingNumber value={user.wins || 0} />
+                                {[
+                                  { val: user.wins || 0, label: "Wins", cls: "text-gold" },
+                                  { val: user.losses || 0, label: "Losses", cls: "text-destructive" },
+                                  { val: user.total_calls || 0, label: "Calls", cls: "text-foreground" },
+                                ].map(s => (
+                                  <div key={s.label} className="text-center">
+                                    <div className={`text-sm font-bold ${s.cls} flex items-center justify-center`}>
+                                      <SlidingNumber value={s.val} />
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground">{s.label}</p>
                                   </div>
-                                  <p className="text-[10px] text-muted-foreground">Wins</p>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-sm font-bold text-destructive flex items-center justify-center">
-                                    <SlidingNumber value={user.losses || 0} />
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground">Losses</p>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-sm font-bold text-foreground flex items-center justify-center">
-                                    <SlidingNumber value={user.total_calls || 0} />
-                                  </div>
-                                  <p className="text-[10px] text-muted-foreground">Calls</p>
-                                </div>
+                                ))}
                               </div>
                             </div>
                             <div className="p-2">
@@ -223,25 +218,20 @@ const Navbar = () => {
               </div>
             </div>
 
+            {/* ── Second bar — plain category labels, no icons ── */}
             <div className="w-full border-t border-border bg-background">
               <div className="mx-auto max-w-7xl px-4 md:px-6">
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-2">
-                  <button onClick={() => navigate("/topic/trending")}
-                    className={`whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-full transition-colors ${location.pathname === "/topic/trending" ? "bg-gold text-primary-foreground" : "text-muted-foreground hover:text-gold hover:bg-gold/10"
-                      }`}>🔥 Trending</button>
-
-                  {navTopics.map((topic) => (
-                    <button key={topic.slug} onClick={() => navigate(`/topic/${topic.slug}`)}
-                      className={`whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-full transition-colors ${location.pathname === `/topic/${topic.slug}` ? "bg-gold text-primary-foreground" : "text-muted-foreground hover:text-gold hover:bg-gold/10"
+                <div className="flex items-center gap-0.5 overflow-x-auto py-1.5" style={{ scrollbarWidth: "none" }}>
+                  {NAV_TOPICS.map(t => (
+                    <button key={t.slug}
+                      onClick={() => navigate(`/topic/${t.slug}`)}
+                      className={`whitespace-nowrap text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${location.pathname === `/topic/${t.slug}`
+                          ? "text-gold bg-gold/10"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                         }`}>
-                      {topic.icon} {topic.name}
+                      {t.label}
                     </button>
                   ))}
-
-                  <button onClick={() => navigate("/topics")}
-                    className="whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-full text-muted-foreground hover:text-gold hover:bg-gold/10 transition-colors ml-2 border border-border">
-                    All Topics →
-                  </button>
                 </div>
               </div>
             </div>
@@ -249,6 +239,7 @@ const Navbar = () => {
         )}
       </motion.nav>
 
+      {/* ── Drawer ── */}
       <AnimatePresence>
         {isDrawerOpen && (
           <>
@@ -281,7 +272,7 @@ const Navbar = () => {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      {drawerLinks.map((link) => (
+                      {drawerLinks.map(link => (
                         <Link key={link.name} to={link.path}
                           className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-foreground font-semibold hover:bg-secondary hover:text-gold transition-colors group">
                           <span className="text-muted-foreground group-hover:text-gold transition-colors">{link.icon}</span>

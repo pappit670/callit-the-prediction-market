@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Bookmark, Activity, Timer, Share2, MessageCircle, Eye, Users, CheckCircle2, XCircle, Bell, TrendingUp, Swords, Flame, Zap } from "lucide-react";
+import {
+  Bookmark, Activity, Timer, Share2, MessageCircle,
+  Eye, Users, CheckCircle2, XCircle, Bell, TrendingUp,
+  Swords, Flame, Zap,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { PositionModal } from "@/components/debate/PositionModal";
-import { DebatePanel } from "@/components/debate/DebatePanel";
-
-
 
 export interface OpinionCardData {
   id: number | string;
@@ -39,7 +40,6 @@ export interface OpinionCardData {
   isRising?: boolean;
 }
 
-// Neutral-only — color is used ONLY for data bars and percentages, never for card structure
 const OPTION_COLORS = [
   "#F5C518", "#22C55E", "#3B82F6", "#A855F7",
   "#F97316", "#EF4444", "#06B6D4", "#84CC16",
@@ -75,11 +75,11 @@ function reputationColor(score?: number): string {
   return "text-[#EF4444]";
 }
 
-/** Derive an activity tag from card data */
 function getActivityTag(data: OpinionCardData): { label: string; icon: React.ReactNode; color: string } | null {
   const { isRising, commentCount = 0, timeLeft, risingScore = 0 } = data;
   const isLive = timeLeft === "Live" || timeLeft.includes("min");
-  if (isLive) return { label: "Active", icon: <Activity className="h-2.5 w-2.5" />, color: "#22C55E" };
+  if (isLive)
+    return { label: "Active", icon: <Activity className="h-2.5 w-2.5" />, color: "#22C55E" };
   if (timeLeft.includes("h left") && parseInt(timeLeft) <= 3)
     return { label: "Breaking", icon: <Zap className="h-2.5 w-2.5" />, color: "#EF4444" };
   if (isRising || risingScore > 15)
@@ -89,87 +89,122 @@ function getActivityTag(data: OpinionCardData): { label: string; icon: React.Rea
   return null;
 }
 
-/** Simulated belief delta */
 function getDelta(cardIndex: number, optionIndex: number): number {
   const seed = (cardIndex * 7 + optionIndex * 3 + 13) % 9;
   return [-5, -3, -2, -1, 0, 1, 2, 3, 5][seed];
 }
 
+// ── Option bar ────────────────────────────────────────────────
+const OptionBar = ({
+  label, percent, color, delta, onClick,
+}: {
+  label: string; percent: number; color: string;
+  delta: number; onClick: (e: React.MouseEvent) => void;
+}) => (
+  <button
+    onClick={onClick}
+    className="w-full rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-colors duration-150 overflow-hidden text-left"
+  >
+    <div className="px-3 py-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[13px] font-medium text-foreground truncate mr-2">{label}</span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="text-[13px] font-semibold tabular-nums" style={{ color }}>
+            {percent}%
+          </span>
+          {delta !== 0 && (
+            <span
+              className="text-[10px] font-semibold tabular-nums"
+              style={{ color: delta > 0 ? "#22C55E" : "#EF4444" }}
+            >
+              {delta > 0 ? `↑+${delta}` : `↓${delta}`}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="h-[2px] rounded-full bg-border overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${percent}%`, background: color + "CC" }}
+        />
+      </div>
+    </div>
+  </button>
+);
+
+// ── Main card ─────────────────────────────────────────────────
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
   const {
     question, yesPercent, noPercent, coins, timeLeft, genre,
-    topicIcon, isLiveGame, homeTeam, awayTeam, homeScore, awayScore, matchMinute,
-    options, leagueName, creatorUsername, creatorReputation, createdAt,
-    commentCount = 0, followerCount = 0, isRising = false,
+    topicIcon, isLiveGame, homeTeam, awayTeam, homeScore, awayScore,
+    matchMinute, options, leagueName, creatorUsername, creatorReputation,
+    createdAt, commentCount = 0, followerCount = 0, isRising = false,
   } = data;
 
   const navigate = useNavigate();
   const { isLoggedIn } = useApp();
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [followed, setFollowed] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [positionModal, setPositionModal] = useState<"agree" | "disagree" | null>(null);
 
-
-
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
-  // Strip emoji from genre string for clean display
   const cleanGenre = genre.replace(/\s*[\u{1F000}-\u{1FFFF}]/u, "").trim();
-  const yesColor = getOptionColor(index, 0);
-  const noColor = getOptionColor(index, 1);
   const activityTag = getActivityTag(data);
 
-  const openDebate = (e: React.MouseEvent, stance: "agree" | "disagree" | "challenge") => {
-    e.stopPropagation();
-    if (stance === "challenge") {
-      navigate(`/opinion/${data.id}#debate`);
-    } else {
-      setPositionModal(stance);
-    }
-  };
-
+  const goToDetail = () => navigate(`/opinion/${data.id}`);
 
   const handleFollow = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isLoggedIn) { toast.error("Log in to follow!"); navigate("/auth"); return; }
-    setFollowed(!followed);
+    setFollowed(f => !f);
     toast.success(followed ? "Unfollowed" : "Following this call!");
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(`${window.location.origin}/opinion/${data.id}`);
+    toast.success("Link copied!");
+  };
+
+  const handleDebateAction = (e: React.MouseEvent, action: "agree" | "disagree" | "challenge") => {
+    e.stopPropagation();
+    if (action === "challenge") {
+      navigate(`/opinion/${data.id}#debate`);
+    } else {
+      if (!isLoggedIn) { toast.error("Log in first!"); navigate("/auth"); return; }
+      setPositionModal(action);
+    }
   };
 
   return (
     <>
       <motion.div
-        className="bg-card border border-border rounded-xl overflow-hidden flex flex-col cursor-pointer transition-colors duration-200 hover:border-border/80"
+        className="bg-card border border-border rounded-xl overflow-hidden flex flex-col cursor-pointer hover:border-border/80 transition-colors duration-200"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, delay: index * 0.035 }}
-        onClick={() => navigate(`/opinion/${data.id}`)}
+        transition={{ duration: 0.25, delay: Math.min(index * 0.035, 0.3) }}
+        onClick={goToDetail}
       >
         <div className="p-4 flex flex-col gap-3 flex-1">
 
-          {/* ── Topic context label — FOOTBALL • PREMIER LEAGUE style ── */}
+          {/* ── Header row: topic + actions ── */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              {topicIcon && (
-                <span className="text-sm shrink-0">{topicIcon}</span>
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              {topicIcon && <span className="text-sm shrink-0">{topicIcon}</span>}
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                {cleanGenre}
+              </span>
+              {leagueName && (
+                <>
+                  <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
+                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">
+                    {leagueName}
+                  </span>
+                </>
               )}
-              <div className="flex items-center gap-1 min-w-0">
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                  {cleanGenre}
-                </span>
-                {leagueName && (
-                  <>
-                    <span className="text-[11px] text-muted-foreground/50">•</span>
-                    <span className="text-[11px] text-muted-foreground/70 uppercase tracking-wider truncate">
-                      {leagueName}
-                    </span>
-                  </>
-                )}
-              </div>
-              {/* Activity tag — small and subtle */}
               {activityTag && (
                 <span
-                  className="flex items-center gap-0.5 text-[10px] font-semibold ml-1 shrink-0"
+                  className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0 ml-0.5"
                   style={{ color: activityTag.color + "CC" }}
                 >
                   {activityTag.icon} {activityTag.label}
@@ -177,62 +212,61 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
               {isLive && !activityTag && (
                 <span className="flex items-center gap-1 text-[10px] font-bold text-destructive shrink-0">
-                  <span className="w-1 h-1 rounded-full bg-destructive animate-pulse inline-block" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-destructive animate-pulse inline-block" />
                   LIVE
                 </span>
               )}
             </div>
-            {/* Actions row — top right */}
-            <div className="flex items-center gap-0.5 flex-shrink-0">
+
+            {/* Quick actions */}
+            <div className="flex items-center gap-0.5 shrink-0">
               <button
-                className={`p-1.5 rounded transition-colors ${followed ? "text-gold" : "text-muted-foreground/50 hover:text-muted-foreground"}`}
                 onClick={handleFollow}
+                className={`p-1.5 rounded transition-colors ${followed ? "text-gold" : "text-muted-foreground/40 hover:text-muted-foreground"
+                  }`}
               >
                 <Bell className={`h-3.5 w-3.5 ${followed ? "fill-gold" : ""}`} />
               </button>
-              <button
-                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors p-1.5 rounded"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigator.clipboard.writeText(window.location.origin + "/opinion/" + data.id);
-                  toast.success("Link copied!");
-                }}
-              >
+              <button onClick={handleShare}
+                className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
                 <Share2 className="h-3.5 w-3.5" />
               </button>
               <button
-                className="text-muted-foreground/50 hover:text-muted-foreground transition-colors p-1.5 rounded"
                 onClick={(e) => { e.stopPropagation(); toast.success("Saved!"); }}
-              >
+                className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
                 <Bookmark className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
 
-          {/* Live Score */}
+          {/* Live score block */}
           {isLiveGame && homeTeam && awayTeam && (
             <div className="bg-secondary/60 rounded-lg px-3 py-2 flex items-center justify-between border border-border/50">
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">{homeTeam}</p>
+              <div className="text-center min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground truncate">{homeTeam}</p>
                 <p className="text-[10px] text-muted-foreground">Home</p>
               </div>
-              <div className="text-center">
-                <p className="text-base font-bold text-foreground">{homeScore} — {awayScore}</p>
-                {matchMinute && <span className="text-[10px] font-medium text-destructive">{matchMinute}'</span>}
+              <div className="text-center px-3">
+                <p className="text-base font-bold text-foreground tabular-nums">
+                  {homeScore} — {awayScore}
+                </p>
+                {matchMinute && (
+                  <span className="text-[10px] font-medium text-destructive">{matchMinute}'</span>
+                )}
               </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold text-foreground">{awayTeam}</p>
+              <div className="text-center min-w-0 flex-1">
+                <p className="text-sm font-semibold text-foreground truncate">{awayTeam}</p>
                 <p className="text-[10px] text-muted-foreground">Away</p>
               </div>
             </div>
           )}
 
-          {/* ── Question — 18px / 600 per spec ── */}
-          <h3 className="text-[17px] leading-snug font-semibold text-foreground line-clamp-2 flex-1">
+          {/* ── Question ── */}
+          <h3 className="text-[16px] leading-snug font-semibold text-foreground line-clamp-2">
             {question}
           </h3>
 
-          {/* Creator */}
+          {/* Creator line */}
           {creatorUsername && (
             <div className="flex items-center gap-2 -mt-1 flex-wrap">
               <span className="text-[11px] text-muted-foreground">
@@ -249,103 +283,64 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           )}
 
-          {/* ── Belief options with delta indicators — data-first ── */}
+          {/* ── Options ── */}
           {options && options.length > 0 ? (
             <div className="flex flex-col gap-1.5">
-              {(showMore ? options : options.slice(0, 2)).map((opt, i) => {
-                const color = getOptionColor(index, i);
-                const isSelected = selectedOption === opt.label;
-                const delta = getDelta(index, i);
-                return (
-                  <button
-                    key={i}
-                    onClick={(e) => { e.stopPropagation(); setSelectedOption(opt.label); navigate(`/opinion/${data.id}`); }}
-                    className={`w-full rounded-lg border transition-colors duration-150 overflow-hidden text-left ${
-                      isSelected
-                        ? "border-border bg-secondary/60"
-                        : "border-border/50 bg-secondary/20 hover:bg-secondary/40"
-                    }`}
-                  >
-                    <div className="px-3 py-2">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[13px] font-medium text-foreground">
-                          {opt.label}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[13px] font-semibold" style={{ color }}>{opt.percent}%</span>
-                          {delta !== 0 && (
-                            <span className="text-[10px] font-semibold tabular-nums"
-                              style={{ color: delta > 0 ? "#22C55E" : "#EF4444" }}>
-                              {delta > 0 ? `↑+${delta}` : `↓${delta}`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="h-[2px] rounded-full bg-border overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${opt.percent}%`, background: color + "CC" }} />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              {(showMore ? options : options.slice(0, 2)).map((opt, i) => (
+                <OptionBar
+                  key={i}
+                  label={opt.label}
+                  percent={opt.percent}
+                  color={getOptionColor(index, i)}
+                  delta={getDelta(index, i)}
+                  onClick={(e) => { e.stopPropagation(); goToDetail(); }}
+                />
+              ))}
               {options.length > 2 && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); setShowMore(!showMore); }}
+                  onClick={(e) => { e.stopPropagation(); setShowMore(s => !s); }}
                   className="text-[11px] text-muted-foreground hover:text-foreground py-0.5 transition-colors text-center"
                 >
-                  {showMore ? "↑ less" : `+${options.length - 2} more`}
+                  {showMore ? "↑ show less" : `+${options.length - 2} more options`}
                 </button>
               )}
             </div>
           ) : (
             <div className="flex flex-col gap-1.5">
-              {[{ label: "Agree", color: yesColor, pct: yesPercent, di: 0 }, { label: "Disagree", color: noColor, pct: noPercent, di: 1 }].map(({ label, color, pct, di }) => {
-                const delta = getDelta(index, di);
-                return (
-                  <button key={label}
-                    onClick={(e) => { e.stopPropagation(); navigate(`/opinion/${data.id}`); }}
-                    className="w-full rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-colors duration-150 overflow-hidden text-left"
-                  >
-                    <div className="px-3 py-2">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-[13px] font-medium text-foreground">{label}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[13px] font-semibold" style={{ color }}>{pct}%</span>
-                          {delta !== 0 && (
-                            <span className="text-[10px] font-semibold tabular-nums"
-                              style={{ color: delta > 0 ? "#22C55E" : "#EF4444" }}>
-                              {delta > 0 ? `↑+${delta}` : `↓${delta}`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="h-[2px] rounded-full bg-border overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color + "CC" }} />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+              <OptionBar
+                label="Agree"
+                percent={yesPercent}
+                color={getOptionColor(index, 0)}
+                delta={getDelta(index, 0)}
+                onClick={(e) => { e.stopPropagation(); goToDetail(); }}
+              />
+              <OptionBar
+                label="Disagree"
+                percent={noPercent}
+                color={getOptionColor(index, 1)}
+                delta={getDelta(index, 1)}
+                onClick={(e) => { e.stopPropagation(); goToDetail(); }}
+              />
             </div>
           )}
 
-          {/* ── Social proof — understated ── */}
+          {/* ── Footer: social proof + time ── */}
           <div className="flex items-center justify-between pt-1.5 border-t border-border/40 mt-auto">
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Users className="h-3 w-3" />
-                <span className="font-medium text-foreground/70">{formatCount(coins)}</span> callers
+                <span className="font-medium text-foreground/70">{formatCount(coins)}</span>
               </span>
               {commentCount > 0 && (
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <MessageCircle className="h-3 w-3" />
-                  <span className="font-medium text-foreground/70">{commentCount}</span> arguments
+                  <span className="font-medium text-foreground/70">{commentCount}</span>
                 </span>
               )}
               {followerCount > 0 && (
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Eye className="h-3 w-3" /> {formatCount(followerCount)}
+                  <Eye className="h-3 w-3" />
+                  <span className="font-medium text-foreground/70">{formatCount(followerCount)}</span>
                 </span>
               )}
             </div>
@@ -360,40 +355,49 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             )}
           </div>
 
-          {/* ── Debate actions — opens modal, NOT navigation ── */}
-          <div className="flex items-center gap-0.5 -mx-0.5 pt-1 border-t border-border/30">
-            <button
-              onClick={(e) => openDebate(e, "agree")}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors flex-1 justify-center text-muted-foreground hover:text-[#22C55E] hover:bg-[#22C55E]/8"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" /> Agree
-            </button>
-            <button
-              onClick={(e) => openDebate(e, "disagree")}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors flex-1 justify-center text-muted-foreground hover:text-[#EF4444] hover:bg-[#EF4444]/8"
-            >
-              <XCircle className="h-3.5 w-3.5" /> Disagree
-            </button>
-            <button
-              onClick={(e) => openDebate(e, "challenge")}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors flex-1 justify-center text-muted-foreground hover:text-gold hover:bg-gold/8"
-            >
-              <Swords className="h-3.5 w-3.5" /> Challenge
-            </button>
-            <button
-              onClick={handleFollow}
-              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors flex-1 justify-center ${
-                followed
-                  ? "text-gold"
-                  : "text-muted-foreground hover:text-muted-foreground/80"
-              }`}
-            >
-              <Bell className="h-3.5 w-3.5" /> {followed ? "Following" : "Follow"}
-            </button>
+          {/* ── Bottom action bar ── */}
+          <div className="grid grid-cols-4 gap-0.5 -mx-1 pt-1 border-t border-border/30">
+            {[
+              {
+                label: "Agree",
+                icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+                hoverColor: "hover:text-[#22C55E] hover:bg-[#22C55E]/8",
+                action: () => handleDebateAction as any,
+                onClick: (e: React.MouseEvent) => handleDebateAction(e, "agree"),
+              },
+              {
+                label: "Disagree",
+                icon: <XCircle className="h-3.5 w-3.5" />,
+                hoverColor: "hover:text-[#EF4444] hover:bg-[#EF4444]/8",
+                onClick: (e: React.MouseEvent) => handleDebateAction(e, "disagree"),
+              },
+              {
+                label: "Challenge",
+                icon: <Swords className="h-3.5 w-3.5" />,
+                hoverColor: "hover:text-gold hover:bg-gold/8",
+                onClick: (e: React.MouseEvent) => handleDebateAction(e, "challenge"),
+              },
+              {
+                label: followed ? "Following" : "Follow",
+                icon: <Bell className="h-3.5 w-3.5" />,
+                hoverColor: "hover:text-foreground/70",
+                activeColor: followed ? "text-gold" : "",
+                onClick: handleFollow,
+              },
+            ].map((btn) => (
+              <button
+                key={btn.label}
+                onClick={btn.onClick}
+                className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-medium transition-colors text-muted-foreground ${btn.hoverColor} ${btn.activeColor || ""}`}
+              >
+                {btn.icon}
+                <span className="hidden sm:inline">{btn.label}</span>
+              </button>
+            ))}
           </div>
+
         </div>
       </motion.div>
-
 
       {positionModal && (
         <PositionModal
@@ -404,7 +408,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         />
       )}
     </>
-
   );
 };
 

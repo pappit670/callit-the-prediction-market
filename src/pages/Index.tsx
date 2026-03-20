@@ -4,11 +4,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
-import { FastRisingCalls } from "@/components/FastRisingCalls";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import {
   Zap, ChevronLeft, ChevronRight, Timer, Users, Plus,
-  TrendingUp, Swords, MessageSquare, Filter
+  TrendingUp, Swords
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
@@ -16,16 +15,53 @@ import { useApp } from "@/context/AppContext";
 const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
 const SORT_OPTIONS = ["Trending", "Newest", "Most Called", "Ending Soon"];
 
+const TOPIC_PILLS = [
+  { label: "All", slug: null },
+  { label: "Kenya", slug: "politics-kenya" },
+  { label: "KPL", slug: "kpl" },
+  { label: "Bitcoin", slug: "crypto-bitcoin" },
+  { label: "Ethereum", slug: "crypto-ethereum" },
+  { label: "AI", slug: "tech-ai" },
+  { label: "EPL", slug: "epl" },
+  { label: "UCL", slug: "ucl" },
+  { label: "NBA", slug: "nba" },
+  { label: "Elections", slug: "politics-elections" },
+  { label: "Economy", slug: "business-kenya" },
+  { label: "Stocks", slug: "business-stocks" },
+  { label: "Conflict", slug: "world-conflict" },
+  { label: "Ruto", slug: "ruto-presidency" },
+  { label: "La Liga", slug: "la-liga" },
+  { label: "Bundesliga", slug: "bundesliga" },
+  { label: "Serie A", slug: "serie-a" },
+  { label: "NFL", slug: "nfl" },
+  { label: "Solana", slug: "crypto-solana" },
+  { label: "Altcoins", slug: "crypto-altcoins" },
+  { label: "Music", slug: "entertainment-music" },
+  { label: "Film & TV", slug: "entertainment-film" },
+  { label: "Climate", slug: "world-climate" },
+  { label: "Startups", slug: "tech-startups" },
+  { label: "Social Media", slug: "tech-social" },
+  { label: "Space", slug: "tech-space" },
+  { label: "DeFi", slug: "crypto-defi" },
+  { label: "Africa", slug: "world-africa" },
+  { label: "USA", slug: "politics-usa" },
+  { label: "Middle East", slug: "politics-middle-east" },
+  { label: "AFCON", slug: "afcon" },
+  { label: "World Cup", slug: "world-cup" },
+  { label: "Parliament", slug: "kenya-parliament" },
+  { label: "Fuel", slug: "kenya-fuel" },
+];
+
 function generateFeaturedChartData(percent: number, seed: number, points = 20) {
   const data: { time: string; probability: number }[] = [];
-  const labels = ["Day 1","Day 3","Day 5","Day 7","Day 10","Day 14","Day 17","Day 20","Day 24","Day 27","Day 30","Day 33","Day 36","Day 40","Day 44","Day 47","Day 50","Day 54","Day 57","Now"];
+  const labels = ["Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20", "Day 24", "Day 27", "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47", "Day 50", "Day 54", "Day 57", "Now"];
   let val = 40 + (seed % 20);
   for (let i = 0; i < points; i++) {
     const noise = Math.sin(seed * 13.37 + i * 2.1) * 8 + Math.cos(seed * 7.53 + i * 3.7) * 5;
     val = val + (percent - val) * 0.15 + noise * (1 - (i / points) * 0.7);
     val = Math.max(2, Math.min(98, val));
     if (i === points - 1) val = percent;
-    data.push({ time: labels[i] || `Day ${i+1}`, probability: Math.round(val) });
+    data.push({ time: labels[i] || `Day ${i + 1}`, probability: Math.round(val) });
   }
   return data;
 }
@@ -61,9 +97,7 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
               <span className="flex items-center gap-1"><Timer className="h-3 w-3" />{timeLeft}</span>
             </div>
           </div>
-          <h2 className="text-xl font-bold text-foreground leading-snug mb-1">
-            {opinion.statement}
-          </h2>
+          <h2 className="text-xl font-bold text-foreground leading-snug mb-1">{opinion.statement}</h2>
           {opinion.profiles?.username && (
             <p className="text-xs text-muted-foreground">
               by <span className="text-gold font-semibold">@{opinion.profiles.username}</span>
@@ -90,73 +124,59 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
   );
 };
 
-// ── BOTTOM NAV ───────────────────────────────────────────────
-const CATEGORIES = ["All", "Sports", "Crypto", "Politics", "Tech", "Business", "World", "Entertainment"];
-
-const BottomNav = ({ active, onChange }: { active: string; onChange: (c: string) => void }) => (
-  <div className="w-full bg-card border-y border-border sticky top-[57px] z-30">
-    <div className="max-w-7xl mx-auto px-4 md:px-6">
-      <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0">
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat}
-            onClick={() => onChange(cat)}
-            className={`flex-shrink-0 px-4 py-3 text-sm font-semibold transition-all border-b-2 ${
-              active === cat
-                ? "border-gold text-gold"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+// ── Topic filter bar ──────────────────────────────────────────
+const TopicFilterBar = ({ active, onChange }: { active: string | null; onChange: (s: string | null) => void }) => (
+  <div className="-mx-4 sm:-mx-6 mb-5">
+    <div
+      className="flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 border-y border-border bg-background"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    >
+      {TOPIC_PILLS.map(p => (
+        <button
+          key={p.slug ?? "all"}
+          onClick={() => onChange(p.slug)}
+          className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${active === p.slug
+              ? "bg-foreground text-background"
+              : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
+        >
+          {p.label}
+        </button>
+      ))}
     </div>
   </div>
 );
 
-// ── FEATURED TABS ─────────────────────────────────────────────
-const FeaturedTabs = ({ opinions }: { opinions: any[] }) => {
+// ── Debates + Activity tabs ───────────────────────────────────
+const FeaturedTabs = () => {
   const [tab, setTab] = useState<"debates" | "activity">("debates");
   const [debates, setDebates] = useState<any[]>([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (tab === "debates") fetchDebates();
+    if (tab === "debates") {
+      supabase.from("debates")
+        .select("*, opinions(statement)")
+        .order("created_at", { ascending: false })
+        .limit(5)
+        .then(({ data }) => setDebates(data || []));
+    }
   }, [tab]);
-
-  const fetchDebates = async () => {
-    const { data } = await supabase
-      .from("debates")
-      .select("*, opinions(statement)")
-      .order("created_at", { ascending: false })
-      .limit(5);
-    setDebates(data || []);
-  };
 
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
-      {/* Tab headers */}
       <div className="flex border-b border-border">
-        <button
-          onClick={() => setTab("debates")}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${
-            tab === "debates" ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Swords className="h-4 w-4" /> Debates
-        </button>
-        <button
-          onClick={() => setTab("activity")}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${
-            tab === "activity" ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Zap className="h-4 w-4" /> Activity
-        </button>
+        {(["debates", "activity"] as const).map(t => (
+          <button key={t}
+            onClick={() => setTab(t)}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 capitalize ${tab === t ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}>
+            {t === "debates" ? <Swords className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
       </div>
 
-      {/* Debates tab */}
       {tab === "debates" && (
         <div className="divide-y divide-border/50">
           {debates.length === 0 ? (
@@ -166,20 +186,16 @@ const FeaturedTabs = ({ opinions }: { opinions: any[] }) => {
               <p className="text-xs text-muted-foreground mt-1">Challenge someone's stance to start one</p>
             </div>
           ) : debates.map((d, i) => (
-            <motion.button
-              key={d.id}
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
+            <motion.button key={d.id}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
               onClick={() => navigate(`/opinion/${d.opinion_id}`)}
-              className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors text-left"
-            >
+              className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors text-left">
               <div className="h-7 w-7 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Swords className="h-3.5 w-3.5 text-purple-500" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-foreground font-semibold line-clamp-1">
-                  {(d as any).opinions?.statement?.slice(0, 55)}...
+                  {d.opinions?.statement?.slice(0, 55)}...
                 </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] text-[#00C278] font-semibold">{d.challenger_alias}</span>
@@ -187,55 +203,42 @@ const FeaturedTabs = ({ opinions }: { opinions: any[] }) => {
                   <span className="text-[10px] text-[#EF4444] font-semibold">{d.defender_alias}</span>
                   <span className="text-[10px] text-gold ml-auto">{d.challenger_votes + d.defender_votes} votes</span>
                 </div>
-                {/* Mini vote bar */}
                 <div className="mt-1.5 h-1 rounded-full bg-[#EF4444]/20 overflow-hidden">
-                  <div
-                    className="h-full bg-[#00C278] rounded-full transition-all"
+                  <div className="h-full bg-[#00C278] rounded-full transition-all"
                     style={{
                       width: `${(d.challenger_votes + d.defender_votes) > 0
                         ? Math.round((d.challenger_votes / (d.challenger_votes + d.defender_votes)) * 100)
                         : 50}%`
-                    }}
-                  />
+                    }} />
                 </div>
               </div>
             </motion.button>
           ))}
-          {debates.length > 0 && (
-            <button className="w-full py-2.5 text-xs text-gold hover:text-gold-hover font-semibold transition-colors">
-              View all debates →
-            </button>
-          )}
         </div>
       )}
-
-      {/* Activity tab */}
       {tab === "activity" && <ActivityFeed />}
     </div>
   );
 };
 
-// ── MAIN INDEX ────────────────────────────────────────────────
+// ── Main Index ────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
   const { hasSeenHero, setHasSeenHero } = useApp();
-  const [opinions, setOpinions]     = useState<any[]>([]);
-  const [featured, setFeatured]     = useState<any[]>([]);
-  const [breaking, setBreaking]     = useState<any[]>([]);
-  const [rising, setRising]         = useState<any[]>([]);
-  const [loading, setLoading]       = useState(true);
+  const [opinions, setOpinions] = useState<any[]>([]);
+  const [featured, setFeatured] = useState<any[]>([]);
+  const [breaking, setBreaking] = useState<any[]>([]);
+  const [rising, setRising] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [featuredIndex, setFeaturedIndex] = useState(0);
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [activeSort, setActiveSort] = useState("Trending");
-  const [page, setPage]             = useState(0);
+  const [page, setPage] = useState(0);
   const PAGE_SIZE = 9;
 
   useEffect(() => {
-    if (hasSeenHero) {
-      fetchData();
-      fetchRising();
-    }
-  }, [hasSeenHero, activeCategory, activeSort, page]);
+    if (hasSeenHero) { fetchData(); fetchRising(); }
+  }, [hasSeenHero, activeTopic, activeSort, page]);
 
   useEffect(() => {
     if (featured.length < 2) return;
@@ -262,18 +265,12 @@ const Index = () => {
         .eq("status", "open")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-      // Category filter
-      if (activeCategory !== "All") {
-        const { data: topicData } = await supabase
-          .from("topics")
-          .select("id")
-          .ilike("name", `%${activeCategory}%`);
-        if (topicData?.length) {
-          query = query.in("topic_id", topicData.map(t => t.id));
-        }
+      if (activeTopic) {
+        const { data: topicRow } = await supabase
+          .from("topics").select("id").eq("slug", activeTopic).single();
+        if (topicRow?.id) query = query.eq("topic_id", topicRow.id);
       }
 
-      // Sort
       if (activeSort === "Newest") query = query.order("created_at", { ascending: false });
       else if (activeSort === "Most Called") query = query.order("call_count", { ascending: false });
       else if (activeSort === "Ending Soon") query = query.order("end_time", { ascending: true });
@@ -281,12 +278,8 @@ const Index = () => {
 
       const { data } = await query;
       if (data) {
-        if (page === 0) {
-          setFeatured(data.slice(0, 5));
-          setOpinions(data.slice(5));
-        } else {
-          setOpinions(prev => [...prev, ...data]);
-        }
+        if (page === 0) { setFeatured(data.slice(0, 5)); setOpinions(data.slice(5)); }
+        else { setOpinions(prev => [...prev, ...data]); }
       }
 
       const { data: breakingData } = await supabase
@@ -320,16 +313,15 @@ const Index = () => {
     createdAt: op.created_at,
     followerCount: op.follower_count || 0,
     isRising: (op.rising_score || 0) > 10,
-    // Safe options handling
     options: Array.isArray(op.options) && op.options.length > 0
       ? op.options.map((o: any) => ({
-          label: typeof o === "string" ? o : String(o),
-          percent: Math.round(100 / op.options.length),
-        }))
+        label: typeof o === "string" ? o : String(o),
+        percent: Math.round(100 / op.options.length),
+      }))
       : undefined,
   });
 
-  // ── LANDING ──────────────────────────────────────────────
+  // ── Landing ─────────────────────────────────────────────
   if (!hasSeenHero) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -359,22 +351,17 @@ const Index = () => {
     );
   }
 
-  // ── HOME FEED ─────────────────────────────────────────────
+  // ── Home feed ────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Navbar */}
       <Navbar />
-
-      {/* Bottom Category Navbar */}
-      <BottomNav active={activeCategory} onChange={(c) => { setActiveCategory(c); setPage(0); setOpinions([]); }} />
-
 
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
 
-          {/* LEFT — main feed */}
+          {/* LEFT */}
           <div>
-            {/* Featured Carousel */}
+            {/* Featured carousel */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
@@ -386,18 +373,17 @@ const Index = () => {
                       <button key={i} onClick={() => setFeaturedIndex(i)}
                         className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border"}`} />
                     ))}
-                    <button onClick={() => setFeaturedIndex(i => (i-1+featured.length)%featured.length)}
+                    <button onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all ml-1">
                       <ChevronLeft className="h-3 w-3" />
                     </button>
-                    <button onClick={() => setFeaturedIndex(i => (i+1)%featured.length)}
+                    <button onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all">
                       <ChevronRight className="h-3 w-3" />
                     </button>
                   </div>
                 )}
               </div>
-
               {loading && !featured.length ? (
                 <div className="h-[380px] rounded-2xl bg-secondary animate-pulse" />
               ) : featured.length > 0 ? (
@@ -408,18 +394,18 @@ const Index = () => {
               ) : null}
             </div>
 
-            {/* Debates + Activity tabs */}
+            {/* Debates + Activity */}
             <div className="mb-8">
-              <FeaturedTabs opinions={featured} />
+              <FeaturedTabs />
             </div>
 
             {/* All Calls header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-bold text-foreground">All Calls</h2>
               <div className="flex items-center gap-2">
                 <button onClick={() => navigate("/call-it")}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gold text-primary-foreground text-xs font-bold hover:bg-gold-hover transition-all">
-                  <Plus className="h-3.5 w-3.5" /> Create Call
+                  <Plus className="h-3.5 w-3.5" /> Create
                 </button>
                 <select value={activeSort}
                   onChange={e => { setActiveSort(e.target.value); setPage(0); setOpinions([]); }}
@@ -428,6 +414,12 @@ const Index = () => {
                 </select>
               </div>
             </div>
+
+            {/* ── Topic filter bar — sits right below All Calls ── */}
+            <TopicFilterBar
+              active={activeTopic}
+              onChange={(slug) => { setActiveTopic(slug); setPage(0); setOpinions([]); }}
+            />
 
             {/* Cards grid */}
             {loading && page === 0 ? (
@@ -450,10 +442,8 @@ const Index = () => {
             </div>
           </div>
 
-          {/* RIGHT column */}
+          {/* RIGHT sidebar */}
           <aside className="hidden lg:flex flex-col gap-6">
-
-            {/* Breaking / Latest */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
                 <Zap className="h-3.5 w-3.5 text-gold" /> Breaking
@@ -462,7 +452,7 @@ const Index = () => {
                 {breaking.slice(0, 6).map((item, i) => (
                   <button key={item.id} onClick={() => navigate(`/opinion/${item.id}`)}
                     className="flex items-start gap-3 w-full px-4 py-3.5 border-b border-border last:border-0 hover:bg-secondary/40 transition-colors text-left group">
-                    <span className="text-xs text-muted-foreground font-mono mt-0.5 w-4 shrink-0">{i+1}.</span>
+                    <span className="text-xs text-muted-foreground font-mono mt-0.5 w-4 shrink-0">{i + 1}.</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-foreground group-hover:text-gold transition-colors line-clamp-2 leading-snug">
                         {item.statement}
@@ -476,14 +466,13 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Fast Rising */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
                 <TrendingUp className="h-3.5 w-3.5 text-orange-500" /> Fast Rising
               </h3>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 {rising.length === 0 ? (
-                  <div className="p-4 text-xs text-muted-foreground text-center">Loading rising calls...</div>
+                  <div className="p-4 text-xs text-muted-foreground text-center">Loading...</div>
                 ) : rising.map((item, i) => (
                   <button key={item.id} onClick={() => navigate(`/opinion/${item.id}`)}
                     className="flex items-start gap-3 w-full px-4 py-3.5 border-b border-border last:border-0 hover:bg-secondary/40 transition-colors text-left group">
@@ -498,14 +487,11 @@ const Index = () => {
                         {item.topics?.icon} {item.topics?.name} · {item.call_count || 0} callers
                       </p>
                     </div>
-                    <div className="flex items-center gap-0.5 text-orange-500 text-[10px] font-bold shrink-0">
-                      <TrendingUp className="h-3 w-3" />
-                    </div>
+                    <TrendingUp className="h-3 w-3 text-orange-500 shrink-0 mt-1" />
                   </button>
                 ))}
               </div>
             </div>
-
           </aside>
         </div>
       </main>

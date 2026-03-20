@@ -1,6 +1,9 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Share2, Send, ThumbsUp, MessageCircle, Info, Bookmark, Coins, Users, ChevronDown, Newspaper, ExternalLink } from "lucide-react";
+import {
+  ArrowLeft, Share2, Send, ThumbsUp, MessageCircle,
+  Info, Bookmark, Coins, Users, ChevronDown
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
@@ -10,9 +13,6 @@ import { PositionModal } from "@/components/debate/PositionModal";
 import { DebatePanel } from "@/components/debate/DebatePanel";
 import { SlidingNumber } from "@/components/ui/sliding-number";
 import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
-
-
-
 
 const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
 const COMMENT_TABS = ["Comments", "Top Callers", "Positions", "Activity"] as const;
@@ -36,7 +36,7 @@ function generateChartPoint(percent: number, seed: number, points = 20) {
   const labels = [
     "Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20",
     "Day 24", "Day 28", "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47",
-    "Day 50", "Day 54", "Day 57", "Now"
+    "Day 50", "Day 54", "Day 57", "Now",
   ];
   for (let i = 0; i < points; i++) {
     const noise = Math.sin(seed * 13.37 + i * 2.1) * 8 + Math.cos(seed * 7.53 + i * 3.7) * 5;
@@ -48,95 +48,43 @@ function generateChartPoint(percent: number, seed: number, points = 20) {
   return data;
 }
 
-// ─── Call Context & Rules Block ────────────────────────────────────────────
-const SAMPLE_NEWS_ITEMS = [
-  { source: "Reuters", headline: "Key developments around this prediction in the past 24 hours", time: "2h ago" },
-  { source: "Associated Press", headline: "Experts weigh in on the likely outcome based on current trends", time: "5h ago" },
-  { source: "The Guardian", headline: "Background context: how we got here and what to watch", time: "1d ago" },
-];
-
+// ── About this Call block ─────────────────────────────────────
 const CallContextBlock = ({ opinion }: { opinion: any }) => {
   const [open, setOpen] = useState(true);
-
-  const description = opinion.description ||
-    `This prediction asks whether the stated outcome will occur by the resolution date. The call is based on publicly observable events and verifiable outcomes.`;
-
-  const resolutionRule = opinion.resolution_notes ||
-    `This call resolves YES if the stated condition is met and confirmed by at least one major news source or official announcement before the end time. In the case of ambiguity, the call creator's stated intent takes precedence.`;
-
+  if (!opinion.description || opinion.description.length < 15) return null;
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="mb-8"
-    >
-      {/* Expandable header */}
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }} className="mb-8">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-3 border-b border-border text-left group"
       >
         <span className="text-sm font-bold text-foreground group-hover:text-gold transition-colors flex items-center gap-2">
-          <Info className="h-4 w-4 text-muted-foreground" />
-          Call Context & Rules
+          <Info className="h-4 w-4 text-muted-foreground" /> About this Call
         </span>
         <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
-
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="pt-4 space-y-5">
-
-              {/* About */}
-              <div>
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1.5">
-                  About this Call
-                </p>
-                <p className="text-sm text-foreground/80 leading-relaxed">{description}</p>
-              </div>
-
-              {/* Resolution Rules */}
-              <div className="bg-secondary/40 border border-border rounded-xl p-4">
-                <p className="text-[11px] font-bold text-gold uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-gold inline-block" />
-                  Resolution Rules
-                </p>
-                <p className="text-sm text-foreground/80 leading-relaxed">{resolutionRule}</p>
-              </div>
-
-              {/* News / Context */}
-              <div>
-                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
-                  <Newspaper className="h-3 w-3" /> Relevant Context
-                </p>
-                <div className="space-y-2">
-                  {SAMPLE_NEWS_ITEMS.map((item, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-secondary/40 border border-border/60 hover:border-gold/30 transition-colors cursor-pointer group"
-                    >
-                      <div className="h-6 w-6 rounded bg-secondary border border-border flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-[10px] font-bold text-muted-foreground">{item.source[0]}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground leading-snug group-hover:text-gold transition-colors line-clamp-2">
-                          {item.headline}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-1">{item.source} · {item.time}</p>
-                      </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5 group-hover:text-gold transition-colors" />
-                    </div>
-                  ))}
+            <div className="pt-4 space-y-4">
+              <p className="text-sm text-foreground/80 leading-relaxed">{opinion.description}</p>
+              {(opinion.source_name || opinion.source_url) && (
+                <div className="flex items-center gap-2 pt-2 border-t border-border">
+                  <span className="text-xs text-muted-foreground">Source:</span>
+                  {opinion.source_url
+                    ? <a href={opinion.source_url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-gold hover:underline">
+                      {opinion.source_name || "View source"} ↗
+                    </a>
+                    : <span className="text-xs text-muted-foreground">{opinion.source_name}</span>
+                  }
                 </div>
-              </div>
-
+              )}
             </div>
           </motion.div>
         )}
@@ -145,6 +93,7 @@ const CallContextBlock = ({ opinion }: { opinion: any }) => {
   );
 };
 
+// ── Main page ─────────────────────────────────────────────────
 const OpinionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -177,13 +126,9 @@ const OpinionDetail = () => {
         .from("opinions")
         .select(`*, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, avatar_url)`)
         .eq("id", id).single();
-
       if (error || !op) { setLoading(false); return; }
       setOpinion(op);
-
-      if (Array.isArray(op.options) && op.options.length > 0) {
-        setSelectedOption(op.options[0]);
-      }
+      if (Array.isArray(op.options) && op.options.length > 0) setSelectedOption(op.options[0]);
 
       const { data: commentsData } = await supabase
         .from("comments").select("*, profiles(username, avatar_url)")
@@ -211,35 +156,24 @@ const OpinionDetail = () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) throw new Error("Not logged in");
-
       const isUpdate = !!userCall;
-
-      const { error } = await supabase.from("calls").upsert({
-        opinion_id: id,
-        user_id: authUser.id,
-        chosen_option: selectedOption,
-      }, { onConflict: "opinion_id,user_id" });
+      const { error } = await supabase.from("calls").upsert(
+        { opinion_id: id, user_id: authUser.id, chosen_option: selectedOption },
+        { onConflict: "opinion_id,user_id" }
+      );
       if (error) throw error;
-
-      // Deduct 50 coins only on new call, not update
       if (!isUpdate) {
         const newBalance = Math.max(0, (user.balance || 0) - 50);
-        await supabase.from("profiles")
-          .update({ balance: newBalance })
-          .eq("id", authUser.id);
+        await supabase.from("profiles").update({ balance: newBalance }).eq("id", authUser.id);
         setUser({ ...user, balance: newBalance });
       }
-
       setUserCall({ chosen_option: selectedOption });
       toast.success(`✅ Called: ${selectedOption}${!isUpdate ? " · 50 coins deducted" : " updated"}`);
-
-      // Refresh without full page reload
       const { data: refreshed } = await supabase
         .from("opinions")
         .select(`*, topics(name, slug, icon, color), profiles(username, avatar_url)`)
         .eq("id", id).single();
       if (refreshed) setOpinion(refreshed);
-
     } catch (e: any) {
       toast.error(e.message || "Failed to place call");
     } finally {
@@ -264,6 +198,7 @@ const OpinionDetail = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  // ── Loading ──────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -285,7 +220,6 @@ const OpinionDetail = () => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const isOpen = opinion.status === "open";
   const basePercent = Math.round(100 / options.length);
-
   const optionSeries = options.map((opt, i) => ({
     label: opt,
     color: OPTION_HEX[i % OPTION_HEX.length],
@@ -298,7 +232,7 @@ const OpinionDetail = () => {
       <div className="px-4 md:px-12 pt-8 pb-24">
         <div className="flex gap-10 max-w-7xl mx-auto">
 
-          {/* LEFT COLUMN */}
+          {/* ── LEFT COLUMN ── */}
           <div className="flex-[65] min-w-0">
 
             {/* Breadcrumb */}
@@ -327,13 +261,7 @@ const OpinionDetail = () => {
               {opinion.statement}
             </h1>
 
-            {opinion.description && opinion.description.length > 15 && (
-              <div className="flex items-start gap-2 mb-4 bg-secondary/40 rounded-xl p-4 border-l-2 border-gold/40">
-                <Info className="h-4 w-4 text-gold mt-0.5 shrink-0" />
-                <p className="text-sm text-muted-foreground leading-relaxed">{opinion.description}</p>
-              </div>
-            )}
-
+            {/* Creator */}
             {opinion.profiles && (
               <Link to={`/user/${opinion.profiles.username}`}
                 className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity mb-8">
@@ -344,7 +272,7 @@ const OpinionDetail = () => {
               </Link>
             )}
 
-            {/* CHART */}
+            {/* Chart */}
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }} className="mb-8">
               <CallitPredictionCard
@@ -352,7 +280,7 @@ const OpinionDetail = () => {
                 optionSeries={optionSeries}
                 height={260}
               />
-              {/* Time filter tabs */}
+              {/* Time filter */}
               <div className="flex items-center gap-1 mt-3 border-b border-border pb-1">
                 {TIME_FILTERS.map(tf => (
                   <button key={tf} onClick={() => setActiveTimeFilter(tf)}
@@ -362,17 +290,15 @@ const OpinionDetail = () => {
                       }`}>{tf}</button>
                 ))}
               </div>
-
-              {/* Belief summary + live coin indicator */}
+              {/* Belief summary */}
               <div className="flex items-center justify-between mt-3 px-1">
                 <div className="flex items-center gap-3 flex-wrap">
                   {options.map((opt, i) => (
                     <div key={i} className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
                       <span className="text-xs text-muted-foreground">{opt}</span>
-                      <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>{basePercent}%</span>
-                      <span className="text-[10px] font-bold" style={{ color: i % 2 === 0 ? "#22C55E" : "#EF4444" }}>
-                        {i % 2 === 0 ? `↑ +${(i + 1) * 2}` : `↓ -${(i + 1) * 2}`}
+                      <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                        {basePercent}%
                       </span>
                     </div>
                   ))}
@@ -384,10 +310,10 @@ const OpinionDetail = () => {
               </div>
             </motion.div>
 
-            {/* ── Call Context & Rules ── */}
+            {/* About this Call */}
             <CallContextBlock opinion={opinion} />
 
-            {/* OPTIONS LIST */}
+            {/* Options list */}
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }} className="mb-10">
               <div className="divide-y divide-border">
@@ -417,7 +343,6 @@ const OpinionDetail = () => {
                   </div>
                 ))}
               </div>
-
               <div className="flex items-center gap-6 mt-4 flex-wrap text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" />
@@ -431,11 +356,10 @@ const OpinionDetail = () => {
               </div>
             </motion.div>
 
-            {/* COMMENTS */}
+            {/* Comments */}
             <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }} className="mb-10">
               <h3 className="font-headline text-2xl mb-5">The Conversation</h3>
-
               <div className="flex items-center gap-6 border-b border-border mb-6">
                 {COMMENT_TABS.map(tab => (
                   <button key={tab} onClick={() => setActiveCommentTab(tab)}
@@ -467,7 +391,6 @@ const OpinionDetail = () => {
                       <Send className="h-4 w-4 text-primary-foreground" />
                     </button>
                   </div>
-
                   {comments.length === 0 ? (
                     <p className="text-sm text-muted-foreground text-center py-8">No comments yet — be the first!</p>
                   ) : (
@@ -520,14 +443,9 @@ const OpinionDetail = () => {
               )}
             </motion.div>
 
-            {/* DEBATE PANEL */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.45 }}
-              className="mb-10"
-              id="debate"
-            >
+            {/* Debate Panel */}
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }} className="mb-10" id="debate">
               <h3 className="font-headline text-2xl mb-4">Take a Stand</h3>
               <DebatePanel
                 opinionId={id!}
@@ -535,10 +453,6 @@ const OpinionDetail = () => {
                 defaultExpanded={true}
               />
             </motion.div>
-
-            
-
-
 
             {/* Actions */}
             <div className="flex items-center gap-3">
@@ -554,7 +468,7 @@ const OpinionDetail = () => {
             </div>
           </div>
 
-          {/* RIGHT COLUMN — scrollable, bigger question, compact options */}
+          {/* ── RIGHT COLUMN ── */}
           <div className="hidden lg:block flex-[35] min-w-[320px]">
             <div className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto">
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
@@ -578,11 +492,11 @@ const OpinionDetail = () => {
 
                 <div className="p-5 space-y-4">
 
-                  {/* Current call badge */}
+                  {/* Current call */}
                   {userCall && (
                     <div className="p-3 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-between">
                       <div>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Your current call</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Your call</p>
                         <p className="text-sm font-bold text-gold">{userCall.chosen_option}</p>
                       </div>
                       <span className="text-[10px] text-gold bg-gold/10 px-2 py-1 rounded-full font-semibold">Active</span>
@@ -593,14 +507,13 @@ const OpinionDetail = () => {
                   <div className="flex flex-col gap-1.5">
                     {options.map((opt, i) => (
                       <button key={i} onClick={() => setSelectedOption(opt)}
-                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-                          selectedOption === opt
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${selectedOption === opt
                             ? "border-2 text-foreground"
                             : "border-border bg-secondary/50 text-muted-foreground hover:text-foreground hover:border-gold/50"
-                        }`}
+                          }`}
                         style={selectedOption === opt ? {
                           borderColor: OPTION_HEX[i % OPTION_HEX.length],
-                          background:  OPTION_HEX[i % OPTION_HEX.length] + "12",
+                          background: OPTION_HEX[i % OPTION_HEX.length] + "12",
                         } : {}}>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full flex-shrink-0"
@@ -624,7 +537,7 @@ const OpinionDetail = () => {
                         onClick={handleCall}
                         className="w-full rounded-xl bg-gold py-3.5 text-base font-bold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {submitting ? "Placing..." : userCall ? `Update → ${selectedOption || ""}` : `Call It`}
+                        {submitting ? "Placing..." : userCall ? `Update → ${selectedOption || ""}` : "Call It"}
                       </motion.button>
                       <p className="text-[11px] text-muted-foreground text-center">
                         {userCall ? "Free to update" : "Costs 50 coins"} · Balance:{" "}
@@ -632,7 +545,9 @@ const OpinionDetail = () => {
                       </p>
                       {!isLoggedIn && (
                         <p className="text-xs text-center text-muted-foreground">
-                          <button onClick={() => navigate("/auth")} className="text-gold hover:underline">Log in</button> to call
+                          <button onClick={() => navigate("/auth")} className="text-gold hover:underline">
+                            Log in
+                          </button> to call
                         </p>
                       )}
                     </div>
@@ -642,36 +557,43 @@ const OpinionDetail = () => {
                     </div>
                   )}
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
-                    <div className="bg-secondary/40 rounded-xl p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Callers</p>
-                      <p className="text-xl font-bold text-foreground">
+                  {/* ── Stats — 3 col ── */}
+                  <div className="grid grid-cols-3 gap-0 pt-2 border-t border-border">
+                    <div className="text-center py-2">
+                      <p className="text-base font-bold text-foreground">
                         <SlidingNumber value={opinion.call_count || 0} />
                       </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Callers</p>
                     </div>
-                    <div className="bg-secondary/40 rounded-xl p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Time Left</p>
-                      <p className="text-sm font-bold text-foreground leading-tight">
+                    <div className="text-center py-2 border-x border-border">
+                      <p className="text-xs font-bold text-foreground leading-tight pt-0.5">
                         {countdown || formatTimeLeft(opinion.end_time)}
                       </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Time left</p>
+                    </div>
+                    <div className="text-center py-2">
+                      <p className="text-base font-bold text-foreground">
+                        {opinion.follower_count || 0}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">Watching</p>
                     </div>
                   </div>
 
                   {/* Source */}
-                  {(opinion.source_name || opinion.source_url) && (
-                    <div className="pt-1 border-t border-border">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Source</p>
+                  {opinion.source_name && (
+                    <div className="flex items-center justify-between pt-1 border-t border-border">
+                      <span className="text-[11px] text-muted-foreground">Source</span>
                       {opinion.source_url ? (
                         <a href={opinion.source_url} target="_blank" rel="noopener noreferrer"
-                          className="text-xs text-gold hover:underline">
-                          {opinion.source_name || "View source"} →
+                          className="text-[11px] text-gold hover:underline font-medium">
+                          {opinion.source_name} ↗
                         </a>
                       ) : (
-                        <p className="text-xs text-muted-foreground">{opinion.source_name}</p>
+                        <span className="text-[11px] text-muted-foreground">{opinion.source_name}</span>
                       )}
                     </div>
                   )}
+
                 </div>
               </motion.div>
             </div>
