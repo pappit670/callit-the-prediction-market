@@ -28,17 +28,29 @@ interface CallitProbabilityChartProps {
     height?: number;
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+type TooltipPayloadItem = {
+    value?: number;
+    name?: string;
+    color?: string;
+};
+
+type CustomTooltipProps = {
+    active?: boolean;
+    payload?: TooltipPayloadItem[];
+    label?: string;
+};
+
+const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
         return (
             <div className="bg-popover border border-border rounded-xl px-3 py-2.5 shadow-xl">
                 <p className="text-xs text-muted-foreground mb-1.5">{label}</p>
-                {payload.map((p: any, i: number) => (
+                {payload.map((p, i) => (
                     <div key={i} className="flex items-center gap-2 mb-0.5">
                         <div className="h-2 w-2 rounded-full" style={{ background: p.color }} />
                         <span className="text-xs text-foreground">{p.name}</span>
                         <span className="text-xs font-bold ml-auto pl-4" style={{ color: p.color }}>
-                            {p.value}%
+                            {p.value ?? 0}%
                         </span>
                     </div>
                 ))}
@@ -59,27 +71,6 @@ export function CallitProbabilityChart({
 
     return (
         <div className="w-full relative" style={{ height }}>
-            <svg width="0" height="0" style={{ position: "absolute" }}>
-                <defs>
-                    {/* Dot grid pattern */}
-                    <pattern id="dotGrid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-                        <circle cx="10" cy="10" r="1" fill="currentColor" fillOpacity="0.12" />
-                    </pattern>
-
-                    {/* Line glow filters per series */}
-                    {series.map((s) => (
-                        <filter key={s.key} id={`lineShadow-${s.key}`} x="-100%" y="-100%" width="300%" height="300%">
-                            <feDropShadow dx="0" dy="4" stdDeviation="8" floodColor={s.color} floodOpacity="0.6" />
-                        </filter>
-                    ))}
-
-                    {/* Dot shadow */}
-                    <filter id="dotShadow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feDropShadow dx="1" dy="2" stdDeviation="3" floodColor="rgba(0,0,0,0.7)" />
-                    </filter>
-                </defs>
-            </svg>
-
             <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={data} margin={{ top: 16, right: 16, left: -10, bottom: 8 }}>
                     <defs>
@@ -112,17 +103,14 @@ export function CallitProbabilityChart({
 
                     <XAxis
                         dataKey="time"
-                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                        tick={false}
                         axisLine={false}
                         tickLine={false}
-                        dy={10}
-                        interval="preserveStartEnd"
-                        tickCount={5}
                     />
 
                     <YAxis
                         domain={[0, 100]}
-                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                        tick={false}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(v) => `${v}%`}
@@ -145,10 +133,12 @@ export function CallitProbabilityChart({
                             dataKey={s.key}
                             name={s.label}
                             stroke={s.color}
-                            strokeWidth={2.5}
-                            filter={`url(#lineShadow-${s.key})`}
-                            dot={(props: any) => {
+                            strokeWidth={2}
+                            dot={(props: { cx?: number; cy?: number; index?: number }) => {
                                 const { cx, cy, index } = props;
+                                if (typeof cx !== "number" || typeof cy !== "number" || typeof index !== "number") {
+                                    return null;
+                                }
                                 // Only show dots at start, end, and peak
                                 const isFirst = index === 0;
                                 const isLast = index === data.length - 1;
@@ -168,7 +158,6 @@ export function CallitProbabilityChart({
                                                 fill={s.color}
                                                 stroke="hsl(var(--background))"
                                                 strokeWidth={2}
-                                                filter="url(#dotShadow)"
                                             />
                                         </g>
                                     );
@@ -176,11 +165,10 @@ export function CallitProbabilityChart({
                                 return <g key={`dot-${s.key}-${index}`} />;
                             }}
                             activeDot={{
-                                r: 6,
+                                r: 5,
                                 fill: s.color,
                                 stroke: "hsl(var(--background))",
                                 strokeWidth: 2,
-                                filter: "url(#dotShadow)",
                             }}
                         />
                     ))}

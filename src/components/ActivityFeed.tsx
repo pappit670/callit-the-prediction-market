@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Swords, CheckCircle2, XCircle, Users, TrendingUp, Zap } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useNavigate } from "react-router-dom";
+import SystemMomentumFeed from "@/components/SystemMomentumFeed";
 
 interface ActivityItem {
   id: string;
@@ -121,7 +122,7 @@ export function ActivityFeed() {
   return (
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       <div className="flex items-center gap-2 px-4 py-3.5 border-b border-border">
-        <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+        <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
         <span className="text-xs font-bold uppercase tracking-wider text-foreground">Live Activity</span>
         <span className="ml-auto text-[10px] text-muted-foreground">{items.length} events</span>
       </div>
@@ -131,11 +132,6 @@ export function ActivityFeed() {
           {[1,2,3,4,5].map(i => (
             <div key={i} className="h-10 rounded-xl bg-secondary animate-pulse" />
           ))}
-        </div>
-      ) : items.length === 0 ? (
-        <div className="p-6 text-center">
-          <Users className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-          <p className="text-sm text-muted-foreground">No activity yet</p>
         </div>
       ) : (
         <div className="divide-y divide-border/50">
@@ -163,6 +159,11 @@ export function ActivityFeed() {
           </AnimatePresence>
         </div>
       )}
+
+      {/* Always keep momentum visible (clearly system-generated). */}
+      <div className="p-4 pt-4">
+        <SystemMomentumFeed />
+      </div>
     </div>
   );
 }

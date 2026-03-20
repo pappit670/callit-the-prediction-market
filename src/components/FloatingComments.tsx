@@ -39,7 +39,7 @@ const FloatingComments = ({ delayOffset = 0 }: { delayOffset?: number }) => {
       <AnimatePresence mode="wait">
         <motion.div
           key={index}
-          className="flex items-center gap-2 rounded-full border border-gold/40 bg-card px-3 py-1.5 shadow-[0_2px_8px_hsl(var(--gold)/0.1)]"
+          className="flex items-center gap-2 rounded-full border border-border/60 bg-card px-3 py-1.5"
           initial={{ y: 0, opacity: 0 }}
           animate={{ y: -20, opacity: 1 }}
           exit={{ y: -40, opacity: 0 }}
@@ -48,7 +48,7 @@ const FloatingComments = ({ delayOffset = 0 }: { delayOffset?: number }) => {
           <div className="h-5 w-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0">
             {comment.user[0].toUpperCase()}
           </div>
-          <span className="text-[11px] font-semibold text-gold">
+          <span className="text-[11px] font-semibold text-muted-foreground">
             {comment.user}
           </span>
           <span className="text-[11px] text-foreground">

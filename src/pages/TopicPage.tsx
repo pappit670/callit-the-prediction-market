@@ -498,7 +498,6 @@ const TopicPage = () => {
                                                                 borderColor: color,
                                                                 background: color + "15",
                                                                 color,
-                                                                boxShadow: `0 0 14px ${color}30`,
                                                             } : {}}
                                                         >
                                                             {opt}

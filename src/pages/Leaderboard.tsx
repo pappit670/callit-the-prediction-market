@@ -24,9 +24,10 @@ function getRankTextClass(rank: number) {
 }
 
 function getGlowStyle(rank: number) {
-  if (rank === 1) return { boxShadow: "0 0 40px hsl(47 91% 52% / 0.15)" };
-  if (rank === 2) return { boxShadow: "0 0 30px hsl(0 0% 75% / 0.12)" };
-  if (rank === 3) return { boxShadow: "0 0 30px hsl(29 69% 50% / 0.12)" };
+  // No glow effects in the financial-grade theme.
+  if (rank === 1) return {};
+  if (rank === 2) return {};
+  if (rank === 3) return {};
   return {};
 }
 

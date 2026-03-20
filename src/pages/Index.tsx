@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
+import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 
 const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
 const SORT_OPTIONS = ["Trending", "Newest", "Most Called", "Ending Soon"];
@@ -68,11 +69,16 @@ function generateFeaturedChartData(percent: number, seed: number, points = 20) {
 
 const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void }) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
-  const basePercent = Math.round(100 / options.length);
-  const optionSeries = options.map((o: string, i: number) => ({
-    label: o, color: OPTION_HEX[i % OPTION_HEX.length],
-    data: generateFeaturedChartData(basePercent + (i * 7 % 20) - 10, i * 17 + 42, 20),
-  }));
+  const {
+    hasActivity,
+    optionSeries: marketOptionSeries,
+    latestProbabilities,
+  } = useMarketTimeline({
+    opinionId: opinion?.id,
+    options,
+    maxPoints: 20,
+    enabled: !!opinion,
+  });
   const timeLeft = opinion.end_time
     ? new Date(opinion.end_time) > new Date()
       ? `${Math.ceil((new Date(opinion.end_time).getTime() - Date.now()) / 86400000)} days left`
@@ -105,7 +111,7 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
           )}
         </div>
         <div className="px-3">
-          <CallitPredictionCard title="Market Probability" optionSeries={optionSeries} height={180} />
+          <CallitPredictionCard title="Market Probability" optionSeries={marketOptionSeries} height={160} />
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <div className="flex items-center gap-3">
@@ -113,7 +119,9 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
               <div key={i} className="flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
                 <span className="text-xs text-muted-foreground">{opt}</span>
-                <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>{basePercent}%</span>
+                <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                  {hasActivity ? `${latestProbabilities[opt]}%` : "—"}
+                </span>
               </div>
             ))}
           </div>

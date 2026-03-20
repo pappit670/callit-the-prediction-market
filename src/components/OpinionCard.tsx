@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bookmark, Activity, Timer, Share2, MessageCircle,
-  Eye, Users, CheckCircle2, XCircle, Bell, TrendingUp,
+  Eye, Users, CheckCircle2, XCircle, Bell, TrendingUp, TrendingDown, Coins,
   Swords, Flame, Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { PositionModal } from "@/components/debate/PositionModal";
+import MiniGraph from "@/components/MiniGraph";
+import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 
 export interface OpinionCardData {
   id: number | string;
@@ -40,14 +42,10 @@ export interface OpinionCardData {
   isRising?: boolean;
 }
 
-const OPTION_COLORS = [
-  "#F5C518", "#22C55E", "#3B82F6", "#A855F7",
-  "#F97316", "#EF4444", "#06B6D4", "#84CC16",
-  "#EC4899", "#14B8A6", "#8B5CF6", "#EAB308",
-];
+const OPTION_COLORS = ["hsl(var(--muted-foreground))"];
 
-function getOptionColor(cardIndex: number, optionIndex: number): string {
-  return OPTION_COLORS[(cardIndex * 3 + optionIndex * 2 + optionIndex) % OPTION_COLORS.length];
+function getOptionColor(_cardIndex: number, _optionIndex: number): string {
+  return OPTION_COLORS[0];
 }
 
 function timeAgo(dateStr?: string): string {
@@ -79,27 +77,30 @@ function getActivityTag(data: OpinionCardData): { label: string; icon: React.Rea
   const { isRising, commentCount = 0, timeLeft, risingScore = 0 } = data;
   const isLive = timeLeft === "Live" || timeLeft.includes("min");
   if (isLive)
-    return { label: "Active", icon: <Activity className="h-2.5 w-2.5" />, color: "#22C55E" };
+    return { label: "Active", icon: <Activity className="h-2.5 w-2.5" />, color: "hsl(var(--muted-foreground))" };
   if (timeLeft.includes("h left") && parseInt(timeLeft) <= 3)
-    return { label: "Breaking", icon: <Zap className="h-2.5 w-2.5" />, color: "#EF4444" };
+    return { label: "Breaking", icon: <Zap className="h-2.5 w-2.5" />, color: "hsl(var(--muted-foreground))" };
   if (isRising || risingScore > 15)
-    return { label: "Rising", icon: <TrendingUp className="h-2.5 w-2.5" />, color: "#F97316" };
+    return { label: "Rising", icon: <TrendingUp className="h-2.5 w-2.5" />, color: "hsl(var(--muted-foreground))" };
   if (commentCount > 20 || risingScore > 8)
-    return { label: "Heated", icon: <Flame className="h-2.5 w-2.5" />, color: "#F5C518" };
+    return { label: "Heated", icon: <Flame className="h-2.5 w-2.5" />, color: "hsl(var(--muted-foreground))" };
   return null;
 }
 
-function getDelta(cardIndex: number, optionIndex: number): number {
-  const seed = (cardIndex * 7 + optionIndex * 3 + 13) % 9;
-  return [-5, -3, -2, -1, 0, 1, 2, 3, 5][seed];
+function getDelta(_cardIndex: number, _optionIndex: number): number {
+  // Deprecated: deltas are now computed from real market timeline.
+  return 0;
 }
 
 // ── Option bar ────────────────────────────────────────────────
 const OptionBar = ({
-  label, percent, color, delta, onClick,
+  label, percent, showPercent, delta, onClick,
 }: {
-  label: string; percent: number; color: string;
-  delta: number; onClick: (e: React.MouseEvent) => void;
+  label: string;
+  percent: number;
+  showPercent: boolean;
+  delta: number;
+  onClick: (e: React.MouseEvent) => void;
 }) => (
   <button
     onClick={onClick}
@@ -109,23 +110,26 @@ const OptionBar = ({
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[13px] font-medium text-foreground truncate mr-2">{label}</span>
         <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-[13px] font-semibold tabular-nums" style={{ color }}>
-            {percent}%
+          <span className="text-[13px] font-semibold tabular-nums">
+            {showPercent ? `${percent}%` : "—"}
           </span>
-          {delta !== 0 && (
+          {showPercent && delta !== 0 && (
             <span
               className="text-[10px] font-semibold tabular-nums"
-              style={{ color: delta > 0 ? "#22C55E" : "#EF4444" }}
+              style={{ color: delta > 0 ? "hsl(var(--yes))" : "hsl(var(--no))" }}
             >
-              {delta > 0 ? `↑+${delta}` : `↓${delta}`}
+              {delta > 0 ? `+${delta}%` : `${delta}%`}
             </span>
           )}
         </div>
       </div>
-      <div className="h-[2px] rounded-full bg-border overflow-hidden">
+      <div className="h-[2px] rounded-full bg-border/40 overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${percent}%`, background: color + "CC" }}
+          style={{
+            width: showPercent ? `${percent}%` : "0%",
+            background: "hsl(var(--foreground) / 0.25)",
+          }}
         />
       </div>
     </div>
@@ -150,6 +154,74 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
   const cleanGenre = genre.replace(/\s*[\u{1F000}-\u{1FFFF}]/u, "").trim();
   const activityTag = getActivityTag(data);
+
+  const optionLabels = options && options.length > 0 ? options.map((o) => o.label) : ["Yes", "No"];
+  const { hasActivity, optionSeries, latestProbabilities, participants, totalCoinsStaked } = useMarketTimeline({
+    opinionId: data.id,
+    options: optionLabels,
+    maxPoints: 14,
+    enabled: !!data.id && optionLabels.length > 0,
+    realtime: false,
+    pollIntervalMs: 20000,
+  });
+
+  const deltaByLabel = useMemo(() => {
+    const out: Record<string, number> = {};
+    optionSeries.forEach((s) => {
+      const last = s.data[s.data.length - 1]?.probability ?? 0;
+      const prev = s.data[s.data.length - 2]?.probability ?? last;
+      out[s.label] = last - prev;
+    });
+    return out;
+  }, [optionSeries]);
+
+  const leadingLabel = useMemo(() => {
+    const [a, b] = optionSeries.slice(0, 2);
+    if (!a) return null;
+    if (!b) return a.label;
+    const av = latestProbabilities[a.label] ?? 0;
+    const bv = latestProbabilities[b.label] ?? 0;
+    return av >= bv ? a.label : b.label;
+  }, [optionSeries, latestProbabilities]);
+
+  const leadingDelta = leadingLabel ? deltaByLabel[leadingLabel] ?? 0 : 0;
+
+  // System-generated per-card “momentum” signal (labeled as such).
+  const prevParticipantsRef = useRef<number>(participants);
+  const prevSignalAtRef = useRef<number>(Date.now());
+  const [systemSignal, setSystemSignal] = useState<string>("System feed: warming up");
+
+  useEffect(() => {
+    const prevParticipants = prevParticipantsRef.current;
+    const deltaParticipants = participants - prevParticipants;
+    const now = Date.now();
+    const msSinceSignal = now - prevSignalAtRef.current;
+
+    if (deltaParticipants > 0) {
+      const coinsDelta = deltaParticipants * 50;
+      const coinsIn2Min = Math.round((coinsDelta * 120000) / Math.max(1, msSinceSignal || 120000));
+      const joined = Math.max(1, deltaParticipants);
+      setSystemSignal(
+        joined >= 6
+          ? `System feed: ${joined} users just joined`
+          : `System feed: +${Math.max(50, coinsIn2Min)} coins in last 2 min`,
+      );
+      prevSignalAtRef.current = now;
+    } else if (hasActivity && msSinceSignal > 30000) {
+      const moveAbs = Math.abs(leadingDelta);
+      setSystemSignal(moveAbs >= 2 ? `System feed: Debate heating up` : `System feed: Market tightening`);
+      prevSignalAtRef.current = now;
+    }
+
+    prevParticipantsRef.current = participants;
+  }, [participants, hasActivity, leadingDelta]);
+
+  const miniSeries = useMemo(() => {
+    return optionSeries.slice(0, 2).map((s) => ({
+      label: s.label,
+      history: s.data.slice(-12).map((p) => ({ probability: p.probability })),
+    }));
+  }, [optionSeries]);
 
   const goToDetail = () => navigate(`/opinion/${data.id}`);
 
@@ -205,7 +277,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               {activityTag && (
                 <span
                   className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0 ml-0.5"
-                  style={{ color: activityTag.color + "CC" }}
+                  style={{ color: activityTag.color }}
                 >
                   {activityTag.icon} {activityTag.label}
                 </span>
@@ -284,15 +356,54 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           )}
 
           {/* ── Options ── */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Coins className="h-3 w-3" />
+                <span>Staked: {formatCount(totalCoinsStaked)} coins</span>
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Users className="h-3 w-3" />
+                <span>{hasActivity ? `${participants} participants` : "No activity yet"}</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] text-muted-foreground uppercase tracking-wider">Move</div>
+              <div className="flex items-center justify-end gap-1 text-sm font-bold">
+                {!hasActivity ? (
+                  <span className="text-muted-foreground">—</span>
+                ) : leadingDelta === 0 ? (
+                  <span className="text-muted-foreground">±0%</span>
+                ) : (
+                  <>
+                    {leadingDelta > 0 ? (
+                      <TrendingUp className="h-4 w-4" style={{ color: "hsl(var(--yes))" }} />
+                    ) : (
+                      <TrendingDown className="h-4 w-4" style={{ color: "hsl(var(--no))" }} />
+                    )}
+                    <span style={{ color: leadingDelta > 0 ? "hsl(var(--yes))" : "hsl(var(--no))" }}>
+                      {leadingDelta > 0 ? `+${leadingDelta}%` : `${leadingDelta}%`}
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="mt-2">
+            <MiniGraph series={miniSeries} height={44} />
+            <div className="mt-2 text-[11px] text-muted-foreground">
+              {systemSignal}
+            </div>
+          </div>
           {options && options.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               {(showMore ? options : options.slice(0, 2)).map((opt, i) => (
                 <OptionBar
                   key={i}
                   label={opt.label}
-                  percent={opt.percent}
-                  color={getOptionColor(index, i)}
-                  delta={getDelta(index, i)}
+                  percent={latestProbabilities[opt.label] ?? opt.percent}
+                  showPercent={hasActivity}
+                  delta={deltaByLabel[opt.label] ?? 0}
                   onClick={(e) => { e.stopPropagation(); goToDetail(); }}
                 />
               ))}
@@ -308,17 +419,17 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           ) : (
             <div className="flex flex-col gap-1.5">
               <OptionBar
-                label="Agree"
+                label="Yes"
                 percent={yesPercent}
-                color={getOptionColor(index, 0)}
-                delta={getDelta(index, 0)}
+                showPercent={hasActivity}
+                delta={deltaByLabel["Yes"] ?? 0}
                 onClick={(e) => { e.stopPropagation(); goToDetail(); }}
               />
               <OptionBar
-                label="Disagree"
+                label="No"
                 percent={noPercent}
-                color={getOptionColor(index, 1)}
-                delta={getDelta(index, 1)}
+                showPercent={hasActivity}
+                delta={deltaByLabel["No"] ?? 0}
                 onClick={(e) => { e.stopPropagation(); goToDetail(); }}
               />
             </div>
@@ -327,10 +438,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           {/* ── Footer: social proof + time ── */}
           <div className="flex items-center justify-between pt-1.5 border-t border-border/40 mt-auto">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Users className="h-3 w-3" />
-                <span className="font-medium text-foreground/70">{formatCount(coins)}</span>
-              </span>
               {commentCount > 0 && (
                 <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <MessageCircle className="h-3 w-3" />
