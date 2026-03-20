@@ -1,94 +1,90 @@
-import { SlidingNumber } from "@/components/ui/sliding-number";
+import { useEffect, useState } from "react";
+import { supabase } from "@/supabaseClient";
+import { LineChart, Line, ResponsiveContainer, Tooltip, YAxis } from "recharts";
 
 interface MiniGraphProps {
-  options?: { label: string; percent: number }[];
-  yesPercent?: number;
-  noPercent?: number;
-  seed?: number;
+  opinionId: string;
+  options: string[];
+  colors?: string[];
+  height?: number;
+  showEmpty?: boolean;
 }
 
-const COLORS = ["#F5C518", "#22C55E", "#3B82F6", "#A855F7", "#F97316"];
+const COLORS = ["#F5C518", "#22C55E", "#EF4444", "#3B82F6", "#A855F7"];
 
-function generatePath(percent: number, seed: number, w: number, h: number): string {
-  const points: [number, number][] = [];
-  const count = 24;
-  let val = 40 + (seed % 20);
-  for (let i = 0; i < count; i++) {
-    const noise = Math.sin(seed * 13.37 + i * 2.1) * 6 + Math.cos(seed * 7.53 + i * 3.7) * 4;
-    val = val + (percent - val) * 0.2 + noise * (1 - (i / count) * 0.6);
-    val = Math.max(2, Math.min(98, val));
-    if (i === count - 1) val = percent;
-    const x = (i / (count - 1)) * w;
-    const y = h - (val / 100) * h;
-    points.push([x, y]);
+export function MiniGraph({
+  opinionId, options, colors = COLORS, height = 80, showEmpty = true
+}: MiniGraphProps) {
+  const [data, setData] = useState<any[]>([]);
+  const [hasData, setHasData] = useState(false);
+
+  useEffect(() => {
+    fetchHistory();
+    const channel = supabase.channel(`graph-${opinionId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public",
+        table: "option_price_history",
+        filter: `opinion_id=eq.${opinionId}`,
+      }, () => fetchHistory())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [opinionId]);
+
+  const fetchHistory = async () => {
+    const { data: rows } = await supabase
+      .from("option_price_history")
+      .select("option_label, percent, recorded_at")
+      .eq("opinion_id", opinionId)
+      .order("recorded_at", { ascending: true })
+      .limit(50);
+
+    if (!rows || rows.length === 0) { setHasData(false); return; }
+    setHasData(true);
+
+    // Pivot rows into chart format: [{ time, Yes: 60, No: 40 }, ...]
+    const timeMap: Record<string, any> = {};
+    for (const row of rows) {
+      const t = new Date(row.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      if (!timeMap[t]) timeMap[t] = { time: t };
+      timeMap[t][row.option_label] = row.percent;
+    }
+    setData(Object.values(timeMap));
+  };
+
+  if (!hasData) {
+    if (!showEmpty) return null;
+    return (
+      <div className="flex items-center justify-center border border-dashed border-border rounded-lg"
+        style={{ height }}>
+        <p className="text-[11px] text-muted-foreground">No activity yet</p>
+      </div>
+    );
   }
-  let d = `M ${points[0][0]} ${points[0][1]}`;
-  for (let i = 1; i < points.length - 1; i++) {
-    const cp1x = points[i - 1][0] + (points[i][0] - points[i - 1][0]) * 0.4;
-    const cp2x = points[i][0] - (points[i][0] - points[i - 1][0]) * 0.4;
-    d += ` C ${cp1x} ${points[i - 1][1]}, ${cp2x} ${points[i][1]}, ${points[i][0]} ${points[i][1]}`;
-  }
-  d += ` L ${points[points.length - 1][0]} ${points[points.length - 1][1]}`;
-  return d;
-}
-
-const MiniGraph = ({ options, yesPercent = 50, noPercent = 50, seed = 1 }: MiniGraphProps) => {
-  const W = 300;
-  const H = 72;
-
-  const displayOptions = options && options.length > 0
-    ? options
-    : [
-      { label: "Agree", percent: yesPercent },
-      { label: "Disagree", percent: noPercent },
-    ];
 
   return (
-    <div className="w-full">
-      {/* Chart */}
-      <div className="relative w-full rounded-lg overflow-hidden bg-secondary/20" style={{ height: H }}>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none">
-          {[25, 50, 75].map(v => (
-            <line key={v} x1={0} y1={H - (v / 100) * H} x2={W} y2={H - (v / 100) * H}
-              stroke="currentColor" strokeOpacity={0.05} strokeWidth={0.5} strokeDasharray="4 4" />
-          ))}
-          {displayOptions.map((opt, i) => {
-            const color = COLORS[i % COLORS.length];
-            const path = generatePath(opt.percent, seed * 7 + i * 13, W, H);
-            return (
-              <g key={i}>
-                <path d={path + ` L ${W} ${H} L 0 ${H} Z`} fill={color} opacity={0.07} />
-                <path d={path} fill="none" stroke={color} strokeWidth={1.8}
-                  strokeLinecap="round" strokeLinejoin="round" />
-                <circle cx={W - 2} cy={H - (opt.percent / 100) * H} r={4} fill={color} opacity={0.2} />
-                <circle cx={W - 2} cy={H - (opt.percent / 100) * H} r={2.5} fill={color} />
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-
-      {/* Stats row */}
-      <div className="flex flex-col gap-1.5 mt-3">
-        {displayOptions.map((opt, i) => {
-          const color = COLORS[i % COLORS.length];
-          return (
-            <div key={i} className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
-              <span className="text-[11px] text-muted-foreground flex-shrink-0 w-16 truncate">{opt.label}</span>
-              <div className="flex-1 h-1 rounded-full bg-secondary overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${opt.percent}%`, background: color }} />
-              </div>
-              <div className="text-[11px] font-semibold flex items-center flex-shrink-0" style={{ color }}>
-                <SlidingNumber value={opt.percent} /><span>%</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+    <ResponsiveContainer width="100%" height={height}>
+      <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+        <YAxis domain={[0, 100]} hide />
+        <Tooltip
+          contentStyle={{
+            background: "var(--card)", border: "1px solid var(--border)",
+            borderRadius: "8px", fontSize: "11px", padding: "4px 8px",
+          }}
+          formatter={(val: number, name: string) => [`${val}%`, name]}
+          labelStyle={{ display: "none" }}
+        />
+        {options.map((opt, i) => (
+          <Line
+            key={opt}
+            type="monotone"
+            dataKey={opt}
+            stroke={colors[i % colors.length]}
+            strokeWidth={1.5}
+            dot={false}
+            activeDot={{ r: 3 }}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
   );
-};
-
-export default MiniGraph;
+}
