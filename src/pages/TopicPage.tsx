@@ -127,7 +127,7 @@ const TopicPage = () => {
         try {
             let query = supabase
                 .from("opinions")
-                .select("*, topics(name, slug, icon, color), profiles(username, reputation)")
+                .select("*, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
 
                 .eq("status", "open");
 
@@ -221,8 +221,8 @@ const TopicPage = () => {
         topicColor: op.topics?.color,
         status: op.status,
         creatorUsername: op.profiles?.username || null,
-        creatorReputation: op.profiles?.reputation
-            ? Math.round(op.profiles.reputation) : undefined,
+        creatorReputation: op.profiles?.reputation_score
+            ? Math.round(op.profiles.reputation_score) : undefined,
 
         createdAt: op.created_at,
         followerCount: op.follower_count || 0,

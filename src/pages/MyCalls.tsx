@@ -24,7 +24,7 @@ const MyCalls = () => {
 
     const { data } = await supabase
       .from("calls")
-      .select("*, opinions(id, statement, status, options, end_time, call_count, winning_option, topics(name, icon))")
+      .select("*, opinions(id, statement, status, options, end_time, call_count, winning_option, topics!opinions_topic_id_fkey(name, icon))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 

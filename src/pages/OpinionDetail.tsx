@@ -6,8 +6,11 @@ import { supabase } from "@/supabaseClient";
 import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import { useApp } from "@/context/AppContext";
+import { PositionModal } from "@/components/debate/PositionModal";
+import { DebatePanel } from "@/components/debate/DebatePanel";
 import { SlidingNumber } from "@/components/ui/sliding-number";
 import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
+
 
 
 
@@ -172,7 +175,7 @@ const OpinionDetail = () => {
     try {
       const { data: op, error } = await supabase
         .from("opinions")
-        .select(`*, topics(name, slug, icon, color), profiles(username, avatar_url)`)
+        .select(`*, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, avatar_url)`)
         .eq("id", id).single();
 
       if (error || !op) { setLoading(false); return; }
@@ -516,6 +519,23 @@ const OpinionDetail = () => {
                 </div>
               )}
             </motion.div>
+
+            {/* DEBATE PANEL */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="mb-10"
+              id="debate"
+            >
+              <h3 className="font-headline text-2xl mb-4">Take a Stand</h3>
+              <DebatePanel
+                opinionId={id!}
+                opinionStatement={opinion.statement}
+                defaultExpanded={true}
+              />
+            </motion.div>
+
             
 
 

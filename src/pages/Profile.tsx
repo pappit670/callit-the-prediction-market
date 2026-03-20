@@ -46,7 +46,7 @@ const Profile = () => {
 
     const { data: callsData } = await supabase
       .from("calls")
-      .select("*, opinions(id, statement, status, options, end_time, topics(name))")
+      .select("*, opinions(id, statement, status, options, end_time, topics!opinions_topic_id_fkey(name))")
       .eq("user_id", authUser.id)
       .order("created_at", { ascending: false });
 
@@ -54,7 +54,7 @@ const Profile = () => {
     setHistory((callsData || []).filter((c: any) => c.opinions?.status === "closed"));
 
     const { data: opinionsData } = await supabase
-      .from("opinions").select("*, topics(name)")
+      .from("opinions").select("*, topics!opinions_topic_id_fkey(name)")
       .eq("creator_id", authUser.id)
       .order("created_at", { ascending: false });
     setMyOpinions(opinionsData || []);

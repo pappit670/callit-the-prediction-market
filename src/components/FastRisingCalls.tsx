@@ -11,7 +11,7 @@ export function FastRisingCalls() {
     useEffect(() => {
         supabase
             .from("opinions")
-            .select("id, statement, call_count, follower_count, rising_score, topics(name, icon, color), created_at")
+            .select("id, statement, call_count, follower_count, rising_score, topics!opinions_topic_id_fkey(name, icon, color), created_at")
             .eq("status", "open")
             .order("rising_score", { ascending: false })
             .limit(5)

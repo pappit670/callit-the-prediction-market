@@ -35,7 +35,7 @@ const Portfolio = () => {
 
     const { data: callsData } = await supabase
       .from("calls")
-      .select("*, opinions(id, statement, status, options, end_time, call_count, winning_option, topics(name, icon))")
+      .select("*, opinions(id, statement, status, options, end_time, call_count, winning_option, topics!opinions_topic_id_fkey(name, icon))")
       .eq("user_id", authUser.id)
       .order("created_at", { ascending: false });
 

@@ -246,7 +246,7 @@ const Index = () => {
   const fetchRising = async () => {
     const { data } = await supabase
       .from("opinions")
-      .select("id, statement, call_count, rising_score, topics(name, icon)")
+      .select("id, statement, call_count, rising_score, topics!opinions_topic_id_fkey(name, icon)")
       .eq("status", "open")
       .order("rising_score", { ascending: false })
       .limit(6);
@@ -258,7 +258,7 @@ const Index = () => {
     try {
       let query = supabase
         .from("opinions")
-        .select("*, topics(name, slug, icon, color), profiles(username, reputation)")
+        .select("*, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
         .eq("status", "open")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -291,7 +291,7 @@ const Index = () => {
 
       const { data: breakingData } = await supabase
         .from("opinions")
-        .select("id, statement, call_count, topics(name, icon)")
+        .select("id, statement, call_count, topics!opinions_topic_id_fkey(name, icon)")
         .eq("status", "open")
         .order("created_at", { ascending: false })
         .limit(8);
@@ -316,7 +316,7 @@ const Index = () => {
     topicColor: op.topics?.color,
     status: op.status,
     creatorUsername: op.profiles?.username || null,
-    creatorReputation: op.profiles?.reputation ? Math.round(op.profiles.reputation) : undefined,
+    creatorReputation: op.profiles?.reputation_score ? Math.round(op.profiles.reputation_score) : undefined,
     createdAt: op.created_at,
     followerCount: op.follower_count || 0,
     isRising: (op.rising_score || 0) > 10,
