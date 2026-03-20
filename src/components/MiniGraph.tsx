@@ -73,6 +73,5 @@ const MiniGraph = ({ series, height = 44 }: MiniGraphProps) => {
       </LineChart>
     </ResponsiveContainer>
   );
-};
-
-export { MiniGraph };
+}
+export default MiniGraph;
