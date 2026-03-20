@@ -983,6 +983,300 @@ def run():
     print(f"  Saved:      {stats['saved']}")
     print(f"  Failed:     {stats['failed']}")
     print("═"*65 + "\n")
+# ═══════════════════════════════════════════════════════
+#  SUBTOPIC SEEDER — fills empty subtopics with fresh questions
+# ═══════════════════════════════════════════════════════
 
+SUBTOPIC_SEED_QUERIES = {
+    # Sports competitions
+    "afcon":          [("AFCON Africa Cup of Nations 2025 2026", "Kenya Sports", "Football")],
+    "aus-open":       [("Australian Open tennis 2026 results", "Kenya Sports", "Tennis")],
+    "fiba-world-cup": [("FIBA Basketball World Cup 2026 Africa", "Kenya Sports", "Basketball")],
+    "world-cup":      [("FIFA World Cup 2026 qualification Africa", "Kenya Sports", "Football")],
+    "french-open":    [("French Open Roland Garros 2026 tennis", "Kenya Sports", "Tennis")],
+    "icc-world-cup":  [("ICC Cricket World Cup 2026 Kenya Africa", "Kenya Sports", "Cricket")],
+    "olympics":       [("2028 Olympics athletes Africa Kenya qualification", "Kenya Sports", "Athletics")],
+    "super-bowl":     [("Super Bowl 2026 NFL teams prediction", "Kenya Sports", "American Football")],
+    "us-open-tennis": [("US Open tennis 2026 draw results", "Kenya Sports", "Tennis")],
+    "wimbledon":      [("Wimbledon 2026 tennis Alcaraz Djokovic", "Kenya Sports", "Tennis")],
+    "bundesliga":     [("Bundesliga 2025 2026 title race Bayern Leverkusen", "Kenya Sports", "Football")],
+    "euroleague":     [("EuroLeague basketball 2026 final", "Kenya Sports", "Basketball")],
+    "fifa-esports":   [("FIFA eWorld Cup 2026 esports gaming", "Technology", "Gaming")],
+    "ipl":            [("IPL 2026 Indian Premier League cricket", "Kenya Sports", "Cricket")],
+    "la-liga":        [("La Liga 2025 2026 Real Madrid Barcelona title", "Kenya Sports", "Football")],
+    "lol-esports":    [("League of Legends Worlds 2026 esports", "Technology", "Gaming")],
+    "nfl":            [("NFL 2025 2026 season Super Bowl teams", "Kenya Sports", "American Football")],
+    "serie-a":        [("Serie A 2025 2026 Inter Milan Napoli title", "Kenya Sports", "Football")],
+    "wnba":           [("WNBA 2026 season predictions Caitlin Clark", "Kenya Sports", "Basketball")],
+
+    # Politics
+    "politics-africa": [("Africa political elections coups 2026", "Kenya Politics", "Government"),
+                        ("African Union summit decisions 2026", "Global Events", "Politics")],
+    "politics-iran":   [("Iran nuclear deal sanctions 2026", "Global Events", "Politics"),
+                        ("Iran economy protests 2026", "Global Events", "Conflict")],
+    "politics-usa":    [("Trump administration policy 2026 USA", "Global Events", "Politics"),
+                        ("US economy recession 2026 Federal Reserve", "Global Events", "Finance")],
+    "politics-leaders":[("World leaders summit G7 G20 2026", "Global Events", "Politics")],
+    "politics-middle-east": [("Middle East conflict Israel Gaza 2026", "Global Events", "Conflict"),
+                              ("Saudi Arabia Iran relations 2026", "Global Events", "Politics")],
+    "politics-policy": [("Kenya government policy reform 2026", "Kenya Politics", "Policy")],
+    "politics-elections": [("Kenya 2027 election candidates parties IEBC", "Kenya Politics", "Elections")],
+
+    # World
+    "world-africa":   [("Africa news economy politics 2026", "Global Events", "Africa")],
+    "world-asia":     [("Asia China India economy technology 2026", "Global Events", "Asia")],
+    "world-climate":  [("Climate change Africa Kenya drought floods 2026", "Global Events", "Climate")],
+    "world-europe":   [("Europe economy Ukraine war 2026", "Global Events", "Europe")],
+    "world-disasters":[("Natural disasters floods Kenya Africa 2026", "Global Events", "Disasters")],
+    "world-un":       [("United Nations UN diplomacy peace talks 2026", "Global Events", "Diplomacy")],
+    "global-events":  [("Major global events 2026 predictions", "Global Events", "World Affairs")],
+    "kenya-news":     [("Kenya latest news today 2026", "Kenya Politics", "Government")],
+
+    # Business
+    "business-africa":  [("Africa business investment economy 2026", "Kenya Economy", "Business")],
+    "business-forex":   [("Kenya shilling dollar exchange rate forex 2026", "Kenya Economy", "Forex")],
+    "business-energy":  [("Kenya oil energy fuel prices 2026", "Kenya Economy", "Energy")],
+    "business-realestate": [("Kenya real estate property prices Nairobi 2026", "Kenya Economy", "Real Estate")],
+    "business-vc":      [("Africa startup funding venture capital 2026", "Technology", "Startups")],
+    "kenya-economy":    [("Kenya economy growth inflation 2026", "Kenya Economy", "Macroeconomics")],
+
+    # Entertainment
+    "entertainment-afrobeats": [("Afrobeats music awards 2026 Burna Boy Wizkid", "Global Events", "Entertainment")],
+    "entertainment-awards":    [("Grammy Oscars BET Awards 2026 Africa winners", "Global Events", "Entertainment")],
+    "entertainment-celebrity": [("Celebrity news Africa entertainment 2026", "Global Events", "Entertainment")],
+    "entertainment-film":      [("African films Netflix movies 2026 box office", "Global Events", "Entertainment")],
+    "entertainment-hiphop":    [("Hip hop rap music Kenya Africa 2026", "Global Events", "Entertainment")],
+    "entertainment-music":     [("Music industry streaming Africa 2026", "Global Events", "Entertainment")],
+    "entertainment-sports-culture": [("Sports culture Africa Kenya fans 2026", "Kenya Sports", "Culture")],
+
+    # Tech
+    "tech-apple":   [("Apple iPhone 17 2026 launch features", "Technology", "Consumer Tech")],
+    "tech-google":  [("Google AI Gemini search 2026 updates", "Technology", "AI")],
+    "tech-gaming":  [("Gaming industry 2026 Africa esports Kenya", "Technology", "Gaming")],
+    "tech-social":  [("Social media TikTok X Twitter 2026 Africa", "Technology", "Social Media")],
+    "tech-space":   [("Space exploration SpaceX NASA 2026 Africa satellite", "Technology", "Space")],
+    "tech-startups":  [("Kenya Africa tech startup 2026 funding unicorn", "Technology", "Startups")],
+    "tech-tesla":   [("Tesla Elon Musk 2026 Africa expansion EV", "Technology", "Innovation")],
+
+    # Crypto
+    "crypto-regulation": [("Crypto regulation Kenya Africa 2026 law", "Crypto", "Regulation")],
+    "crypto-defi":       [("DeFi decentralized finance 2026 growth crash", "Crypto", "DeFi")],
+    "crypto-nfts":       [("NFT market 2026 recovery Africa", "Crypto", "NFTs")],
+    "crypto-web3":       [("Web3 blockchain Africa 2026 adoption", "Crypto", "Web3")],
+    "crypto-markets":    [("Crypto market bull bear 2026 Bitcoin halving", "Crypto", "Markets")],
+
+    # Sports
+    "kenya-sports":  [("Kenya sports athletics football rugby 2026", "Kenya Sports", "General")],
+}
+
+def seed_empty_subtopics():
+    """Fetch real current news for each empty subtopic and generate questions."""
+    print("\n" + "═"*65)
+    print("  SUBTOPIC SEEDER — Filling empty subtopics with fresh questions")
+    print("═"*65)
+
+    stats = {"fetched": 0, "generated": 0, "saved": 0, "failed": 0}
+
+    # Get subtopics with 0 opinions
+    headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+    }
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/topics",
+            params={"active": "eq.true", "select": "id,name,slug,type,subtopic_of"},
+            headers=headers, timeout=10
+        )
+        all_topics = r.json() if r.ok else []
+    except:
+        all_topics = []
+
+    # Check which slugs have opinions
+    empty_slugs = []
+    for topic in all_topics:
+        slug = topic.get("slug", "")
+        if slug in SUBTOPIC_SEED_QUERIES:
+            # Check opinion count
+            try:
+                rc = requests.get(
+                    f"{SUPABASE_URL}/rest/v1/opinions",
+                    params={
+                        "topic_id": f"eq.{topic['id']}",
+                        "status": "eq.open",
+                        "select": "id",
+                        "limit": "1",
+                    },
+                    headers=headers, timeout=8
+                )
+                count = len(rc.json()) if rc.ok else 0
+                if count == 0:
+                    empty_slugs.append((slug, topic["id"], topic["name"]))
+            except:
+                continue
+
+    print(f"\n  Found {len(empty_slugs)} empty subtopics to seed\n")
+
+    for slug, topic_id, topic_name in empty_slugs:
+        queries = SUBTOPIC_SEED_QUERIES.get(slug, [])
+        if not queries:
+            continue
+
+        print(f"\n  ▶ Seeding: {topic_name} ({slug})")
+
+        for query, cat, sub in queries:
+            # Try WorldNews first
+            items = fetch_worldnews(query, number=2)
+
+            # Fallback to Google News
+            if not items:
+                items = fetch_google_news(query, num=2)
+
+            # Fallback to RSS if still empty
+            if not items:
+                rss_all = fetch_all_rss()
+                q_words = query.lower().split()[:3]
+                items = [
+                    i for i in rss_all
+                    if any(w in (i.get("title","") + i.get("text","")).lower() for w in q_words)
+                ][:2]
+
+            if not items:
+                print(f"    [!] No news found for: {query}")
+                # Generate standing question without news
+                items = [{
+                    "title":    query,
+                    "text":     f"Current topic: {topic_name}. Query: {query}",
+                    "url":      "",
+                    "source":   "Callit-AI",
+                    "category": cat,
+                    "subcategory": sub,
+                }]
+
+            for item in items[:2]:
+                item["category"]    = cat
+                item["subcategory"] = sub
+
+                if is_duplicate(item.get("title", "")):
+                    continue
+
+                print(f"    • {item.get('title','')[:70]}")
+
+                # Force topic_id to the correct subtopic
+                event_cluster = slugify(f"{slug}-{item.get('title','')[:35]}")
+                var_type      = get_variation_type(cat, item)
+                templates     = VARIATION_TEMPLATES.get(var_type, VARIATION_TEMPLATES["general"])
+
+                # Generate 2-3 variations max per item for seeding
+                for i, template in enumerate(templates[:3]):
+                    angle = template["angle"]
+                    if is_duplicate(f"{event_cluster}:{angle}"):
+                        continue
+
+                    full_prompt = f"""You write prediction questions for Callit — a Kenyan social prediction market.
+
+EVENT: {item.get('title','')}
+DETAIL: {item.get('text','')[:250]}
+SUBTOPIC: {topic_name} | CATEGORY: {cat}
+
+TASK: {template['prompt']}
+
+RULES:
+- Must be a real unresolved future question (not past events)
+- Specific names, numbers, timeframes
+- Relevant to Kenyan/African audience where possible
+- 2-3 sentence real educational context
+- Respond ONLY valid JSON:
+
+{{
+  "question": "Will...?",
+  "outcomes": ["YES", "NO"],
+  "context": "Real educational context...",
+  "expires_days": 60
+}}"""
+
+                    raw = ai_generate(full_prompt, max_tokens=350)
+                    if not raw:
+                        stats["failed"] += 1
+                        continue
+
+                    try:
+                        if "```" in raw:
+                            raw = raw.split("```")[1]
+                            if raw.startswith("json"):
+                                raw = raw[4:]
+                        data = json.loads(raw.strip())
+                        q    = data.get("question","").strip()
+                        if not q or len(q) < 10 or is_duplicate(q):
+                            continue
+
+                        pred = {
+                            "question":        q,
+                            "outcomes":        data.get("outcomes", ["YES","NO"]),
+                            "context":         data.get("context","").strip(),
+                            "expires_days":    int(data.get("expires_days", 60)),
+                            "source":          item.get("source",""),
+                            "source_url":      item.get("url",""),
+                            "source_headline": item.get("title",""),
+                            "topic_id":        topic_id,  # Force correct subtopic
+                            "event_cluster":   event_cluster,
+                            "variation_index": i,
+                        }
+
+                        stats["generated"] += 1
+
+                        # Save directly with correct topic_id
+                        expires  = (datetime.utcnow() + timedelta(days=pred["expires_days"])).isoformat() + "Z"
+                        payload  = {
+                            "statement":       pred["question"],
+                            "description":     pred["context"],
+                            "options":         pred["outcomes"],
+                            "end_time":        expires,
+                            "status":          "open",
+                            "ai_generated":    True,
+                            "auto_generated":  True,
+                            "topic_id":        topic_id,
+                            "source_url":      pred["source_url"],
+                            "source_name":     pred["source"],
+                            "source_headline": pred["source_headline"],
+                            "event_cluster":   pred["event_cluster"],
+                            "variation_index": pred["variation_index"],
+                        }
+                        h = {**sb_headers(), "Prefer": "return=minimal"}
+                        rv = requests.post(
+                            f"{SUPABASE_URL}/rest/v1/opinions",
+                            json=payload, headers=h, timeout=10
+                        )
+                        if rv.ok:
+                            stats["saved"] += 1
+                            print(f"      ✓ [{angle}] {q[:65]}")
+                        else:
+                            print(f"      ✗ {rv.status_code}: {rv.text[:80]}")
+
+                        time.sleep(0.5)
+
+                    except Exception as e:
+                        print(f"      [!] Error: {e}")
+                        continue
+
+                stats["fetched"] += 1
+
+    print("\n" + "═"*65)
+    print(f"  SEEDER COMPLETE")
+    print(f"  Generated: {stats['generated']} | Saved: {stats['saved']} | Failed: {stats['failed']}")
+    print("═"*65 + "\n") 
+def run():
+    # ... existing code ...
+
+    # Run seeder at the end of every full run
+    print("\n[+] SEEDING EMPTY SUBTOPICS")
+    seed_empty_subtopics()
+
+# Add this so you can run seeder alone:
 if __name__ == "__main__":
-    run()
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "seed":
+        # python engine.py seed  ← runs seeder only
+        seed_empty_subtopics()
+    else:
+        run()
