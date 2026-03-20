@@ -15,7 +15,6 @@ export type MarketTimelineState = {
   participants: number;
   totalCoinsStaked: number;
 };
-
 const COINS_PER_STAKE = 50;
 const DEFAULT_MAX_POINTS = 20;
 const MAX_CALLS_FOR_TIMELINE = 5000;
@@ -158,7 +157,7 @@ export function useMarketTimeline({
 
         if (isCancelled) return;
 
-        type CallRow = { chosen_option?: string | null; created_at?: string | null };
+        type CallRow = { chosen_option: string | null; created_at: string | null };
         const rows = (data || []) as unknown as CallRow[];
         const callsForTimeline = rows.filter(
           (c) => typeof c?.created_at === "string" && typeof c?.chosen_option === "string",

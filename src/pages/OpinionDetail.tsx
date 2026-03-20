@@ -13,6 +13,7 @@ import { PositionModal } from "@/components/debate/PositionModal";
 import { DebatePanel } from "@/components/debate/DebatePanel";
 import { SlidingNumber } from "@/components/ui/sliding-number";
 import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
+import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 
 const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
 const COMMENT_TABS = ["Comments", "Top Callers", "Positions", "Activity"] as const;
@@ -31,21 +32,8 @@ function formatTimeLeft(endTime: string): string {
 }
 
 function generateChartPoint(percent: number, seed: number, points = 20) {
-  const data: { time: string; probability: number }[] = [];
-  let val = 40 + (seed % 20);
-  const labels = [
-    "Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20",
-    "Day 24", "Day 28", "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47",
-    "Day 50", "Day 54", "Day 57", "Now",
-  ];
-  for (let i = 0; i < points; i++) {
-    const noise = Math.sin(seed * 13.37 + i * 2.1) * 8 + Math.cos(seed * 7.53 + i * 3.7) * 5;
-    val = val + (percent - val) * 0.15 + noise * (1 - (i / points) * 0.7);
-    val = Math.max(2, Math.min(98, val));
-    if (i === points - 1) val = percent;
-    data.push({ time: labels[i] || `Day ${i + 1}`, probability: Math.round(val) });
-  }
-  return data;
+  // Deprecated: replaced by stake-driven market timeline.
+  return [];
 }
 
 // ── About this Call block ─────────────────────────────────────
@@ -198,6 +186,14 @@ const OpinionDetail = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  const marketOptions: string[] = Array.isArray(opinion?.options) ? opinion.options : ["Yes", "No"];
+  const { hasActivity, optionSeries: marketOptionSeries, latestProbabilities } = useMarketTimeline({
+    opinionId: id,
+    options: marketOptions,
+    maxPoints: 20,
+    enabled: !!opinion,
+  });
+
   // ── Loading ──────────────────────────────────────────────
   if (loading) return (
     <div className="min-h-screen bg-background">
@@ -219,12 +215,6 @@ const OpinionDetail = () => {
 
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const isOpen = opinion.status === "open";
-  const basePercent = Math.round(100 / options.length);
-  const optionSeries = options.map((opt, i) => ({
-    label: opt,
-    color: OPTION_HEX[i % OPTION_HEX.length],
-    data: generateChartPoint(basePercent + (i * 7 % 20) - 10, i * 17 + 42, 20),
-  }));
 
   return (
     <div className="min-h-screen bg-background">
@@ -277,8 +267,8 @@ const OpinionDetail = () => {
               transition={{ delay: 0.2 }} className="mb-8">
               <CallitPredictionCard
                 title={`${opinion.topics?.name || "Market"} Probability`}
-                optionSeries={optionSeries}
-                height={260}
+                optionSeries={marketOptionSeries}
+                height={150}
               />
               {/* Time filter */}
               <div className="flex items-center gap-1 mt-3 border-b border-border pb-1">
@@ -297,9 +287,11 @@ const OpinionDetail = () => {
                     <div key={i} className="flex items-center gap-1.5">
                       <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
                       <span className="text-xs text-muted-foreground">{opt}</span>
-                      <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                        {basePercent}%
-                      </span>
+                      {hasActivity && (
+                        <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                          {latestProbabilities[opt]}%
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -326,10 +318,13 @@ const OpinionDetail = () => {
                     <div className="flex-1 min-w-0">
                       <p className="text-base font-semibold text-foreground">{opt}</p>
                     </div>
-                    <div className="text-xl font-bold flex items-center"
-                      style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                      <SlidingNumber value={basePercent} /><span>%</span>
-                    </div>
+                    {hasActivity ? (
+                      <div className="text-xl font-bold flex items-center" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
+                        <SlidingNumber value={latestProbabilities[opt]} /><span>%</span>
+                      </div>
+                    ) : (
+                      <div className="text-xl font-bold flex items-center text-muted-foreground">—</div>
+                    )}
                     {isOpen && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setSelectedOption(opt); }}
@@ -430,12 +425,24 @@ const OpinionDetail = () => {
                         <span className="text-sm font-semibold text-foreground">{opt}</span>
                         <div className="text-sm font-bold ml-auto flex items-center"
                           style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                          <SlidingNumber value={basePercent} /><span>%</span>
+                          {hasActivity ? (
+                            <>
+                              <SlidingNumber value={latestProbabilities[opt]} /><span>%</span>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </div>
                       </div>
                       <div className="h-1.5 rounded-full bg-border overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${basePercent}%`, background: OPTION_HEX[i % OPTION_HEX.length] }} />
+                        {hasActivity ? (
+                          <div
+                            className="h-full rounded-full transition-all duration-700"
+                            style={{ width: `${latestProbabilities[opt]}%`, background: OPTION_HEX[i % OPTION_HEX.length] }}
+                          />
+                        ) : (
+                          <div className="h-full rounded-full bg-transparent" />
+                        )}
                       </div>
                     </div>
                   ))}
@@ -522,7 +529,7 @@ const OpinionDetail = () => {
                         </div>
                         <span className="text-xs font-bold"
                           style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                          {basePercent}%
+                          {hasActivity ? `${latestProbabilities[opt]}%` : "—"}
                         </span>
                       </button>
                     ))}
