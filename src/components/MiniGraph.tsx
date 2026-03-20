@@ -1,90 +1,78 @@
-import { useEffect, useState } from "react";
-import { supabase } from "@/supabaseClient";
-import { LineChart, Line, ResponsiveContainer, Tooltip, YAxis } from "recharts";
+import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
 
-interface MiniGraphProps {
-  opinionId: string;
-  options: string[];
-  colors?: string[];
-  height?: number;
-  showEmpty?: boolean;
+interface SeriesItem {
+  label: string;
+  history: { probability: number }[];
 }
 
-const COLORS = ["#F5C518", "#22C55E", "#EF4444", "#3B82F6", "#A855F7"];
+interface MiniGraphProps {
+  series: SeriesItem[];
+  height?: number;
+}
 
-export function MiniGraph({
-  opinionId, options, colors = COLORS, height = 80, showEmpty = true
-}: MiniGraphProps) {
-  const [data, setData] = useState<any[]>([]);
-  const [hasData, setHasData] = useState(false);
+const COLORS = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#3B82F6"];
 
-  useEffect(() => {
-    fetchHistory();
-    const channel = supabase.channel(`graph-${opinionId}`)
-      .on("postgres_changes", {
-        event: "INSERT", schema: "public",
-        table: "option_price_history",
-        filter: `opinion_id=eq.${opinionId}`,
-      }, () => fetchHistory())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [opinionId]);
+// Flatten series into recharts format: [{p0: 60, p1: 40}, ...]
+function buildData(series: SeriesItem[]) {
+  if (!series.length || series.every(s => !s.history.length)) return [];
+  const maxLen = Math.max(...series.map(s => s.history.length));
+  return Array.from({ length: maxLen }, (_, i) => {
+    const point: Record<string, number> = {};
+    series.forEach((s, si) => {
+      point[`p${si}`] = s.history[i]?.probability ?? s.history[s.history.length - 1]?.probability ?? 50;
+    });
+    return point;
+  });
+}
 
-  const fetchHistory = async () => {
-    const { data: rows } = await supabase
-      .from("option_price_history")
-      .select("option_label, percent, recorded_at")
-      .eq("opinion_id", opinionId)
-      .order("recorded_at", { ascending: true })
-      .limit(50);
-
-    if (!rows || rows.length === 0) { setHasData(false); return; }
-    setHasData(true);
-
-    // Pivot rows into chart format: [{ time, Yes: 60, No: 40 }, ...]
-    const timeMap: Record<string, any> = {};
-    for (const row of rows) {
-      const t = new Date(row.recorded_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      if (!timeMap[t]) timeMap[t] = { time: t };
-      timeMap[t][row.option_label] = row.percent;
-    }
-    setData(Object.values(timeMap));
-  };
+const MiniGraph = ({ series, height = 44 }: MiniGraphProps) => {
+  const hasData = series.some(s => s.history.length > 1);
+  const data    = buildData(series);
 
   if (!hasData) {
-    if (!showEmpty) return null;
     return (
-      <div className="flex items-center justify-center border border-dashed border-border rounded-lg"
-        style={{ height }}>
-        <p className="text-[11px] text-muted-foreground">No activity yet</p>
+      <div
+        className="flex items-center justify-center border border-dashed border-border/40 rounded-lg"
+        style={{ height }}
+      >
+        <span className="text-[10px] text-muted-foreground">No activity yet</span>
       </div>
     );
   }
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+      <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 0 }}>
         <YAxis domain={[0, 100]} hide />
         <Tooltip
           contentStyle={{
-            background: "var(--card)", border: "1px solid var(--border)",
-            borderRadius: "8px", fontSize: "11px", padding: "4px 8px",
+            background:   "var(--card, #fff)",
+            border:       "1px solid var(--border, #e5e7eb)",
+            borderRadius: "6px",
+            fontSize:     "11px",
+            padding:      "3px 7px",
           }}
-          formatter={(val: number, name: string) => [`${val}%`, name]}
+          formatter={(val: number, key: string) => {
+            const idx = parseInt(key.replace("p", ""));
+            return [`${val}%`, series[idx]?.label || key];
+          }}
           labelStyle={{ display: "none" }}
         />
-        {options.map((opt, i) => (
+        {series.map((s, i) => (
           <Line
-            key={opt}
+            key={i}
             type="monotone"
-            dataKey={opt}
-            stroke={colors[i % colors.length]}
+            dataKey={`p${i}`}
+            stroke={COLORS[i % COLORS.length]}
             strokeWidth={1.5}
             dot={false}
-            activeDot={{ r: 3 }}
+            activeDot={{ r: 2.5, strokeWidth: 0 }}
+            isAnimationActive={false}
           />
         ))}
       </LineChart>
     </ResponsiveContainer>
   );
-}
+};
+
+export { MiniGraph };
