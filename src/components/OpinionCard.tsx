@@ -11,7 +11,8 @@ import { useApp } from "@/context/AppContext";
 import { PositionModal } from "@/components/debate/PositionModal";
 import MiniGraph from "@/components/MiniGraph";
 import { useMarketTimeline } from "@/hooks/useMarketTimeline";
-
+import { LiveSignalFeed } from "@/components/LiveSignalFeed";
+import { MarketStats } from "@/components/MarketStats";
 export interface OpinionCardData {
   id: number | string;
   question: string;
