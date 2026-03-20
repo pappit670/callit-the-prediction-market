@@ -327,10 +327,10 @@ const OpinionDetail = () => {
               {opinion.statement}
             </h1>
 
-            {opinion.description && (
-              <div className="flex items-start gap-2 mb-4">
-                <Info className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                <p className="text-sm text-muted-foreground">{opinion.description}</p>
+            {opinion.description && opinion.description.length > 15 && (
+              <div className="flex items-start gap-2 mb-4 bg-secondary/40 rounded-xl p-4 border-l-2 border-gold/40">
+                <Info className="h-4 w-4 text-gold mt-0.5 shrink-0" />
+                <p className="text-sm text-muted-foreground leading-relaxed">{opinion.description}</p>
               </div>
             )}
 
@@ -563,8 +563,10 @@ const OpinionDetail = () => {
 
                 {/* Header */}
                 <div className="p-5 border-b border-border">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">Make Your Call</p>
-                  <h2 className="font-headline text-2xl font-bold text-foreground leading-tight">
+                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+                    Make Your Call
+                  </p>
+                  <h2 className="font-headline text-xl font-bold text-foreground leading-tight">
                     {opinion.statement}
                   </h2>
                   {opinion.profiles?.username && (
@@ -587,22 +589,23 @@ const OpinionDetail = () => {
                     </div>
                   )}
 
-                  {/* Options — compact */}
+                  {/* Options */}
                   <div className="flex flex-col gap-1.5">
                     {options.map((opt, i) => (
                       <button key={i} onClick={() => setSelectedOption(opt)}
-                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${selectedOption === opt
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
+                          selectedOption === opt
                             ? "border-2 text-foreground"
                             : "border-border bg-secondary/50 text-muted-foreground hover:text-foreground hover:border-gold/50"
-                          }`}
+                        }`}
                         style={selectedOption === opt ? {
                           borderColor: OPTION_HEX[i % OPTION_HEX.length],
-                          background: OPTION_HEX[i % OPTION_HEX.length] + "12",
+                          background:  OPTION_HEX[i % OPTION_HEX.length] + "12",
                         } : {}}>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full flex-shrink-0"
                             style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
-                          <span>{opt}</span>
+                          {opt}
                         </div>
                         <span className="text-xs font-bold"
                           style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
@@ -614,29 +617,22 @@ const OpinionDetail = () => {
 
                   {/* CTA */}
                   {isOpen ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2 pt-1">
                       <motion.button
                         whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                         disabled={!selectedOption || submitting}
                         onClick={handleCall}
-                        className="w-full rounded-xl bg-gold py-3.5 text-base font-bold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed animate-gold-pulse"
+                        className="w-full rounded-xl bg-gold py-3.5 text-base font-bold text-primary-foreground hover:bg-gold-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {submitting
-                          ? "Placing..."
-                          : userCall
-                            ? `Update → ${selectedOption}`
-                            : `Call It → ${selectedOption}`}
+                        {submitting ? "Placing..." : userCall ? `Update → ${selectedOption || ""}` : `Call It`}
                       </motion.button>
                       <p className="text-[11px] text-muted-foreground text-center">
-                        {userCall ? "Free to update your call" : "Costs 50 coins"} · Balance:{" "}
-                        <span className="text-gold font-bold">
-                          <Coins className="h-3 w-3 inline mr-0.5" />
-                          {(user?.balance || 0).toLocaleString()}
-                        </span>
+                        {userCall ? "Free to update" : "Costs 50 coins"} · Balance:{" "}
+                        <span className="text-gold font-bold">{(user?.balance || 0).toLocaleString()}</span> coins
                       </p>
                       {!isLoggedIn && (
-                        <p className="text-xs text-muted-foreground text-center">
-                          <button onClick={() => navigate("/auth")} className="text-gold hover:underline">Log in</button> to make a call
+                        <p className="text-xs text-center text-muted-foreground">
+                          <button onClick={() => navigate("/auth")} className="text-gold hover:underline">Log in</button> to call
                         </p>
                       )}
                     </div>
@@ -647,20 +643,35 @@ const OpinionDetail = () => {
                   )}
 
                   {/* Stats */}
-                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
-                    <div className="bg-secondary/50 rounded-xl p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Callers</p>
-                      <p className="text-lg font-bold text-foreground">
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
+                    <div className="bg-secondary/40 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Callers</p>
+                      <p className="text-xl font-bold text-foreground">
                         <SlidingNumber value={opinion.call_count || 0} />
                       </p>
                     </div>
-                    <div className="bg-secondary/50 rounded-xl p-3 text-center">
-                      <p className="text-[10px] text-muted-foreground mb-1 uppercase tracking-wider">Time Left</p>
+                    <div className="bg-secondary/40 rounded-xl p-3 text-center">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Time Left</p>
                       <p className="text-sm font-bold text-foreground leading-tight">
                         {countdown || formatTimeLeft(opinion.end_time)}
                       </p>
                     </div>
                   </div>
+
+                  {/* Source */}
+                  {(opinion.source_name || opinion.source_url) && (
+                    <div className="pt-1 border-t border-border">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">Source</p>
+                      {opinion.source_url ? (
+                        <a href={opinion.source_url} target="_blank" rel="noopener noreferrer"
+                          className="text-xs text-gold hover:underline">
+                          {opinion.source_name || "View source"} →
+                        </a>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">{opinion.source_name}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             </div>

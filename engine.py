@@ -299,26 +299,44 @@ def get_or_create_subtopic(name, slug, parent_slug, icon="📌", color="#F5C518"
 # ═══════════════════════════════════════════════════════
 def auto_cat_from_text(text: str) -> tuple:
     t = text.lower()
-    if any(k in t for k in ["vs ", " fc", "football", "soccer", "match", "goal", "league",
-                              "premier", "champions", "bundesliga", "la liga", "serie a",
-                              "tottenham", "arsenal", "chelsea", "barcelona", "madrid", "bayern",
-                              "atletico", "crystal palace", "atalanta", "lyon", "celta",
-                              "nba", "basketball", "lakers", "warriors", "celtics", "lebron",
-                              "rugby", "cricket", "wimbledon", "tennis", "ufc", "boxing",
-                              "f1", "grand prix", "formula", "kpl", "gor mahia", "afc leopards"]):
+    # Kenya economy FIRST before generic checks
+    if any(k in t for k in ["kenya", "nairobi", "kenyan"]):
+        if any(k in t for k in ["fuel","petrol","diesel","shilling","kes","inflation",
+                                  "nse","safaricom","kcb","equity bank","budget","tax",
+                                  "mpesa","economy","gdp kenya","imf kenya"]):
+            return "Kenya Economy", "Macroeconomics"
+        if any(k in t for k in ["ruto","parliament","election","iebc","protest",
+                                  "odinga","governor","senate","court","judge"]):
+            return "Kenya Politics", "Government"
+        if any(k in t for k in ["gor mahia","afc leopards","harambee","kpl",
+                                  "rugby kenya","athletics kenya"]):
+            return "Kenya Sports", "Football"
+    # Sports (non-Kenya)
+    if any(k in t for k in ["vs ", " fc", "champions league", "premier league",
+                              "bundesliga","la liga","serie a","nba","basketball",
+                              "wimbledon","tennis","ufc","boxing","f1","grand prix",
+                              "world cup","europa league"]):
         return "Kenya Sports", "Global Sports"
-    if any(k in t for k in ["bitcoin","btc","eth","crypto","solana","bnb","defi","nft","token","coin"]):
+    # Crypto
+    if any(k in t for k in ["bitcoin","btc","ethereum","eth","crypto","solana",
+                              "bnb","defi","nft","token","blockchain"]):
         return "Crypto", "Markets"
-    if any(k in t for k in ["ruto","odinga","parliament","election","vote","iebc","senator"]):
-        return "Kenya Politics", "Government"
-    if any(k in t for k in ["inflation","shilling","kes","nse","safaricom","kcb","fuel","tax","budget"]):
-        return "Kenya Economy", "Macroeconomics"
-    if any(k in t for k in ["ai ","openai","chatgpt","google","apple","tech","startup","iphone","nvidia"]):
+    # Tech
+    if any(k in t for k in ["openai","chatgpt","gpt","ai model","nvidia","apple",
+                              "google","microsoft","startup","silicon"]):
         return "Technology", "Innovation"
-    if any(k in t for k in ["war","conflict","missile","attack","nato","ukraine","israel","military"]):
+    # Global politics/finance
+    if any(k in t for k in ["fed","federal reserve","interest rate","recession",
+                              "gdp","imf","world bank","inflation"]):
+        return "Global Events", "Finance"
+    if any(k in t for k in ["election","president","prime minister","parliament",
+                              "congress","senate","vote"]):
+        return "Global Events", "Politics"
+    if any(k in t for k in ["war","conflict","ceasefire","missile","military",
+                              "attack","troops","invasion"]):
         return "Global Events", "Conflict"
-    if any(k in t for k in ["kenya","nairobi","mombasa","kisumu","africa"]):
-        return "Kenya Politics", "Government"
+    if any(k in t for k in ["africa","african union"]):
+        return "Global Events", "Africa"
     return "Global Events", "World Affairs"
 
 
@@ -574,18 +592,22 @@ SOURCE: {source} | CATEGORY: {category} | SUBTOPIC: {subtopic_name}"""
 
 TASK: {prompt}
 
-RULES:
-- ONE prediction question only
-- Binary questions: start with "Will...?" → outcomes ["YES", "NO"]
-- Multi-outcome: start with "Who/Which/What will...?" → use real named options
-- Be specific — include names, numbers, timeframes
-- Write 2-3 sentence educational context for Kenyan users
-- Respond ONLY with valid JSON, no markdown:
+STRICT RULES — follow exactly:
+1. The question MUST be about a real, unresolved future event
+2. Do NOT reference past events (no 2023, 2022, 2024 matches already played)
+3. Do NOT generate weather questions (temperature, rainfall etc)
+4. Do NOT copy the headline literally — transform it into a genuine debate
+5. Question must be specific: include real names, real numbers, real timeframes
+6. For Kenya news: always frame it from a Kenyan perspective
+7. The context paragraph must be REAL educational facts, not placeholders like "R", "A", "T"
+8. Binary: "Will...?" → outcomes ["YES", "NO"]
+9. Multi: "Who/Which will...?" → use real named options
 
+Respond ONLY with valid JSON, no markdown, no extra text:
 {{
   "question":     "Will...?",
   "outcomes":     ["YES", "NO"],
-  "context":      "2-3 sentences explaining this topic to everyday Kenyans...",
+  "context":      "Real 2-3 sentence explanation with actual facts about this topic...",
   "expires_days": 30
 }}"""
 
@@ -816,6 +838,7 @@ def fetch_coingecko() -> list:
     return items
 
 def fetch_polymarket(limit: int = 25) -> list:
+    """Only pull high-quality, Kenya-relevant or major global markets."""
     try:
         r = requests.get("https://gamma-api.polymarket.com/markets",
                          params={"active":"true","closed":"false","limit":limit,
@@ -823,26 +846,58 @@ def fetch_polymarket(limit: int = 25) -> list:
         raw     = r.json()
         markets = raw if isinstance(raw, list) else raw.get("data", [])
         items   = []
+
+        # Keywords that make a good Callit question
+        GOOD_TOPICS = [
+            "bitcoin","ethereum","crypto","solana","fed rate","inflation",
+            "election","president","prime minister","war","ceasefire",
+            "openai","ai model","elon musk","tesla","apple","google",
+            "world cup","champions league","premier league","nba champion",
+            "africa","kenya","nairobi","ruto","gdp","recession",
+        ]
+        # Keywords to skip — too niche, expired, or weather/sports-line betting
+        BAD_TOPICS = [
+            "temperature","°c","weather","rainfall","o/u","over/under",
+            "handicap","spread","map ","2023","2022","ncaa","ncaab",
+            "nfl draft","small islands","fossil fuel transition",
+            "super bowl lvii","lxx","lxvi",
+        ]
+
         for m in markets:
             q      = m.get("question","").strip()
             volume = float(m.get("volume", 0))
-            if not q or volume < 500: continue
+            if not q or volume < 5000:  # Higher threshold — only big markets
+                continue
+
+            q_lower = q.lower()
+
+            # Skip bad topics
+            if any(bad in q_lower for bad in BAD_TOPICS):
+                continue
+
+            # Only include if it matches a good topic OR has very high volume
+            is_relevant = any(good in q_lower for good in GOOD_TOPICS) or volume > 50000
+            if not is_relevant:
+                continue
+
             outcomes_raw = m.get("outcomes","[]")
             outcomes     = json.loads(outcomes_raw) if isinstance(outcomes_raw,str) else outcomes_raw
             cat, sub     = auto_cat_from_text(q)
+
             items.append({
-                "title":    q,
-                "text":     m.get("description","")[:300] or f"${volume:,.0f} staked on Polymarket",
-                "url":      f"https://polymarket.com/event/{m.get('slug','')}",
-                "source":   "Polymarket",
-                "category": cat,
-                "subcategory": sub,
-                "outcomes": outcomes,
+                "title":      q,
+                "text":       m.get("description","")[:300] or f"${volume:,.0f} staked on Polymarket",
+                "url":        f"https://polymarket.com/event/{m.get('slug','')}",
+                "source":     "Polymarket",
+                "category":   cat,
+                "subcategory":sub,
+                "outcomes":   outcomes,
                 "volume_usd": volume,
             })
+
         items.sort(key=lambda x: x["volume_usd"], reverse=True)
-        print(f"  [Polymarket] {len(items)} markets")
-        return items
+        print(f"  [Polymarket] {len(items)} quality markets (filtered from {len(markets)})")
+        return items[:15]  # Cap at 15
     except Exception as e:
         print(f"  [!] Polymarket: {e}"); return []
 
