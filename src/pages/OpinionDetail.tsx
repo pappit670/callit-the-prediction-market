@@ -14,7 +14,11 @@ import { DebatePanel } from "@/components/debate/DebatePanel";
 import { SlidingNumber } from "@/components/ui/sliding-number";
 import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
 import { useMarketTimeline } from "@/hooks/useMarketTimeline";
-
+// Add imports
+import { LiveSignalFeed } from "@/components/LiveSignalFeed";
+import MiniGraph from "@/components/MiniGraph";
+import { MarketStats } from "@/components/MarketStats";
+import { TopArguments } from "@/components/TopArguments";
 const TIME_FILTERS = ["1H", "6H", "1D", "1W", "1M", "ALL"] as const;
 const COMMENT_TABS = ["Comments", "Top Callers", "Positions", "Activity"] as const;
 const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
@@ -267,8 +271,10 @@ const OpinionDetail = () => {
               transition={{ delay: 0.2 }} className="mb-8">
               <CallitPredictionCard
                 title={`${opinion.topics?.name || "Market"} Probability`}
-                optionSeries={marketOptionSeries}
-                height={150}
+                optionSeries={marketOptionSeries.map((s, i) => ({
+                  ...s,
+                  color: OPTION_HEX[i % OPTION_HEX.length],
+                }))}
               />
               {/* Time filter */}
               <div className="flex items-center gap-1 mt-3 border-b border-border pb-1">

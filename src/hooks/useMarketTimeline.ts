@@ -7,7 +7,11 @@ export type OptionSeries = {
   label: string;
   data: ProbabilityPoint[];
 };
-
+// ADD at top of useMarketTimeline.ts:
+export interface OptionSeries {
+  label: string;
+  data: { time: string; probability: number; [key: string]: string | number }[];
+}
 export type MarketTimelineState = {
   hasActivity: boolean;
   optionSeries: OptionSeries[];
