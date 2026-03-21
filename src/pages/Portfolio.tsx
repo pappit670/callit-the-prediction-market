@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Coins, TrendingUp, Trophy, Target } from "lucide-react";
+import { Coins, TrendingUp, Trophy, Target, ArrowLeft } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { useApp } from "@/context/AppContext";
 import { supabase } from "@/supabaseClient";
@@ -66,7 +66,10 @@ const Portfolio = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
-
+        <button onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground mb-1">Your Calls</h1>
           <p className="text-sm text-muted-foreground">Track your active calls and performance</p>

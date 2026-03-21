@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { Crown, Flame, Trophy } from "lucide-react";
+import { Crown, Flame, Trophy, ArrowLeft } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
@@ -86,7 +86,10 @@ const Leaderboard = () => {
     <div className="min-h-screen bg-background pb-24">
       <Navbar />
       <main className="mx-auto max-w-3xl px-4 md:px-6 py-8">
-
+        <button onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8">
           <h1 className="font-headline text-3xl md:text-4xl font-bold text-foreground">The Ones Who Called It</h1>
           <p className="mt-2 text-sm text-muted-foreground">Ranked by wins, win rate and total calls</p>
