@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  Bookmark, Activity, Timer, Share2, MessageCircle,
-  Eye, Bell, TrendingUp, TrendingDown, Coins, Flame, Zap,
+  Bookmark, Activity, Timer, Share2,
+  Bell, TrendingUp, TrendingDown, Coins, Flame, Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ const isBinaryYesNo = (opts: { label: string }[]): boolean => {
   );
 };
 
+// ── Types ─────────────────────────────────────────────────────
 export interface OpinionCardData {
   id: number | string;
   question: string;
@@ -42,7 +43,6 @@ export interface OpinionCardData {
   topicIcon?: string;
   topicColor?: string;
   status?: "open" | "locked" | "resolved" | "draw";
-  winner?: "yes" | "no";
   isLiveGame?: boolean;
   homeTeam?: string;
   awayTeam?: string;
@@ -55,12 +55,12 @@ export interface OpinionCardData {
   creatorReputation?: number;
   createdAt?: string;
   commentCount?: number;
-  watcherCount?: number;
   followerCount?: number;
   risingScore?: number;
   isRising?: boolean;
 }
 
+// ── Helpers ───────────────────────────────────────────────────
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return "";
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -86,36 +86,40 @@ function reputationColor(score?: number): string {
   return "text-[#EF4444]";
 }
 
-function getActivityTag(data: OpinionCardData): { label: string; icon: React.ReactNode; color: string } | null {
-  const { isRising, commentCount = 0, timeLeft, risingScore = 0 } = data;
+function getActivityTag(data: OpinionCardData) {
+  const { isRising, timeLeft, risingScore = 0 } = data;
   const isLive = timeLeft === "Live" || timeLeft.includes("min");
   if (isLive)
-    return { label: "Active", icon: <Activity className="h-2.5 w-2.5" />, color: "#22C55E" };
-  if (timeLeft.includes("h left") && parseInt(timeLeft) <= 3)
+    return { label: "Live", icon: <Activity className="h-2.5 w-2.5" />, color: "#22C55E" };
+  if (timeLeft.includes("h") && parseInt(timeLeft) <= 3)
     return { label: "Breaking", icon: <Zap className="h-2.5 w-2.5" />, color: "#DC2626" };
   if (isRising || risingScore > 15)
     return { label: "Rising", icon: <TrendingUp className="h-2.5 w-2.5" />, color: "#F97316" };
-  if (commentCount > 20 || risingScore > 8)
+  if (risingScore > 8)
     return { label: "Heated", icon: <Flame className="h-2.5 w-2.5" />, color: "#F5C518" };
   return null;
 }
 
-// ── Option bar (vertical, multi-choice) ──────────────────────
+// ── Single option bar (multi-choice) ─────────────────────────
 const OptionBar = ({
-  label, percent, showPercent, delta, onClick, index = 0,
+  label, percent, showPercent, delta, index, onClick,
 }: {
   label: string; percent: number; showPercent: boolean;
-  delta: number; onClick: (e: React.MouseEvent) => void; index?: number;
+  delta: number; index: number; onClick: (e: React.MouseEvent) => void;
 }) => {
   const color = optColor(label, index);
   return (
-    <button onClick={onClick}
-      className="w-full rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-colors duration-150 overflow-hidden text-left">
+    <button
+      onClick={onClick}
+      className="w-full shrink-0 rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.98] transition-all duration-150 overflow-hidden text-left"
+    >
       <div className="px-3 py-2">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-            <span className="text-[13px] font-semibold truncate" style={{ color }}>{label}</span>
+            <span className="text-[13px] font-semibold truncate" style={{ color }}>
+              {label}
+            </span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-[13px] font-bold tabular-nums"
@@ -139,19 +143,98 @@ const OptionBar = ({
   );
 };
 
+// ── Scrollable multi-choice options ──────────────────────────
+const ScrollableOptions = ({
+  options, latestProbabilities, hasActivity, deltaByLabel, onOptionTap,
+}: {
+  options: { label: string; percent: number }[];
+  latestProbabilities: Record<string, number>;
+  hasActivity: boolean;
+  deltaByLabel: Record<string, number>;
+  onOptionTap: (e: React.MouseEvent, label: string) => void;
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const checkScroll = () => {
+    const el = containerRef.current;
+    if (!el) return;
+    setCanScrollUp(el.scrollTop > 4);
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  };
+
+  useEffect(() => {
+    // Small delay to let layout settle
+    const t = setTimeout(checkScroll, 100);
+    return () => clearTimeout(t);
+  }, [options.length]);
+
+  const ITEM_HEIGHT = 58; // approx px per option
+  const VISIBLE = 2;  // how many to show collapsed
+  const maxH = ITEM_HEIGHT * VISIBLE + 12;
+
+  return (
+    <div className="relative">
+      {/* Fade top — more options above */}
+      {canScrollUp && (
+        <div className="absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none rounded-t-lg"
+          style={{ background: "linear-gradient(to bottom, var(--card), transparent)" }} />
+      )}
+
+      {/* Scrollable list */}
+      <div
+        ref={containerRef}
+        onScroll={checkScroll}
+        onWheel={e => e.stopPropagation()}
+        onTouchMove={e => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
+        className="flex flex-col gap-1.5 overflow-y-auto overscroll-contain"
+        style={{
+          maxHeight: `${maxH}px`,
+          scrollbarWidth: "none",
+          msOverflowStyle: "none",
+        }}
+      >
+        {options.map((opt, i) => (
+          <OptionBar
+            key={opt.label}
+            label={opt.label}
+            percent={latestProbabilities[opt.label] ?? opt.percent}
+            showPercent={hasActivity}
+            delta={deltaByLabel[opt.label] ?? 0}
+            index={i}
+            onClick={e => onOptionTap(e, opt.label)}
+          />
+        ))}
+      </div>
+
+      {/* Fade bottom + scroll hint */}
+      {canScrollDown && (
+        <div className="absolute bottom-0 left-0 right-0 h-8 z-10 pointer-events-none flex items-end justify-center pb-0.5 rounded-b-lg"
+          style={{ background: "linear-gradient(to top, var(--card) 40%, transparent)" }}>
+          <span className="text-[9px] text-muted-foreground font-medium">
+            ↕ scroll for more
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ── Main card ─────────────────────────────────────────────────
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
   const {
     question, yesPercent, noPercent, coins, timeLeft, genre,
     topicIcon, isLiveGame, homeTeam, awayTeam, homeScore, awayScore,
     matchMinute, options, leagueName, creatorUsername, creatorReputation,
-    createdAt, commentCount = 0, followerCount = 0,
+    createdAt, followerCount = 0,
   } = data;
 
   const navigate = useNavigate();
   const { isLoggedIn, user } = useApp();
+
   const [followed, setFollowed] = useState(false);
-  const [showMore, setShowMore] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const [stakeSheet, setStakeSheet] = useState(false);
   const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
@@ -159,17 +242,26 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
 
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
   const cleanGenre = genre.replace(/\s*[\u{1F000}-\u{1FFFF}]/u, "").trim();
-  const activityTag = getActivityTag(data);
   const isOpen = data.status === "open";
+  const activityTag = getActivityTag(data);
 
-  const optionLabels = options && options.length > 0 ? options.map(o => o.label) : ["Yes", "No"];
-  const binaryYesNo = isBinaryYesNo(options && options.length > 0 ? options : [{ label: "Yes", percent: 50 }, { label: "No", percent: 50 }]);
+  const allOptions: { label: string; percent: number }[] =
+    options && options.length > 0
+      ? options
+      : [{ label: "Yes", percent: 50 }, { label: "No", percent: 50 }];
 
-  const { hasActivity, optionSeries, latestProbabilities, participants, totalCoinsStaked } = useMarketTimeline({
+  const binary = isBinaryYesNo(allOptions);
+
+  const optionLabels = allOptions.map(o => o.label);
+
+  const {
+    hasActivity, optionSeries, latestProbabilities,
+    participants, totalCoinsStaked,
+  } = useMarketTimeline({
     opinionId: data.id,
     options: optionLabels,
     maxPoints: 14,
-    enabled: !!data.id && optionLabels.length > 0,
+    enabled: !!data.id,
     realtime: false,
     pollIntervalMs: 60000,
   });
@@ -179,7 +271,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     optionSeries.forEach(s => {
       const last = s.data[s.data.length - 1]?.probability ?? 0;
       const prev = s.data[s.data.length - 2]?.probability ?? last;
-      out[s.label] = last - prev;
+      out[s.label] = Math.round(last - prev);
     });
     return out;
   }, [optionSeries]);
@@ -188,31 +280,31 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     const [a, b] = optionSeries.slice(0, 2);
     if (!a) return null;
     if (!b) return a.label;
-    return (latestProbabilities[a.label] ?? 0) >= (latestProbabilities[b.label] ?? 0) ? a.label : b.label;
+    return (latestProbabilities[a.label] ?? 0) >= (latestProbabilities[b.label] ?? 0)
+      ? a.label : b.label;
   }, [optionSeries, latestProbabilities]);
 
-  const leadingDelta = leadingLabel ? deltaByLabel[leadingLabel] ?? 0 : 0;
+  const leadingDelta = leadingLabel ? (deltaByLabel[leadingLabel] ?? 0) : 0;
 
-  const prevParticipantsRef = useRef<number>(participants);
-  const prevSignalAtRef = useRef<number>(Date.now());
-  const [systemSignal, setSystemSignal] = useState<string>("");
+  // System signal
+  const prevPartsRef = useRef(participants);
+  const prevSignalAtRef = useRef(Date.now());
+  const [signal, setSignal] = useState("");
 
   useEffect(() => {
-    const prev = prevParticipantsRef.current;
+    const prev = prevPartsRef.current;
     const delta = participants - prev;
     const now = Date.now();
     const elapsed = now - prevSignalAtRef.current;
     if (delta > 0) {
-      const coinsIn2Min = Math.round((delta * 50 * 120000) / Math.max(1, elapsed));
-      setSystemSignal(delta >= 6
-        ? `${delta} users just joined`
-        : `+${Math.max(50, coinsIn2Min)} coins in last 2 min`);
+      const c = Math.round((delta * 50 * 120000) / Math.max(1, elapsed));
+      setSignal(delta >= 6 ? `${delta} users joined` : `+${Math.max(50, c)}c in 2 min`);
       prevSignalAtRef.current = now;
     } else if (hasActivity && elapsed > 30000) {
-      setSystemSignal(Math.abs(leadingDelta) >= 2 ? "Debate heating up" : "Market tightening");
+      setSignal(Math.abs(leadingDelta) >= 2 ? "Debate heating up" : "Market tightening");
       prevSignalAtRef.current = now;
     }
-    prevParticipantsRef.current = participants;
+    prevPartsRef.current = participants;
   }, [participants, hasActivity, leadingDelta]);
 
   const miniSeries = useMemo(() =>
@@ -227,26 +319,23 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     e.stopPropagation();
     if (!isLoggedIn) { toast.error("Log in to follow!"); navigate("/auth"); return; }
     setFollowed(f => !f);
-    toast.success(followed ? "Unfollowed" : "Following this call!");
+    toast.success(followed ? "Unfollowed" : "Following!");
   };
 
-  const handleOptionTap = (e: React.MouseEvent, optLabel: string) => {
+  const handleOptionTap = (e: React.MouseEvent, label: string) => {
     e.stopPropagation();
     if (!isOpen) { goToDetail(); return; }
-    setSelectedOpt(optLabel);
+    setSelectedOpt(label);
     setStakeSheet(true);
   };
-
-  const allOptions = options && options.length > 0
-    ? options
-    : [{ label: "Yes", percent: 50 }, { label: "No", percent: 50 }];
 
   return (
     <>
       <motion.div
-        className="bg-card border border-border rounded-xl overflow-hidden flex flex-col cursor-pointer hover:border-border/80 transition-colors duration-200"
-        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, delay: Math.min(index * 0.035, 0.3) }}
+        className="bg-card border border-border rounded-xl overflow-hidden flex flex-col cursor-pointer hover:border-border/60 transition-colors duration-200"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.25) }}
         onClick={goToDetail}
       >
         <div className="p-4 flex flex-col gap-3 flex-1">
@@ -261,7 +350,9 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               {leagueName && (
                 <>
                   <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
-                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
+                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">
+                    {leagueName}
+                  </span>
                 </>
               )}
               {activityTag && (
@@ -272,16 +363,21 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
               {isLive && !activityTag && (
                 <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" />
+                  LIVE
                 </span>
               )}
             </div>
+
+            {/* Top-right actions */}
             <div className="flex items-center gap-0.5 shrink-0">
-              <button onClick={e => { e.stopPropagation(); setShareSheet(true); }}
+              <button
+                onClick={e => { e.stopPropagation(); setShareSheet(true); }}
                 className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
                 <Share2 className="h-3.5 w-3.5" />
               </button>
-              <button onClick={e => { e.stopPropagation(); toast.success("Saved!"); }}
+              <button
+                onClick={e => { e.stopPropagation(); toast.success("Saved!"); }}
                 className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
                 <Bookmark className="h-3.5 w-3.5" />
               </button>
@@ -296,8 +392,12 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                 <p className="text-[10px] text-muted-foreground">Home</p>
               </div>
               <div className="text-center px-3">
-                <p className="text-base font-bold text-foreground tabular-nums">{homeScore} — {awayScore}</p>
-                {matchMinute && <span className="text-[10px] font-medium text-[#DC2626]">{matchMinute}'</span>}
+                <p className="text-base font-bold text-foreground tabular-nums">
+                  {homeScore} — {awayScore}
+                </p>
+                {matchMinute && (
+                  <span className="text-[10px] font-medium text-[#DC2626]">{matchMinute}'</span>
+                )}
               </div>
               <div className="text-center min-w-0 flex-1">
                 <p className="text-sm font-semibold text-foreground truncate">{awayTeam}</p>
@@ -307,42 +407,49 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           )}
 
           {/* Question */}
-          <h3 className="text-[15px] leading-snug font-semibold text-foreground line-clamp-2">{question}</h3>
+          <h3 className="text-[15px] leading-snug font-semibold text-foreground line-clamp-2">
+            {question}
+          </h3>
 
           {/* Creator */}
           {creatorUsername && (
             <div className="flex items-center gap-2 -mt-1 flex-wrap">
               <span className="text-[11px] text-muted-foreground">
-                by <span className="font-medium text-foreground/70">@{creatorUsername}</span>
+                by{" "}
+                <span className="font-medium text-foreground/70">@{creatorUsername}</span>
               </span>
               {creatorReputation !== undefined && (
                 <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded bg-secondary ${reputationColor(creatorReputation)}`}>
                   {creatorReputation}% acc.
                 </span>
               )}
-              {createdAt && <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>}
+              {createdAt && (
+                <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>
+              )}
             </div>
           )}
 
           {/* Mini graph */}
           <div>
             <MiniGraph series={miniSeries} height={40} />
-            {systemSignal && hasActivity && (
-              <p className="mt-1 text-[10px] text-muted-foreground">{systemSignal}</p>
+            {signal && hasActivity && (
+              <p className="mt-1 text-[10px] text-muted-foreground">{signal}</p>
             )}
           </div>
 
           {/* ── Options ── */}
-          {binaryYesNo ? (
-            /* Binary Yes/No — HORIZONTAL */
-            <div className="grid grid-cols-2 gap-2">
+          {binary ? (
+            /* Yes/No — HORIZONTAL, tappable */
+            <div className="grid grid-cols-2 gap-2" onClick={e => e.stopPropagation()}>
               {allOptions.map((opt, i) => {
                 const color = optColor(opt.label, i);
-                const pct = hasActivity ? (latestProbabilities[opt.label] ?? opt.percent) : null;
+                const pct = hasActivity
+                  ? (latestProbabilities[opt.label] ?? opt.percent)
+                  : null;
                 return (
-                  <button key={i}
+                  <button key={opt.label}
                     onClick={e => handleOptionTap(e, opt.label)}
-                    className="flex flex-col items-center justify-center py-2.5 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/40 active:scale-95 transition-all">
+                    className="flex flex-col items-center justify-center py-3 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.97] transition-all">
                     <span className="text-sm font-bold" style={{ color }}>{opt.label}</span>
                     <span className="text-xs font-semibold tabular-nums mt-0.5"
                       style={{ color: pct !== null ? color : undefined }}>
@@ -353,67 +460,65 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               })}
             </div>
           ) : (
-            /* Multi-choice — VERTICAL with scroll reveal */
-            <div className="flex flex-col gap-1.5">
-              <AnimatePresence>
-                {(showMore ? allOptions : allOptions.slice(0, 2)).map((opt, i) => (
-                  <motion.div key={opt.label}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.15 }}>
-                    <OptionBar
-                      label={opt.label}
-                      percent={latestProbabilities[opt.label] ?? opt.percent}
-                      showPercent={hasActivity}
-                      delta={deltaByLabel[opt.label] ?? 0}
-                      index={i}
-                      onClick={e => handleOptionTap(e, opt.label)}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {allOptions.length > 2 && (
-                <button
-                  onClick={e => { e.stopPropagation(); setShowMore(s => !s); }}
-                  className="text-[11px] text-muted-foreground hover:text-gold py-1 transition-colors text-center border border-border/40 rounded-lg">
-                  {showMore ? "↑ show less" : `↓ ${allOptions.length - 2} more options`}
-                </button>
-              )}
-            </div>
+            /* Multi-choice — SCROLLABLE vertical */
+            <ScrollableOptions
+              options={allOptions}
+              latestProbabilities={latestProbabilities}
+              hasActivity={hasActivity}
+              deltaByLabel={deltaByLabel}
+              onOptionTap={handleOptionTap}
+            />
           )}
 
-          {/* ── Footer: coins staked + follow ── */}
+          {/* ── Footer: coins staked + market move + follow ── */}
           <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-auto">
-            <div className="flex items-center gap-1.5 text-[11px]">
+            <div className="flex items-center gap-2 min-w-0">
               {hasActivity ? (
-                <span className="flex items-center gap-1 text-gold font-semibold">
+                <span className="flex items-center gap-1 text-[11px] text-gold font-semibold">
                   <Coins className="h-3 w-3" />
-                  {formatCount(totalCoinsStaked)} staked
+                  {formatCount(totalCoinsStaked)}c staked
                 </span>
               ) : (
-                <span className="text-muted-foreground flex items-center gap-1">
+                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                   <Coins className="h-3 w-3" /> No activity yet
                 </span>
               )}
-              {hasActivity && (
+
+              {hasActivity && leadingDelta !== 0 && (
                 <>
-                  <span className="text-muted-foreground/40">·</span>
-                  {leadingDelta !== 0 && (
-                    <span className="flex items-center gap-0.5 font-semibold"
-                      style={{ color: leadingDelta > 0 ? "#22C55E" : "#DC2626" }}>
-                      {leadingDelta > 0
-                        ? <TrendingUp className="h-3 w-3" />
-                        : <TrendingDown className="h-3 w-3" />}
-                      {leadingDelta > 0 ? `+${leadingDelta}%` : `${leadingDelta}%`}
-                    </span>
-                  )}
+                  <span className="text-muted-foreground/40 text-[11px]">·</span>
+                  <span className="flex items-center gap-0.5 text-[11px] font-semibold"
+                    style={{ color: leadingDelta > 0 ? "#22C55E" : "#DC2626" }}>
+                    {leadingDelta > 0
+                      ? <TrendingUp className="h-3 w-3" />
+                      : <TrendingDown className="h-3 w-3" />}
+                    {leadingDelta > 0 ? `+${leadingDelta}%` : `${leadingDelta}%`}
+                  </span>
+                </>
+              )}
+
+              {!hasActivity && (
+                <>
+                  <span className="text-muted-foreground/40 text-[11px]">·</span>
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Timer className="h-3 w-3" /> {timeLeft}
+                  </span>
+                </>
+              )}
+
+              {hasActivity && isLive && (
+                <>
+                  <span className="text-muted-foreground/40 text-[11px]">·</span>
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-[#22C55E]">
+                    <Activity className="h-3 w-3" /> Live
+                  </span>
                 </>
               )}
             </div>
+
             <button
               onClick={handleFollow}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors border ${followed
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors border shrink-0 ${followed
                   ? "text-gold border-gold bg-gold/8"
                   : "text-muted-foreground border-border hover:text-gold hover:border-gold"
                 }`}
@@ -429,21 +534,33 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       {/* Share sheet */}
       {shareSheet && (
         <ShareSheet
-          opinion={{ id: String(data.id), statement: question, topics: { name: genre, icon: topicIcon || "" } }}
+          opinion={{
+            id: String(data.id),
+            statement: question,
+            topics: { name: genre, icon: topicIcon || "" },
+          }}
           onClose={() => setShareSheet(false)}
         />
       )}
 
-      {/* Mobile stake sheet — opens when option tapped */}
+      {/* Mobile stake sheet */}
       {stakeSheet && (
         <MobileStakeSheet
-          opinion={{ id: String(data.id), statement: question, call_count: coins, follower_count: followerCount || 0, end_time: "", source_name: null, source_url: null }}
+          opinion={{
+            id: String(data.id),
+            statement: question,
+            call_count: coins,
+            follower_count: followerCount,
+            end_time: "",
+            source_name: null,
+            source_url: null,
+          }}
           options={optionLabels}
           userCall={null}
           isOpen={isOpen}
           hasActivity={hasActivity}
           latestProbabilities={latestProbabilities}
-          countdown=""
+          countdown={timeLeft}
           onCall={async (opt, amount) => {
             if (!isLoggedIn) { toast.error("Log in first!"); navigate("/auth"); return; }
             toast.success(`Called: ${opt} · ${amount} coins`);
