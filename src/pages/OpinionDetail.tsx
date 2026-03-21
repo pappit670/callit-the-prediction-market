@@ -352,7 +352,7 @@ const OpinionDetail = () => {
       toast.success(`✅ Called: ${selectedOption}${!isUpdate ? ` · ${stakeAmount} coins staked` : " updated"}`);
       const { data: ref } = await supabase
         .from("opinions").select(`*, topics(name, slug, icon, color), profiles(username, avatar_url)`)
-        .eq("id", id).single();
+        .eq("id", id).maybeSingle();
       if (ref) setOpinion(ref);
     } catch (e: any) { toast.error(e.message || "Failed"); }
     finally { setSubmitting(false); }
@@ -366,7 +366,7 @@ const OpinionDetail = () => {
       if (!au) return;
       const { data } = await supabase.from("comments").insert({
         opinion_id: id, user_id: au.id, content: commentInput.trim(),
-      }).select("*, profiles(username, avatar_url)").single();
+      }).select("*, profiles(username, avatar_url)").maybeSingle();
       if (data) { setComments(p => [data, ...p]); setCommentInput(""); toast.success("Posted!"); }
     } catch (e: any) { toast.error(e.message); }
   };
@@ -542,8 +542,8 @@ const OpinionDetail = () => {
                 {COMMENT_TABS.map(tab => (
                   <button key={tab} onClick={() => setActiveCommentTab(tab)}
                     className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${activeCommentTab === tab
-                        ? "border-foreground text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}>
                     {tab === "Comments" ? `Comments (${comments.length})` : tab}
                   </button>
