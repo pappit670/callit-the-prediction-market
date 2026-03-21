@@ -4,10 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import { supabase } from "@/supabaseClient";
-import { useApp } from "@/context/AppContext";
 import {
     ArrowLeft, Flame, Clock, TrendingUp, BarChart3,
-    ChevronDown, ChevronRight, Plus
+    ChevronDown, ChevronRight, Plus, Search
 } from "lucide-react";
 import { RightSidebar } from "@/components/RightSidebar";
 
@@ -33,7 +32,6 @@ interface SubtopicItem {
 const TopicPage = () => {
     const { slug } = useParams();
     const navigate = useNavigate();
-    const { isLoggedIn } = useApp();
 
     const [topic, setTopic] = useState<any>(null);
     const [sidebarItems, setSidebarItems] = useState<SubtopicItem[]>([]);
@@ -44,6 +42,7 @@ const TopicPage = () => {
     const [trendingCount, setTrendingCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [opLoading, setOpLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => { if (slug) fetchTopicData(slug); }, [slug]);
     useEffect(() => { if (topic) fetchOpinions(); }, [topic, activeSubtopic, activeFilter]);
@@ -99,11 +98,9 @@ const TopicPage = () => {
 
             if (topic?.slug !== "trending") {
                 const { data: topicIds } = await supabase
-                    .from("topics").select("id")
-                    .in("slug", [activeSubtopic || topic.slug]);
+                    .from("topics").select("id").in("slug", [activeSubtopic || topic.slug]);
                 const { data: subIds } = await supabase
-                    .from("topics").select("id")
-                    .eq("subtopic_of", activeSubtopic || topic.slug);
+                    .from("topics").select("id").eq("subtopic_of", activeSubtopic || topic.slug);
                 const allIds = [
                     ...(topicIds || []).map((t: any) => t.id),
                     ...(subIds || []).map((t: any) => t.id),
@@ -132,8 +129,7 @@ const TopicPage = () => {
     };
 
     const mapToCard = (op: any) => ({
-        id: op.id,
-        question: op.statement,
+        id: op.id, question: op.statement,
         yesPercent: 50, noPercent: 50,
         coins: op.call_count || 0,
         timeLeft: op.end_time
@@ -159,6 +155,16 @@ const TopicPage = () => {
             : undefined,
     });
 
+    // Filtered opinions by search
+    const filteredOpinions = searchQuery.trim()
+        ? opinions.filter(op => op.statement.toLowerCase().includes(searchQuery.toLowerCase()))
+        : opinions;
+
+    // All flat subtopics for mobile nav
+    const allSubtopics: SubtopicItem[] = sidebarItems.flatMap(s =>
+        s.children?.length ? s.children : [s]
+    );
+
     if (loading) return (
         <div className="min-h-screen bg-background">
             <Navbar />
@@ -171,17 +177,60 @@ const TopicPage = () => {
     return (
         <div className="min-h-screen bg-background">
             <Navbar />
-            <main className="mx-auto max-w-7xl px-4 md:px-6 py-8">
+            <main className="mx-auto max-w-7xl px-4 md:px-6 py-6">
 
                 <button onClick={() => navigate(-1)}
-                    className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
+                    className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
                     <ArrowLeft className="h-4 w-4" /> Back
                 </button>
 
+                {/* ── MOBILE: Polymarket-style subtopic nav ── */}
+                <div className="lg:hidden mb-4">
+                    {/* Search */}
+                    <div className="relative mb-3">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <input
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder={`Search in ${topic?.name || "topic"}...`}
+                            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors"
+                        />
+                    </div>
+
+                    {/* Horizontal subtopic scroll */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2"
+                        style={{ scrollbarWidth: "none" }}>
+                        {/* All */}
+                        <button
+                            onClick={() => setActiveSubtopic(null)}
+                            className={`flex flex-col items-center gap-1 shrink-0 min-w-[56px] px-2 py-2 rounded-xl border transition-all ${!activeSubtopic
+                                    ? "border-gold bg-gold/10 text-gold"
+                                    : "border-border text-muted-foreground hover:border-gold/40"
+                                }`}>
+                            <span className="text-xl">{topic?.icon}</span>
+                            <span className="text-[10px] font-semibold">All</span>
+                        </button>
+
+                        {allSubtopics.map(sub => (
+                            <button key={sub.slug}
+                                onClick={() => setActiveSubtopic(sub.slug)}
+                                className={`flex flex-col items-center gap-1 shrink-0 min-w-[56px] px-2 py-2 rounded-xl border transition-all ${activeSubtopic === sub.slug
+                                        ? "border-gold bg-gold/10 text-gold"
+                                        : "border-border text-muted-foreground hover:border-gold/40"
+                                    }`}>
+                                <span className="text-xl">{sub.icon || "📌"}</span>
+                                <span className="text-[10px] font-semibold whitespace-nowrap max-w-[52px] truncate text-center">
+                                    {sub.name}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_280px] gap-6">
 
-                    {/* LEFT — Subtopics */}
-                    <div className="flex flex-col gap-2">
+                    {/* LEFT — Desktop subtopic sidebar */}
+                    <div className="hidden lg:flex flex-col gap-2">
                         <div className="flex items-center gap-2 px-2 mb-2">
                             <div className="h-8 w-8 rounded-lg flex items-center justify-center text-lg"
                                 style={{ background: (topic?.color || "#F5C518") + "20" }}>
@@ -193,6 +242,17 @@ const TopicPage = () => {
                             </div>
                         </div>
 
+                        {/* Desktop search */}
+                        <div className="relative mb-1">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            <input
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                placeholder="Search..."
+                                className="w-full pl-8 pr-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors"
+                            />
+                        </div>
+
                         <div className="bg-card border border-border rounded-2xl overflow-hidden">
                             <button onClick={() => setActiveSubtopic(null)}
                                 className={`flex items-center gap-2 w-full px-4 py-3 text-sm font-medium border-b border-border transition-colors hover:bg-secondary ${!activeSubtopic ? "bg-gold/10 text-gold font-semibold" : "text-muted-foreground"
@@ -201,11 +261,11 @@ const TopicPage = () => {
                             </button>
 
                             {topic?.slug === "sports" ? (
-                                sidebarItems.map((group) => (
+                                sidebarItems.map(group => (
                                     <div key={group.id}>
                                         <button onClick={() => toggleGroup(group.id)}
                                             className="flex items-center justify-between w-full px-4 py-2.5 text-xs font-bold text-muted-foreground uppercase tracking-wider hover:bg-secondary transition-colors border-b border-border">
-                                            <span className="flex items-center gap-2"><span>{group.icon}</span> {group.name}</span>
+                                            <span className="flex items-center gap-2"><span>{group.icon}</span>{group.name}</span>
                                             {expandedGroups.has(group.id)
                                                 ? <ChevronDown className="h-3.5 w-3.5" />
                                                 : <ChevronRight className="h-3.5 w-3.5" />}
@@ -216,7 +276,7 @@ const TopicPage = () => {
                                                     initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                                                     exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
                                                     className="overflow-hidden">
-                                                    {(group.children || []).map((league) => (
+                                                    {(group.children || []).map(league => (
                                                         <button key={league.slug} onClick={() => setActiveSubtopic(league.slug)}
                                                             className={`flex items-center gap-2 w-full pl-8 pr-4 py-2.5 text-sm font-medium border-b border-border/50 last:border-0 transition-colors hover:bg-secondary ${activeSubtopic === league.slug ? "bg-gold/10 text-gold font-semibold" : "text-muted-foreground"
                                                                 }`}
@@ -231,7 +291,7 @@ const TopicPage = () => {
                                     </div>
                                 ))
                             ) : (
-                                sidebarItems.map((sub) => (
+                                sidebarItems.map(sub => (
                                     <button key={sub.slug} onClick={() => setActiveSubtopic(sub.slug)}
                                         className={`flex items-center gap-2.5 w-full px-4 py-3 text-sm font-medium border-b border-border last:border-0 transition-colors hover:bg-secondary ${activeSubtopic === sub.slug ? "bg-gold/10 text-gold font-semibold" : "text-muted-foreground"
                                             }`}>
@@ -255,7 +315,7 @@ const TopicPage = () => {
                                 <div className="flex items-center gap-3 mt-0.5">
                                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                                         <span className="h-1.5 w-1.5 rounded-full bg-[#22C55E] inline-block" />
-                                        {opinions.length} active
+                                        {filteredOpinions.length} active
                                     </span>
                                     <span className="text-xs text-muted-foreground flex items-center gap-1">
                                         <Flame className="h-3 w-3 text-gold" /> {trendingCount} trending
@@ -268,6 +328,7 @@ const TopicPage = () => {
                             </button>
                         </div>
 
+                        {/* Filters */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {filters.map(f => (
                                 <button key={f.id} onClick={() => setActiveFilter(f.id)}
@@ -284,26 +345,29 @@ const TopicPage = () => {
                             <div className="flex flex-col gap-3">
                                 {[...Array(4)].map((_, i) => <div key={i} className="h-40 rounded-2xl bg-secondary animate-pulse" />)}
                             </div>
-                        ) : opinions.length > 0 ? (
+                        ) : filteredOpinions.length > 0 ? (
                             <motion.div className="flex flex-col gap-3" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                                {opinions.map((op, i) => (
+                                {filteredOpinions.map((op, i) => (
                                     <OpinionCard key={op.id} data={mapToCard(op)} index={i} />
                                 ))}
                             </motion.div>
                         ) : (
                             <div className="py-20 text-center border border-dashed border-border rounded-2xl">
                                 <p className="text-3xl mb-3">{topic?.icon}</p>
-                                <p className="text-muted-foreground">No opinions yet in {topic?.name}.</p>
-                                <button onClick={() => navigate("/call-it")} className="mt-4 text-gold font-bold hover:underline">
-                                    Be the first to call it →
-                                </button>
+                                <p className="text-muted-foreground">
+                                    {searchQuery ? `No results for "${searchQuery}"` : `No opinions yet in ${topic?.name}.`}
+                                </p>
+                                {!searchQuery && (
+                                    <button onClick={() => navigate("/call-it")} className="mt-4 text-gold font-bold hover:underline">
+                                        Be the first to call it →
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>
 
-                    {/* RIGHT — Breaking/Rising/Hot sidebar */}
+                    {/* RIGHT — sidebar */}
                     <RightSidebar />
-
                 </div>
             </main>
         </div>
