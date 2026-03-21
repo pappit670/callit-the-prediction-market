@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
-import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 
 const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
 const SORT_OPTIONS = ["Trending", "Newest", "Most Called", "Ending Soon"];
@@ -53,15 +52,18 @@ const TOPIC_PILLS = [
   { label: "Fuel", slug: "kenya-fuel" },
 ];
 
-// ── Featured card ─────────────────────────────────────────────
+// ── Featured card — NO useMarketTimeline here, uses static data only ─────────
 const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void }) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
-  const { hasActivity, optionSeries: marketOptionSeries, latestProbabilities } = useMarketTimeline({
-    opinionId: opinion?.id,
-    options,
-    maxPoints: 20,
-    enabled: !!opinion,
-  });
+  const basePercent = Math.round(100 / options.length);
+
+  // Static simulated series — no WebSocket, no polling
+  const staticSeries = options.map((label, i) => ({
+    label,
+    color: OPTION_HEX[i % OPTION_HEX.length],
+    data: [] as { time: string; probability: number }[],
+  }));
+
   const timeLeft = opinion.end_time
     ? new Date(opinion.end_time) > new Date()
       ? `${Math.ceil((new Date(opinion.end_time).getTime() - Date.now()) / 86400000)} days left`
@@ -79,7 +81,9 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
               <span className="text-xs font-bold text-gold uppercase tracking-wider">
                 {opinion.topics?.icon} {opinion.topics?.name || "General"}
               </span>
-              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Featured</span>
+              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                Featured
+              </span>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Users className="h-3 w-3" />{opinion.call_count || 0}</span>
@@ -94,15 +98,12 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
           )}
         </div>
 
-        {/* Chart — min height ensures "No activity yet" is centered */}
+        {/* Chart */}
         <div className="px-3 min-h-[160px] flex items-center justify-center">
           <div className="w-full">
             <CallitPredictionCard
               title="Market Probability"
-              optionSeries={marketOptionSeries.map((s, i) => ({
-                ...s,
-                color: OPTION_HEX[i % OPTION_HEX.length],
-              }))}
+              optionSeries={staticSeries}
               height={160}
             />
           </div>
@@ -115,7 +116,7 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
                 <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
                 <span className="text-xs text-muted-foreground">{opt}</span>
                 <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                  {hasActivity ? `${latestProbabilities[opt]}%` : "—"}
+                  {basePercent}%
                 </span>
               </div>
             ))}
@@ -128,7 +129,12 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
 };
 
 // ── Topic filter bar ──────────────────────────────────────────
-const TopicFilterBar = ({ active, onChange }: { active: string | null; onChange: (s: string | null) => void }) => (
+const TopicFilterBar = ({
+  active, onChange,
+}: {
+  active: string | null;
+  onChange: (s: string | null) => void;
+}) => (
   <div className="-mx-4 sm:-mx-6 mb-5">
     <div
       className="flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 border-y border-border bg-background"
@@ -139,8 +145,8 @@ const TopicFilterBar = ({ active, onChange }: { active: string | null; onChange:
           key={p.slug ?? "all"}
           onClick={() => onChange(p.slug)}
           className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${active === p.slug
-            ? "bg-foreground text-background"
-            : "bg-secondary text-muted-foreground hover:text-foreground"
+              ? "bg-foreground text-background"
+              : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
         >
           {p.label}
@@ -157,13 +163,12 @@ const FeaturedTabs = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (tab === "debates") {
-      supabase.from("debates")
-        .select("*, opinions(statement)")
-        .order("created_at", { ascending: false })
-        .limit(5)
-        .then(({ data }) => setDebates(data || []));
-    }
+    if (tab !== "debates") return;
+    supabase.from("debates")
+      .select("*, opinions(statement)")
+      .order("created_at", { ascending: false })
+      .limit(5)
+      .then(({ data }) => setDebates(data || []));
   }, [tab]);
 
   return (
@@ -171,7 +176,9 @@ const FeaturedTabs = () => {
       <div className="flex border-b border-border">
         {(["debates", "activity"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t
+                ? "border-gold text-gold"
+                : "border-transparent text-muted-foreground hover:text-foreground"
               }`}>
             {t === "debates" ? <Swords className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -189,7 +196,8 @@ const FeaturedTabs = () => {
             </div>
           ) : debates.map((d, i) => (
             <motion.button key={d.id}
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
               onClick={() => navigate(`/opinion/${d.opinion_id}`)}
               className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors text-left">
               <div className="h-7 w-7 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -203,7 +211,9 @@ const FeaturedTabs = () => {
                   <span className="text-[10px] text-[#22C55E] font-semibold">{d.challenger_alias}</span>
                   <span className="text-[10px] text-muted-foreground">vs</span>
                   <span className="text-[10px] text-[#DC2626] font-semibold">{d.defender_alias}</span>
-                  <span className="text-[10px] text-gold ml-auto">{d.challenger_votes + d.defender_votes} votes</span>
+                  <span className="text-[10px] text-gold ml-auto">
+                    {d.challenger_votes + d.defender_votes} votes
+                  </span>
                 </div>
                 <div className="mt-1.5 h-1 rounded-full bg-[#DC2626]/20 overflow-hidden">
                   <div className="h-full bg-[#22C55E] rounded-full transition-all"
@@ -267,21 +277,30 @@ const Index = () => {
         .eq("status", "open")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
+      // Use .maybeSingle() or .limit(1) — never .single() which 406s on no match
       if (activeTopic) {
         const { data: topicRow } = await supabase
-          .from("topics").select("id").eq("slug", activeTopic).single();
+          .from("topics").select("id").eq("slug", activeTopic).maybeSingle();
         if (topicRow?.id) query = query.eq("topic_id", topicRow.id);
       }
 
-      if (activeSort === "Newest") query = query.order("created_at", { ascending: false });
-      else if (activeSort === "Most Called") query = query.order("call_count", { ascending: false });
-      else if (activeSort === "Ending Soon") query = query.order("end_time", { ascending: true });
-      else query = query.order("call_count", { ascending: false });
+      if (activeSort === "Newest")
+        query = query.order("created_at", { ascending: false });
+      else if (activeSort === "Most Called")
+        query = query.order("call_count", { ascending: false });
+      else if (activeSort === "Ending Soon")
+        query = query.order("end_time", { ascending: true });
+      else
+        query = query.order("call_count", { ascending: false });
 
       const { data } = await query;
       if (data) {
-        if (page === 0) { setFeatured(data.slice(0, 5)); setOpinions(data.slice(5)); }
-        else { setOpinions(prev => [...prev, ...data]); }
+        if (page === 0) {
+          setFeatured(data.slice(0, 5));
+          setOpinions(data.slice(5));
+        } else {
+          setOpinions(prev => [...prev, ...data]);
+        }
       }
 
       const { data: breakingData } = await supabase
@@ -374,13 +393,16 @@ const Index = () => {
                   <div className="flex items-center gap-1.5">
                     {featured.map((_, i) => (
                       <button key={i} onClick={() => setFeaturedIndex(i)}
-                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border"}`} />
+                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border"
+                          }`} />
                     ))}
-                    <button onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
+                    <button
+                      onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all ml-1">
                       <ChevronLeft className="h-3 w-3" />
                     </button>
-                    <button onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
+                    <button
+                      onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all">
                       <ChevronRight className="h-3 w-3" />
                     </button>
@@ -388,11 +410,14 @@ const Index = () => {
                 )}
               </div>
               {loading && !featured.length ? (
-                <div className="h-[380px] rounded-2xl bg-secondary animate-pulse" />
+                <div className="h-[320px] rounded-2xl bg-secondary animate-pulse" />
               ) : featured.length > 0 ? (
                 <AnimatePresence mode="wait">
-                  <FeaturedCard key={featuredIndex} opinion={featured[featuredIndex]}
-                    onClick={() => navigate(`/opinion/${featured[featuredIndex].id}`)} />
+                  <FeaturedCard
+                    key={featuredIndex}
+                    opinion={featured[featuredIndex]}
+                    onClick={() => navigate(`/opinion/${featured[featuredIndex].id}`)}
+                  />
                 </AnimatePresence>
               ) : null}
             </div>
@@ -427,7 +452,9 @@ const Index = () => {
             {/* Cards grid */}
             {loading && page === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[...Array(6)].map((_, i) => <div key={i} className="h-52 rounded-2xl bg-secondary animate-pulse" />)}
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-52 rounded-2xl bg-secondary animate-pulse" />
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
