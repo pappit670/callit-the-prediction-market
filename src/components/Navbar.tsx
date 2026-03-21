@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
-import { supabase } from "@/supabaseClient";
 import { SlidingNumber } from "@/components/ui/sliding-number";
+import { SearchModal } from "@/components/SearchModal";
 
 const tickerItems = [
   "US Fed expected to cut rates by 25bps next month",
@@ -28,6 +28,7 @@ const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showProfilePopover, setShowProfilePopover] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { isLoggedIn, user, logout, hasSeenHero, theme, toggleTheme } = useApp();
@@ -39,13 +40,6 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => { setIsDrawerOpen(false); }, [location.pathname]);
-
-  const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      const query = e.currentTarget.value;
-      if (query.trim()) { toast(`Searching for: ${query}`); e.currentTarget.value = ""; }
-    }
-  };
 
   const handleLogout = async () => {
     await logout();
@@ -88,20 +82,23 @@ const Navbar = () => {
           </div>
         ) : (
           <>
-            {/* ── Main bar ── */}
+            {/* Main bar */}
             <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-4 md:px-6 gap-4">
               <Link to="/" className="font-headline text-2xl font-bold tracking-tight text-foreground select-none shrink-0 hover:text-gold transition-colors">
                 Callit
               </Link>
 
+              {/* Search button */}
               <div className="hidden md:flex items-center justify-start flex-1 max-w-[320px]">
-                <div className="relative w-full">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-muted-foreground" />
-                  <input type="text" placeholder="Search calls..." onKeyDown={handleSearch}
-                    className="w-full rounded-full border border-border bg-secondary/30 pl-11 pr-4 py-2 text-[14px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold/50 transition-all" />
-                </div>
+                <button
+                  onClick={() => setSearchOpen(true)}
+                  className="w-full flex items-center gap-3 rounded-full border border-border bg-secondary/30 px-4 py-2 text-[14px] text-muted-foreground hover:border-gold/50 hover:bg-secondary/50 transition-all text-left">
+                  <Search className="h-[18px] w-[18px] shrink-0" />
+                  <span>Search calls...</span>
+                </button>
               </div>
 
+              {/* Live ticker */}
               <div className="hidden lg:flex flex-1 max-w-[280px] items-center gap-3 overflow-hidden bg-secondary/20 rounded-full px-3 py-1.5 border border-border/50">
                 <div className="flex items-center gap-1.5 shrink-0">
                   <span className="relative flex h-2 w-2">
@@ -144,6 +141,7 @@ const Navbar = () => {
                       Call It
                     </Link>
 
+                    {/* Profile popover */}
                     <div className="relative ml-1"
                       onMouseEnter={() => setShowProfilePopover(true)}
                       onMouseLeave={() => setShowProfilePopover(false)}>
@@ -218,7 +216,7 @@ const Navbar = () => {
               </div>
             </div>
 
-            {/* ── Second bar — plain category labels, no icons ── */}
+            {/* Second bar — categories */}
             <div className="w-full border-t border-border bg-background">
               <div className="mx-auto max-w-7xl px-4 md:px-6">
                 <div className="flex items-center gap-0.5 overflow-x-auto py-1.5" style={{ scrollbarWidth: "none" }}>
@@ -239,7 +237,7 @@ const Navbar = () => {
         )}
       </motion.nav>
 
-      {/* ── Drawer ── */}
+      {/* Drawer */}
       <AnimatePresence>
         {isDrawerOpen && (
           <>
@@ -310,6 +308,15 @@ const Navbar = () => {
                       className="h-4 w-4 bg-white rounded-full shadow-sm" />
                   </button>
                 </div>
+
+                {/* Mobile search in drawer */}
+                <div className="mt-6 border-t border-border pt-6 px-4">
+                  <button onClick={() => { setIsDrawerOpen(false); setSearchOpen(true); }}
+                    className="w-full flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground hover:border-gold transition-all">
+                    <Search className="h-4 w-4 shrink-0" />
+                    <span>Search calls...</span>
+                  </button>
+                </div>
               </div>
 
               {isLoggedIn && (
@@ -324,6 +331,9 @@ const Navbar = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* Search modal */}
+      {searchOpen && <SearchModal onClose={() => setSearchOpen(false)} />}
     </>
   );
 };

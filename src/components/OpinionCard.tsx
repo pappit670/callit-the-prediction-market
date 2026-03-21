@@ -12,8 +12,8 @@ import MiniGraph from "@/components/MiniGraph";
 import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 import { ShareSheet } from "@/components/ShareSheet";
 import { MobileStakeSheet } from "@/components/MobileStakeSheet";
+import { QuestionImage } from "@/components/QuestionImage";
 
-// ── Color system ──────────────────────────────────────────────
 const optColor = (label: string, i: number): string => {
   const l = label.toLowerCase().trim();
   if (l === "yes" || l === "agree") return "#2563EB";
@@ -31,7 +31,6 @@ const isBinaryYesNo = (opts: { label: string }[]): boolean => {
   );
 };
 
-// ── Types ─────────────────────────────────────────────────────
 export interface OpinionCardData {
   id: number | string;
   question: string;
@@ -42,6 +41,8 @@ export interface OpinionCardData {
   genre: string;
   topicIcon?: string;
   topicColor?: string;
+  topicSlug?: string | null;
+  imageUrl?: string | null;
   status?: "open" | "locked" | "resolved" | "draw";
   isLiveGame?: boolean;
   homeTeam?: string;
@@ -60,7 +61,6 @@ export interface OpinionCardData {
   isRising?: boolean;
 }
 
-// ── Helpers ───────────────────────────────────────────────────
 function timeAgo(dateStr?: string): string {
   if (!dateStr) return "";
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -100,7 +100,7 @@ function getActivityTag(data: OpinionCardData) {
   return null;
 }
 
-// ── Single option bar (multi-choice) ─────────────────────────
+// ── Single option bar ─────────────────────────────────────────
 const OptionBar = ({
   label, percent, showPercent, delta, index, onClick,
 }: {
@@ -109,17 +109,13 @@ const OptionBar = ({
 }) => {
   const color = optColor(label, index);
   return (
-    <button
-      onClick={onClick}
-      className="w-full shrink-0 rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.98] transition-all duration-150 overflow-hidden text-left"
-    >
+    <button onClick={onClick}
+      className="w-full shrink-0 rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.98] transition-all duration-150 overflow-hidden text-left">
       <div className="px-3 py-2">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-            <span className="text-[13px] font-semibold truncate" style={{ color }}>
-              {label}
-            </span>
+            <span className="text-[13px] font-semibold truncate" style={{ color }}>{label}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="text-[13px] font-bold tabular-nums"
@@ -165,24 +161,21 @@ const ScrollableOptions = ({
   };
 
   useEffect(() => {
-    // Small delay to let layout settle
-    const t = setTimeout(checkScroll, 100);
+    const t = setTimeout(checkScroll, 120);
     return () => clearTimeout(t);
   }, [options.length]);
 
-  const ITEM_HEIGHT = 58; // approx px per option
-  const VISIBLE = 2;  // how many to show collapsed
-  const maxH = ITEM_HEIGHT * VISIBLE + 12;
+  const ITEM_H = 58;
+  const VISIBLE = 2;
+  const maxH = ITEM_H * VISIBLE + 12;
 
   return (
     <div className="relative">
-      {/* Fade top — more options above */}
       {canScrollUp && (
         <div className="absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none rounded-t-lg"
           style={{ background: "linear-gradient(to bottom, var(--card), transparent)" }} />
       )}
 
-      {/* Scrollable list */}
       <div
         ref={containerRef}
         onScroll={checkScroll}
@@ -190,11 +183,7 @@ const ScrollableOptions = ({
         onTouchMove={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
         className="flex flex-col gap-1.5 overflow-y-auto overscroll-contain"
-        style={{
-          maxHeight: `${maxH}px`,
-          scrollbarWidth: "none",
-          msOverflowStyle: "none",
-        }}
+        style={{ maxHeight: `${maxH}px`, scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {options.map((opt, i) => (
           <OptionBar
@@ -209,13 +198,10 @@ const ScrollableOptions = ({
         ))}
       </div>
 
-      {/* Fade bottom + scroll hint */}
       {canScrollDown && (
         <div className="absolute bottom-0 left-0 right-0 h-8 z-10 pointer-events-none flex items-end justify-center pb-0.5 rounded-b-lg"
           style={{ background: "linear-gradient(to top, var(--card) 40%, transparent)" }}>
-          <span className="text-[9px] text-muted-foreground font-medium">
-            ↕ scroll for more
-          </span>
+          <span className="text-[9px] text-muted-foreground font-medium">↕ scroll for more</span>
         </div>
       )}
     </div>
@@ -226,9 +212,9 @@ const ScrollableOptions = ({
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
   const {
     question, yesPercent, noPercent, coins, timeLeft, genre,
-    topicIcon, isLiveGame, homeTeam, awayTeam, homeScore, awayScore,
-    matchMinute, options, leagueName, creatorUsername, creatorReputation,
-    createdAt, followerCount = 0,
+    topicIcon, topicSlug, imageUrl, isLiveGame, homeTeam, awayTeam,
+    homeScore, awayScore, matchMinute, options, leagueName,
+    creatorUsername, creatorReputation, createdAt, followerCount = 0,
   } = data;
 
   const navigate = useNavigate();
@@ -237,7 +223,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const [followed, setFollowed] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
   const [stakeSheet, setStakeSheet] = useState(false);
-  const [selectedOpt, setSelectedOpt] = useState<string | null>(null);
   const [positionModal, setPositionModal] = useState<"agree" | "disagree" | null>(null);
 
   const isLive = isLiveGame || timeLeft === "Live" || timeLeft.includes("min");
@@ -251,13 +236,9 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       : [{ label: "Yes", percent: 50 }, { label: "No", percent: 50 }];
 
   const binary = isBinaryYesNo(allOptions);
-
   const optionLabels = allOptions.map(o => o.label);
 
-  const {
-    hasActivity, optionSeries, latestProbabilities,
-    participants, totalCoinsStaked,
-  } = useMarketTimeline({
+  const { hasActivity, optionSeries, latestProbabilities, participants, totalCoinsStaked } = useMarketTimeline({
     opinionId: data.id,
     options: optionLabels,
     maxPoints: 14,
@@ -280,13 +261,11 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     const [a, b] = optionSeries.slice(0, 2);
     if (!a) return null;
     if (!b) return a.label;
-    return (latestProbabilities[a.label] ?? 0) >= (latestProbabilities[b.label] ?? 0)
-      ? a.label : b.label;
+    return (latestProbabilities[a.label] ?? 0) >= (latestProbabilities[b.label] ?? 0) ? a.label : b.label;
   }, [optionSeries, latestProbabilities]);
 
   const leadingDelta = leadingLabel ? (deltaByLabel[leadingLabel] ?? 0) : 0;
 
-  // System signal
   const prevPartsRef = useRef(participants);
   const prevSignalAtRef = useRef(Date.now());
   const [signal, setSignal] = useState("");
@@ -325,7 +304,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   const handleOptionTap = (e: React.MouseEvent, label: string) => {
     e.stopPropagation();
     if (!isOpen) { goToDetail(); return; }
-    setSelectedOpt(label);
     setStakeSheet(true);
   };
 
@@ -338,9 +316,18 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.25) }}
         onClick={goToDetail}
       >
+        {/* Question image */}
+        <QuestionImage
+          imageUrl={imageUrl}
+          topicSlug={topicSlug}
+          statement={question}
+          height={110}
+          className="rounded-none"
+        />
+
         <div className="p-4 flex flex-col gap-3 flex-1">
 
-          {/* ── Header ── */}
+          {/* Header */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               {topicIcon && <span className="text-sm shrink-0">{topicIcon}</span>}
@@ -350,9 +337,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               {leagueName && (
                 <>
                   <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
-                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">
-                    {leagueName}
-                  </span>
+                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
                 </>
               )}
               {activityTag && (
@@ -363,21 +348,16 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
               {isLive && !activityTag && (
                 <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" />
-                  LIVE
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
                 </span>
               )}
             </div>
-
-            {/* Top-right actions */}
             <div className="flex items-center gap-0.5 shrink-0">
-              <button
-                onClick={e => { e.stopPropagation(); setShareSheet(true); }}
+              <button onClick={e => { e.stopPropagation(); setShareSheet(true); }}
                 className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
                 <Share2 className="h-3.5 w-3.5" />
               </button>
-              <button
-                onClick={e => { e.stopPropagation(); toast.success("Saved!"); }}
+              <button onClick={e => { e.stopPropagation(); toast.success("Saved!"); }}
                 className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
                 <Bookmark className="h-3.5 w-3.5" />
               </button>
@@ -392,12 +372,8 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                 <p className="text-[10px] text-muted-foreground">Home</p>
               </div>
               <div className="text-center px-3">
-                <p className="text-base font-bold text-foreground tabular-nums">
-                  {homeScore} — {awayScore}
-                </p>
-                {matchMinute && (
-                  <span className="text-[10px] font-medium text-[#DC2626]">{matchMinute}'</span>
-                )}
+                <p className="text-base font-bold text-foreground tabular-nums">{homeScore} — {awayScore}</p>
+                {matchMinute && <span className="text-[10px] font-medium text-[#DC2626]">{matchMinute}'</span>}
               </div>
               <div className="text-center min-w-0 flex-1">
                 <p className="text-sm font-semibold text-foreground truncate">{awayTeam}</p>
@@ -407,25 +383,20 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           )}
 
           {/* Question */}
-          <h3 className="text-[15px] leading-snug font-semibold text-foreground line-clamp-2">
-            {question}
-          </h3>
+          <h3 className="text-[15px] leading-snug font-semibold text-foreground line-clamp-2">{question}</h3>
 
           {/* Creator */}
           {creatorUsername && (
             <div className="flex items-center gap-2 -mt-1 flex-wrap">
               <span className="text-[11px] text-muted-foreground">
-                by{" "}
-                <span className="font-medium text-foreground/70">@{creatorUsername}</span>
+                by <span className="font-medium text-foreground/70">@{creatorUsername}</span>
               </span>
               {creatorReputation !== undefined && (
                 <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded bg-secondary ${reputationColor(creatorReputation)}`}>
                   {creatorReputation}% acc.
                 </span>
               )}
-              {createdAt && (
-                <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>
-              )}
+              {createdAt && <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>}
             </div>
           )}
 
@@ -437,15 +408,12 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             )}
           </div>
 
-          {/* ── Options ── */}
+          {/* Options */}
           {binary ? (
-            /* Yes/No — HORIZONTAL, tappable */
             <div className="grid grid-cols-2 gap-2" onClick={e => e.stopPropagation()}>
               {allOptions.map((opt, i) => {
                 const color = optColor(opt.label, i);
-                const pct = hasActivity
-                  ? (latestProbabilities[opt.label] ?? opt.percent)
-                  : null;
+                const pct = hasActivity ? (latestProbabilities[opt.label] ?? opt.percent) : null;
                 return (
                   <button key={opt.label}
                     onClick={e => handleOptionTap(e, opt.label)}
@@ -460,7 +428,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               })}
             </div>
           ) : (
-            /* Multi-choice — SCROLLABLE vertical */
             <ScrollableOptions
               options={allOptions}
               latestProbabilities={latestProbabilities}
@@ -470,7 +437,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             />
           )}
 
-          {/* ── Footer: coins staked + market move + follow ── */}
+          {/* Footer */}
           <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-auto">
             <div className="flex items-center gap-2 min-w-0">
               {hasActivity ? (
@@ -483,20 +450,16 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                   <Coins className="h-3 w-3" /> No activity yet
                 </span>
               )}
-
               {hasActivity && leadingDelta !== 0 && (
                 <>
                   <span className="text-muted-foreground/40 text-[11px]">·</span>
                   <span className="flex items-center gap-0.5 text-[11px] font-semibold"
                     style={{ color: leadingDelta > 0 ? "#22C55E" : "#DC2626" }}>
-                    {leadingDelta > 0
-                      ? <TrendingUp className="h-3 w-3" />
-                      : <TrendingDown className="h-3 w-3" />}
+                    {leadingDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                     {leadingDelta > 0 ? `+${leadingDelta}%` : `${leadingDelta}%`}
                   </span>
                 </>
               )}
-
               {!hasActivity && (
                 <>
                   <span className="text-muted-foreground/40 text-[11px]">·</span>
@@ -505,7 +468,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                   </span>
                 </>
               )}
-
               {hasActivity && isLive && (
                 <>
                   <span className="text-muted-foreground/40 text-[11px]">·</span>
@@ -515,14 +477,11 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                 </>
               )}
             </div>
-
-            <button
-              onClick={handleFollow}
+            <button onClick={handleFollow}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors border shrink-0 ${followed
                   ? "text-gold border-gold bg-gold/8"
                   : "text-muted-foreground border-border hover:text-gold hover:border-gold"
-                }`}
-            >
+                }`}>
               <Bell className={`h-3 w-3 ${followed ? "fill-gold" : ""}`} />
               {followed ? "Following" : "Follow"}
             </button>
@@ -531,30 +490,16 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         </div>
       </motion.div>
 
-      {/* Share sheet */}
       {shareSheet && (
         <ShareSheet
-          opinion={{
-            id: String(data.id),
-            statement: question,
-            topics: { name: genre, icon: topicIcon || "" },
-          }}
+          opinion={{ id: String(data.id), statement: question, topics: { name: genre, icon: topicIcon || "" } }}
           onClose={() => setShareSheet(false)}
         />
       )}
 
-      {/* Mobile stake sheet */}
       {stakeSheet && (
         <MobileStakeSheet
-          opinion={{
-            id: String(data.id),
-            statement: question,
-            call_count: coins,
-            follower_count: followerCount,
-            end_time: "",
-            source_name: null,
-            source_url: null,
-          }}
+          opinion={{ id: String(data.id), statement: question, call_count: coins, follower_count: followerCount, end_time: "", source_name: null, source_url: null }}
           options={optionLabels}
           userCall={null}
           isOpen={isOpen}

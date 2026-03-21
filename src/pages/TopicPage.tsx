@@ -93,7 +93,7 @@ const TopicPage = () => {
         try {
             let query = supabase
                 .from("opinions")
-                .select("*, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
+                .select("id, statement, status, options, end_time, call_count, rising_score, follower_count, created_at, image_url, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
                 .eq("status", "open");
 
             if (topic?.slug !== "trending") {
@@ -129,8 +129,10 @@ const TopicPage = () => {
     };
 
     const mapToCard = (op: any) => ({
-        id: op.id, question: op.statement,
-        yesPercent: 50, noPercent: 50,
+        id: op.id,
+        question: op.statement,
+        yesPercent: 50,
+        noPercent: 50,
         coins: op.call_count || 0,
         timeLeft: op.end_time
             ? new Date(op.end_time) > new Date()
@@ -140,6 +142,8 @@ const TopicPage = () => {
         genre: op.topics?.name || "General",
         topicIcon: op.topics?.icon,
         topicColor: op.topics?.color,
+        topicSlug: op.topics?.slug || null,
+        imageUrl: op.image_url || null,
         status: op.status,
         creatorUsername: op.profiles?.username || null,
         creatorReputation: op.profiles?.reputation_score
@@ -155,12 +159,10 @@ const TopicPage = () => {
             : undefined,
     });
 
-    // Filtered opinions by search
     const filteredOpinions = searchQuery.trim()
         ? opinions.filter(op => op.statement.toLowerCase().includes(searchQuery.toLowerCase()))
         : opinions;
 
-    // All flat subtopics for mobile nav
     const allSubtopics: SubtopicItem[] = sidebarItems.flatMap(s =>
         s.children?.length ? s.children : [s]
     );
@@ -184,9 +186,8 @@ const TopicPage = () => {
                     <ArrowLeft className="h-4 w-4" /> Back
                 </button>
 
-                {/* ── MOBILE: Polymarket-style subtopic nav ── */}
+                {/* Mobile: Polymarket-style subtopic nav */}
                 <div className="lg:hidden mb-4">
-                    {/* Search */}
                     <div className="relative mb-3">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <input
@@ -196,27 +197,18 @@ const TopicPage = () => {
                             className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-border bg-secondary/30 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors"
                         />
                     </div>
-
-                    {/* Horizontal subtopic scroll */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2"
-                        style={{ scrollbarWidth: "none" }}>
-                        {/* All */}
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
                         <button
                             onClick={() => setActiveSubtopic(null)}
-                            className={`flex flex-col items-center gap-1 shrink-0 min-w-[56px] px-2 py-2 rounded-xl border transition-all ${!activeSubtopic
-                                    ? "border-gold bg-gold/10 text-gold"
-                                    : "border-border text-muted-foreground hover:border-gold/40"
+                            className={`flex flex-col items-center gap-1 shrink-0 min-w-[56px] px-2 py-2 rounded-xl border transition-all ${!activeSubtopic ? "border-gold bg-gold/10 text-gold" : "border-border text-muted-foreground"
                                 }`}>
                             <span className="text-xl">{topic?.icon}</span>
                             <span className="text-[10px] font-semibold">All</span>
                         </button>
-
                         {allSubtopics.map(sub => (
                             <button key={sub.slug}
                                 onClick={() => setActiveSubtopic(sub.slug)}
-                                className={`flex flex-col items-center gap-1 shrink-0 min-w-[56px] px-2 py-2 rounded-xl border transition-all ${activeSubtopic === sub.slug
-                                        ? "border-gold bg-gold/10 text-gold"
-                                        : "border-border text-muted-foreground hover:border-gold/40"
+                                className={`flex flex-col items-center gap-1 shrink-0 min-w-[56px] px-2 py-2 rounded-xl border transition-all ${activeSubtopic === sub.slug ? "border-gold bg-gold/10 text-gold" : "border-border text-muted-foreground"
                                     }`}>
                                 <span className="text-xl">{sub.icon || "📌"}</span>
                                 <span className="text-[10px] font-semibold whitespace-nowrap max-w-[52px] truncate text-center">
@@ -229,7 +221,7 @@ const TopicPage = () => {
 
                 <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_280px] gap-6">
 
-                    {/* LEFT — Desktop subtopic sidebar */}
+                    {/* LEFT — Desktop sidebar */}
                     <div className="hidden lg:flex flex-col gap-2">
                         <div className="flex items-center gap-2 px-2 mb-2">
                             <div className="h-8 w-8 rounded-lg flex items-center justify-center text-lg"
@@ -242,7 +234,6 @@ const TopicPage = () => {
                             </div>
                         </div>
 
-                        {/* Desktop search */}
                         <div className="relative mb-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                             <input
@@ -328,7 +319,6 @@ const TopicPage = () => {
                             </button>
                         </div>
 
-                        {/* Filters */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                             {filters.map(f => (
                                 <button key={f.id} onClick={() => setActiveFilter(f.id)}
@@ -366,7 +356,6 @@ const TopicPage = () => {
                         )}
                     </div>
 
-                    {/* RIGHT — sidebar */}
                     <RightSidebar />
                 </div>
             </main>

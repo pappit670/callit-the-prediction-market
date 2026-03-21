@@ -52,18 +52,14 @@ const TOPIC_PILLS = [
   { label: "Fuel", slug: "kenya-fuel" },
 ];
 
-// ── Featured card — NO useMarketTimeline here, uses static data only ─────────
 const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void }) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const basePercent = Math.round(100 / options.length);
-
-  // Static simulated series — no WebSocket, no polling
   const staticSeries = options.map((label, i) => ({
     label,
     color: OPTION_HEX[i % OPTION_HEX.length],
     data: [] as { time: string; probability: number }[],
   }));
-
   const timeLeft = opinion.end_time
     ? new Date(opinion.end_time) > new Date()
       ? `${Math.ceil((new Date(opinion.end_time).getTime() - Date.now()) / 86400000)} days left`
@@ -81,9 +77,7 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
               <span className="text-xs font-bold text-gold uppercase tracking-wider">
                 {opinion.topics?.icon} {opinion.topics?.name || "General"}
               </span>
-              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                Featured
-              </span>
+              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Featured</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Users className="h-3 w-3" />{opinion.call_count || 0}</span>
@@ -98,7 +92,6 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
           )}
         </div>
 
-        {/* Chart */}
         <div className="px-3 min-h-[160px] flex items-center justify-center">
           <div className="w-full">
             <CallitPredictionCard
@@ -128,7 +121,6 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
   );
 };
 
-// ── Topic filter bar ──────────────────────────────────────────
 const TopicFilterBar = ({
   active, onChange,
 }: {
@@ -156,7 +148,6 @@ const TopicFilterBar = ({
   </div>
 );
 
-// ── Debates + Activity tabs ───────────────────────────────────
 const FeaturedTabs = () => {
   const [tab, setTab] = useState<"debates" | "activity">("debates");
   const [debates, setDebates] = useState<any[]>([]);
@@ -176,9 +167,7 @@ const FeaturedTabs = () => {
       <div className="flex border-b border-border">
         {(["debates", "activity"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t
-                ? "border-gold text-gold"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}>
             {t === "debates" ? <Swords className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -211,9 +200,7 @@ const FeaturedTabs = () => {
                   <span className="text-[10px] text-[#22C55E] font-semibold">{d.challenger_alias}</span>
                   <span className="text-[10px] text-muted-foreground">vs</span>
                   <span className="text-[10px] text-[#DC2626] font-semibold">{d.defender_alias}</span>
-                  <span className="text-[10px] text-gold ml-auto">
-                    {d.challenger_votes + d.defender_votes} votes
-                  </span>
+                  <span className="text-[10px] text-gold ml-auto">{d.challenger_votes + d.defender_votes} votes</span>
                 </div>
                 <div className="mt-1.5 h-1 rounded-full bg-[#DC2626]/20 overflow-hidden">
                   <div className="h-full bg-[#22C55E] rounded-full transition-all"
@@ -233,7 +220,6 @@ const FeaturedTabs = () => {
   );
 };
 
-// ── Main Index ────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
   const { hasSeenHero, setHasSeenHero } = useApp();
@@ -246,7 +232,7 @@ const Index = () => {
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [activeSort, setActiveSort] = useState("Trending");
   const [page, setPage] = useState(0);
-  const PAGE_SIZE = 9;
+  const PAGE_SIZE = 6;
 
   useEffect(() => {
     if (hasSeenHero) { fetchData(); fetchRising(); }
@@ -264,7 +250,7 @@ const Index = () => {
       .select("id, statement, call_count, rising_score, topics!opinions_topic_id_fkey(name, icon)")
       .eq("status", "open")
       .order("rising_score", { ascending: false })
-      .limit(6);
+      .limit(4);
     setRising(data || []);
   };
 
@@ -273,11 +259,10 @@ const Index = () => {
     try {
       let query = supabase
         .from("opinions")
-        .select("*, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
+        .select("id, statement, status, options, end_time, call_count, rising_score, follower_count, created_at, topic_id, image_url, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
         .eq("status", "open")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
-      // Use .maybeSingle() or .limit(1) — never .single() which 406s on no match
       if (activeTopic) {
         const { data: topicRow } = await supabase
           .from("topics").select("id").eq("slug", activeTopic).maybeSingle();
@@ -295,12 +280,8 @@ const Index = () => {
 
       const { data } = await query;
       if (data) {
-        if (page === 0) {
-          setFeatured(data.slice(0, 5));
-          setOpinions(data.slice(5));
-        } else {
-          setOpinions(prev => [...prev, ...data]);
-        }
+        if (page === 0) { setFeatured(data.slice(0, 3)); setOpinions(data.slice(3)); }
+        else { setOpinions(prev => [...prev, ...data]); }
       }
 
       const { data: breakingData } = await supabase
@@ -308,7 +289,7 @@ const Index = () => {
         .select("id, statement, call_count, topics!opinions_topic_id_fkey(name, icon)")
         .eq("status", "open")
         .order("created_at", { ascending: false })
-        .limit(8);
+        .limit(5);
       if (breakingData) setBreaking(breakingData);
 
     } catch (e) { console.error(e); }
@@ -318,7 +299,8 @@ const Index = () => {
   const mapToCard = (op: any) => ({
     id: op.id,
     question: op.statement,
-    yesPercent: 50, noPercent: 50,
+    yesPercent: 50,
+    noPercent: 50,
     coins: op.call_count || 0,
     timeLeft: op.end_time
       ? new Date(op.end_time) > new Date()
@@ -328,6 +310,8 @@ const Index = () => {
     genre: op.topics?.name || "General",
     topicIcon: op.topics?.icon,
     topicColor: op.topics?.color,
+    topicSlug: op.topics?.slug || null,
+    imageUrl: op.image_url || null,
     status: op.status,
     creatorUsername: op.profiles?.username || null,
     creatorReputation: op.profiles?.reputation_score
@@ -343,7 +327,6 @@ const Index = () => {
       : undefined,
   });
 
-  // ── Landing ──────────────────────────────────────────────
   if (!hasSeenHero) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -373,14 +356,12 @@ const Index = () => {
     );
   }
 
-  // ── Home feed ─────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-8">
 
-          {/* LEFT */}
           <div className="min-w-0">
 
             {/* Featured carousel */}
@@ -393,16 +374,13 @@ const Index = () => {
                   <div className="flex items-center gap-1.5">
                     {featured.map((_, i) => (
                       <button key={i} onClick={() => setFeaturedIndex(i)}
-                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border"
-                          }`} />
+                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border"}`} />
                     ))}
-                    <button
-                      onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
+                    <button onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all ml-1">
                       <ChevronLeft className="h-3 w-3" />
                     </button>
-                    <button
-                      onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
+                    <button onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all">
                       <ChevronRight className="h-3 w-3" />
                     </button>
@@ -443,13 +421,11 @@ const Index = () => {
               </div>
             </div>
 
-            {/* Topic filter bar */}
             <TopicFilterBar
               active={activeTopic}
               onChange={slug => { setActiveTopic(slug); setPage(0); setOpinions([]); }}
             />
 
-            {/* Cards grid */}
             {loading && page === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {[...Array(6)].map((_, i) => (
@@ -479,7 +455,7 @@ const Index = () => {
                 <Zap className="h-3.5 w-3.5 text-gold" /> Breaking
               </h3>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                {breaking.slice(0, 6).map((item, i) => (
+                {breaking.slice(0, 5).map((item, i) => (
                   <button key={item.id} onClick={() => navigate(`/opinion/${item.id}`)}
                     className="flex items-start gap-3 w-full px-4 py-3.5 border-b border-border last:border-0 hover:bg-secondary/40 transition-colors text-left group">
                     <span className="text-xs text-muted-foreground font-mono mt-0.5 w-4 shrink-0">{i + 1}.</span>
