@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
-import { Target, Trophy, Award, Settings } from "lucide-react";
+import { Target, Trophy, Award, Settings, ArrowLeft } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
@@ -13,7 +13,8 @@ const historyFilters = ["All", "Won", "Lost"];
 
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <motion.div className="flex flex-col items-center justify-center py-16 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <motion.div className="flex flex-col items-center justify-center py-16 text-center"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <h3 className="font-headline text-xl text-muted-foreground mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground">{subtitle}</p>
     </motion.div>
@@ -69,8 +70,7 @@ const Profile = () => {
   });
 
   const winRate = profile?.total_calls > 0
-    ? Math.round((profile.wins / profile.total_calls) * 100)
-    : 0;
+    ? Math.round((profile.wins / profile.total_calls) * 100) : 0;
 
   const stats = [
     { label: "Calls Made", value: profile?.total_calls || 0, icon: Target },
@@ -83,6 +83,11 @@ const Profile = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-8 md:px-6">
+
+        <button onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-5">
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
 
         <motion.div
           className="relative bg-card border border-border rounded-2xl p-8 mb-8 overflow-hidden"
@@ -109,7 +114,8 @@ const Profile = () => {
               <div className="grid grid-cols-2 gap-3">
                 {stats.map((stat, i) => (
                   <motion.div key={stat.label} className="bg-secondary rounded-xl p-4 text-center"
-                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 + i * 0.06 }}>
+                    initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + i * 0.06 }}>
                     <div className="flex items-center justify-center gap-1.5 mb-1.5">
                       <stat.icon className="h-3.5 w-3.5 text-gold" />
                       <span className="text-xs text-muted-foreground">{stat.label}</span>
@@ -135,7 +141,8 @@ const Profile = () => {
                   {tab}
                 </span>
                 {activeTab === tab && (
-                  <motion.div layoutId="profile-tab" className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
+                  <motion.div layoutId="profile-tab"
+                    className="absolute bottom-0 left-2 right-2 h-0.5 bg-gold rounded-full"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }} />
                 )}
               </button>
@@ -157,7 +164,8 @@ const Profile = () => {
                   <motion.div key={call.id}
                     className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-gold/50 transition-all"
                     onClick={() => navigate(`/opinion/${call.opinions?.id}`)}
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}>
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-semibold text-foreground leading-snug mb-2">{call.opinions?.statement}</h3>
@@ -166,7 +174,7 @@ const Profile = () => {
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">{call.opinions?.topics?.name}</p>
                       </div>
-                      <span className="text-xs px-2.5 py-1 rounded-full bg-yes/15 text-yes font-medium shrink-0">Open</span>
+                      <span className="text-xs px-2.5 py-1 rounded-full bg-[#22C55E]/15 text-[#22C55E] font-medium shrink-0">Open</span>
                     </div>
                   </motion.div>
                 ))}
@@ -181,10 +189,12 @@ const Profile = () => {
                   <motion.div key={op.id}
                     className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-gold/50 transition-all"
                     onClick={() => navigate(`/opinion/${op.id}`)}
-                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
+                    initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.08 }}>
                     <h3 className="text-sm font-semibold text-foreground mb-2">{op.statement}</h3>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${op.status === "open" ? "bg-yes/15 text-yes" : "bg-muted text-muted-foreground"}`}>
+                      <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${op.status === "open" ? "bg-[#22C55E]/15 text-[#22C55E]" : "bg-muted text-muted-foreground"
+                        }`}>
                         {op.status}
                       </span>
                       <span className="text-xs text-muted-foreground">{op.topics?.name}</span>
@@ -216,13 +226,16 @@ const Profile = () => {
                       <motion.div key={call.id}
                         className="bg-card border border-border rounded-xl p-5 cursor-pointer hover:border-gold/50 transition-all"
                         onClick={() => navigate(`/opinion/${call.opinions?.id}`)}
-                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.08 }}>
+                        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.08 }}>
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
                             <h3 className="text-sm font-semibold text-foreground mb-1">{call.opinions?.statement}</h3>
-                            <p className="text-xs text-muted-foreground">Called: <span className="text-gold font-semibold">{call.chosen_option}</span></p>
+                            <p className="text-xs text-muted-foreground">
+                              Called: <span className="text-gold font-semibold">{call.chosen_option}</span>
+                            </p>
                           </div>
-                          <span className={`text-xs font-bold ${won ? "text-yes" : resolved ? "text-destructive" : "text-muted-foreground"}`}>
+                          <span className={`text-xs font-bold ${won ? "text-[#22C55E]" : resolved ? "text-[#DC2626]" : "text-muted-foreground"}`}>
                             {won ? "Won" : resolved ? "Lost" : "Pending"}
                           </span>
                         </div>

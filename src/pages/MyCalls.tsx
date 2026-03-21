@@ -21,13 +21,11 @@ const MyCalls = () => {
   const fetchCalls = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const { data } = await supabase
       .from("calls")
       .select("*, opinions(id, statement, status, options, end_time, call_count, winning_option, topics!opinions_topic_id_fkey(name, icon))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
-
     setCalls(data || []);
     setLoading(false);
   };
@@ -39,15 +37,18 @@ const MyCalls = () => {
   return (
     <div className="min-h-screen bg-background pb-20">
       <Navbar />
-      <main className="mx-auto max-w-4xl px-4 md:px-6 pt-12">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center gap-2 mb-8">
-          <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-5 w-5" />
+      <main className="mx-auto max-w-4xl px-4 md:px-6 pt-8">
+
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          className="flex items-center gap-2 mb-8">
+          <button onClick={() => navigate(-1)}
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4" /> Back
           </button>
-          <span className="text-sm font-semibold text-muted-foreground uppercase tracking-widest">My Calls</span>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
           className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 rounded-full bg-gold/10 flex items-center justify-center border border-gold">
@@ -79,15 +80,17 @@ const MyCalls = () => {
           </div>
         ) : (
           <AnimatePresence mode="wait">
-            <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="space-y-4">
+            <motion.div key={activeTab}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}
+              className="space-y-4">
               {currentList.length > 0 ? currentList.map(call => {
                 const won = call.opinions?.winning_option === call.chosen_option;
                 const resolved = call.opinions?.status === "closed";
                 return (
                   <div key={call.id}
                     onClick={() => navigate(`/opinion/${call.opinions?.id}`)}
-                    className="bg-card border border-border rounded-xl p-5 hover:border-gold transition-colors cursor-pointer">
+                    className="bg-card border border-border rounded-xl p-5 hover:border-gold/50 transition-colors cursor-pointer">
                     <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1 block">
@@ -101,13 +104,15 @@ const MyCalls = () => {
                           <span className="text-gold font-semibold">Called: {call.chosen_option}</span>
                           <span className="text-muted-foreground">{call.opinions?.call_count || 0} total callers</span>
                           {resolved && (
-                            <span className={`font-bold ${won ? "text-yes" : "text-destructive"}`}>
+                            <span className={`font-bold ${won ? "text-[#22C55E]" : "text-[#DC2626]"}`}>
                               {won ? "Won" : "Lost"}
                             </span>
                           )}
                         </div>
                       </div>
-                      <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shrink-0 ${resolved ? (won ? "bg-yes/15 text-yes" : "bg-destructive/15 text-destructive") : "bg-gold/10 text-gold"
+                      <span className={`text-xs px-3 py-1.5 rounded-full font-semibold shrink-0 ${resolved
+                          ? won ? "bg-[#22C55E]/15 text-[#22C55E]" : "bg-[#DC2626]/15 text-[#DC2626]"
+                          : "bg-gold/10 text-gold"
                         }`}>
                         {resolved ? (won ? "Won" : "Lost") : "Active"}
                       </span>
