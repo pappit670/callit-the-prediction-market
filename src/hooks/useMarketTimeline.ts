@@ -3,15 +3,12 @@ import { supabase } from "@/supabaseClient";
 
 type ProbabilityPoint = { time: string; probability: number };
 
+// Single definition — type only, no duplicate interface
 export type OptionSeries = {
   label: string;
   data: ProbabilityPoint[];
 };
-// ADD at top of useMarketTimeline.ts:
-export interface OptionSeries {
-  label: string;
-  data: { time: string; probability: number; [key: string]: string | number }[];
-}
+
 export type MarketTimelineState = {
   hasActivity: boolean;
   optionSeries: OptionSeries[];
@@ -19,6 +16,7 @@ export type MarketTimelineState = {
   participants: number;
   totalCoinsStaked: number;
 };
+
 const COINS_PER_STAKE = 50;
 const DEFAULT_MAX_POINTS = 20;
 const MAX_CALLS_FOR_TIMELINE = 5000;
@@ -27,19 +25,15 @@ function formatRelativeTime(firstTimeISO: string, currentTimeISO: string): strin
   const first = new Date(firstTimeISO).getTime();
   const cur = new Date(currentTimeISO).getTime();
   const deltaMs = Math.max(0, cur - first);
-
   const totalSeconds = Math.floor(deltaMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const secondsRemainder = totalSeconds - minutes * 60;
-
   if (minutes > 0) return `+${minutes}m`;
   return `+${secondsRemainder}s`;
 }
 
 function buildTimelineFromCalls({
-  calls,
-  options,
-  maxPoints,
+  calls, options, maxPoints,
 }: {
   calls: { chosen_option: string; created_at: string }[];
   options: string[];
@@ -51,10 +45,9 @@ function buildTimelineFromCalls({
   totalCoinsStaked: number;
 } {
   if (!calls.length) {
-    const emptySeries = options.map((label) => ({ label, data: [] }));
     return {
-      optionSeries: emptySeries,
-      latestProbabilities: Object.fromEntries(options.map((o) => [o, 0])),
+      optionSeries: options.map(label => ({ label, data: [] })),
+      latestProbabilities: Object.fromEntries(options.map(o => [o, 0])),
       participants: 0,
       totalCoinsStaked: 0,
     };
@@ -62,23 +55,21 @@ function buildTimelineFromCalls({
 
   const participants = calls.length;
   const totalCoinsStaked = participants * COINS_PER_STAKE;
-
   const snapshotCount = Math.min(maxPoints, calls.length);
   const lastIndex = calls.length - 1;
 
-  const rawIndices = Array.from({ length: snapshotCount }, (_, i) => {
-    // Evenly distribute points across calls while keeping the first/last included.
-    return Math.round((i * lastIndex) / Math.max(1, snapshotCount - 1));
-  });
-
+  const rawIndices = Array.from({ length: snapshotCount }, (_, i) =>
+    Math.round((i * lastIndex) / Math.max(1, snapshotCount - 1))
+  );
   const snapshotIndices = Array.from(new Set(rawIndices)).sort((a, b) => a - b);
 
-  const counts: Record<string, number> = Object.fromEntries(options.map((o) => [o, 0]));
-
+  const counts: Record<string, number> = Object.fromEntries(options.map(o => [o, 0]));
   const seriesDataByOption: Record<string, ProbabilityPoint[]> = Object.fromEntries(
-    options.map((o) => [o, []]),
+    options.map(o => [o, []])
   );
-  const latestProbabilities: Record<string, number> = Object.fromEntries(options.map((o) => [o, 0]));
+  const latestProbabilities: Record<string, number> = Object.fromEntries(
+    options.map(o => [o, 0])
+  );
 
   const firstTime = calls[0].created_at;
   let snapshotCursor = 0;
@@ -99,25 +90,23 @@ function buildTimelineFromCalls({
       latestProbabilities[opt] = rounded;
       seriesDataByOption[opt].push({ time: timeLabel, probability: rounded });
     }
-
     snapshotCursor += 1;
   }
 
-  const optionSeries: OptionSeries[] = options.map((label) => ({
-    label,
-    data: seriesDataByOption[label] || [],
-  }));
-
-  return { optionSeries, latestProbabilities, participants, totalCoinsStaked };
+  return {
+    optionSeries: options.map(label => ({
+      label,
+      data: seriesDataByOption[label] || [],
+    })),
+    latestProbabilities,
+    participants,
+    totalCoinsStaked,
+  };
 }
 
 export function useMarketTimeline({
-  opinionId,
-  options,
-  maxPoints = DEFAULT_MAX_POINTS,
-  enabled = true,
-  realtime = true,
-  pollIntervalMs = 15000,
+  opinionId, options, maxPoints = DEFAULT_MAX_POINTS,
+  enabled = true, realtime = true, pollIntervalMs = 15000,
 }: {
   opinionId: string | number | undefined;
   options: string[];
@@ -129,22 +118,18 @@ export function useMarketTimeline({
   const stableOptions = useMemo(() => options.filter(Boolean), [options]);
 
   const [optionSeries, setOptionSeries] = useState<OptionSeries[]>(() =>
-    stableOptions.map((label) => ({ label, data: [] })),
+    stableOptions.map(label => ({ label, data: [] }))
   );
   const [latestProbabilities, setLatestProbabilities] = useState<Record<string, number>>(() =>
-    Object.fromEntries(stableOptions.map((o) => [o, 0])),
+    Object.fromEntries(stableOptions.map(o => [o, 0]))
   );
   const [participants, setParticipants] = useState(0);
   const [totalCoinsStaked, setTotalCoinsStaked] = useState(0);
-
   const [hasActivity, setHasActivity] = useState(false);
-
   const rebuildTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!enabled) return;
-    if (!opinionId) return;
-    if (!stableOptions.length) return;
+    if (!enabled || !opinionId || !stableOptions.length) return;
 
     let isCancelled = false;
 
@@ -158,14 +143,12 @@ export function useMarketTimeline({
           .limit(MAX_CALLS_FOR_TIMELINE);
 
         if (error) throw error;
-
         if (isCancelled) return;
 
-        type CallRow = { chosen_option: string | null; created_at: string | null };
-        const rows = (data || []) as unknown as CallRow[];
+        const rows = (data || []) as { chosen_option: string | null; created_at: string | null }[];
         const callsForTimeline = rows.filter(
-          (c) => typeof c?.created_at === "string" && typeof c?.chosen_option === "string",
-        );
+          c => typeof c?.created_at === "string" && typeof c?.chosen_option === "string"
+        ) as { chosen_option: string; created_at: string }[];
 
         const built = buildTimelineFromCalls({
           calls: callsForTimeline,
@@ -178,11 +161,10 @@ export function useMarketTimeline({
         setParticipants(built.participants);
         setTotalCoinsStaked(built.totalCoinsStaked);
         setHasActivity(built.participants > 0);
-      } catch (e) {
-        // Fail closed to "No activity yet" rather than breaking the UI.
+      } catch {
         if (isCancelled) return;
-        setOptionSeries(stableOptions.map((label) => ({ label, data: [] })));
-        setLatestProbabilities(Object.fromEntries(stableOptions.map((o) => [o, 0])));
+        setOptionSeries(stableOptions.map(label => ({ label, data: [] })));
+        setLatestProbabilities(Object.fromEntries(stableOptions.map(o => [o, 0])));
         setParticipants(0);
         setTotalCoinsStaked(0);
         setHasActivity(false);
@@ -191,20 +173,13 @@ export function useMarketTimeline({
 
     const scheduleRebuild = () => {
       if (rebuildTimerRef.current) window.clearTimeout(rebuildTimerRef.current);
-      rebuildTimerRef.current = window.setTimeout(() => {
-        rebuildFromServer();
-      }, 450);
+      rebuildTimerRef.current = window.setTimeout(rebuildFromServer, 450);
     };
 
-    // Initial build
     rebuildFromServer();
 
-    // If realtime updates are disabled (e.g., card grids), poll periodically.
     if (!realtime) {
-      const t = window.setInterval(() => {
-        rebuildFromServer();
-      }, pollIntervalMs);
-
+      const t = window.setInterval(rebuildFromServer, pollIntervalMs);
       return () => {
         isCancelled = true;
         if (rebuildTimerRef.current) window.clearTimeout(rebuildTimerRef.current);
@@ -212,22 +187,12 @@ export function useMarketTimeline({
       };
     }
 
-    // Realtime updates for new stakes or updates (upserts).
     const channel = supabase
       .channel(`market_timeline_${opinionId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "calls",
-          // Supabase filter format: `column=op.value` (type casting depends on DB).
-          filter: `opinion_id=eq.${opinionId}`,
-        },
-        () => {
-          scheduleRebuild();
-        },
-      )
+      .on("postgres_changes", {
+        event: "*", schema: "public", table: "calls",
+        filter: `opinion_id=eq.${opinionId}`,
+      }, () => { scheduleRebuild(); })
       .subscribe();
 
     return () => {
@@ -237,12 +202,5 @@ export function useMarketTimeline({
     };
   }, [enabled, opinionId, stableOptions, maxPoints]);
 
-  return {
-    hasActivity,
-    optionSeries,
-    latestProbabilities,
-    participants,
-    totalCoinsStaked,
-  };
+  return { hasActivity, optionSeries, latestProbabilities, participants, totalCoinsStaked };
 }
-
