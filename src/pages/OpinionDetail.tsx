@@ -2,8 +2,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Share2, Send, ThumbsUp, MessageCircle,
-  Info, Bookmark, Users, ChevronDown, ChevronLeft,
-  CheckCircle2, Coins
+  Info, Bookmark, Users, ChevronLeft, CheckCircle2
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/supabaseClient";
@@ -15,12 +14,12 @@ import { SlidingNumber } from "@/components/ui/sliding-number";
 import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 import { LiveSignalFeed } from "@/components/LiveSignalFeed";
 import { TopArguments } from "@/components/TopArguments";
+import { MobileStakeSheet } from "@/components/MobileStakeSheet";
 import {
   LineChart, Line, ResponsiveContainer, YAxis,
   Tooltip, CartesianGrid
 } from "recharts";
 
-// ── Color system ──────────────────────────────────────────────
 const optColor = (label: string, i: number): string => {
   const l = label.toLowerCase().trim();
   if (l === "yes" || l === "agree") return "#2563EB";
@@ -47,26 +46,19 @@ function formatTimeLeft(endTime: string): string {
 // ── Compact graph ─────────────────────────────────────────────
 const CompactGraph = ({
   optionSeries, height = 130
-}: {
-  optionSeries: { label: string; color: string; data: any[] }[];
-  height?: number;
-}) => {
+}: { optionSeries: { label: string; color: string; data: any[] }[]; height?: number }) => {
   const hasData = optionSeries.some(s => s.data.length > 1);
   if (!hasData) {
     return (
-      <div className="flex items-center justify-center rounded-xl border border-dashed border-border"
-        style={{ height }}>
-        <p className="text-xs text-muted-foreground">No activity yet · Graph appears after first stake</p>
+      <div className="flex items-center justify-center rounded-xl border border-dashed border-border" style={{ height }}>
+        <p className="text-xs text-muted-foreground text-center px-2">No activity yet · Graph appears after first stake</p>
       </div>
     );
   }
   const allTimes = Array.from(new Set(optionSeries.flatMap(s => s.data.map((d: any) => d.time))));
   const merged = allTimes.map(time => {
     const pt: Record<string, any> = { time };
-    optionSeries.forEach(s => {
-      const m = s.data.find((d: any) => d.time === time);
-      pt[s.label] = m?.probability ?? null;
-    });
+    optionSeries.forEach(s => { const m = s.data.find((d: any) => d.time === time); pt[s.label] = m?.probability ?? null; });
     return pt;
   });
   return (
@@ -75,25 +67,21 @@ const CompactGraph = ({
         <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" strokeOpacity={0.3} vertical={false} />
         <YAxis domain={[0, 100]} hide />
         <Tooltip
-          contentStyle={{
-            background: "var(--card)", border: "1px solid var(--border)",
-            borderRadius: "8px", fontSize: "11px", padding: "4px 8px",
-          }}
+          contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "11px", padding: "4px 8px" }}
           formatter={(v: number, name: string) => [`${v}%`, name]}
           labelStyle={{ display: "none" }}
         />
         {optionSeries.map(s => (
           <Line key={s.label} type="monotone" dataKey={s.label}
             stroke={s.color} strokeWidth={1.5} dot={false}
-            activeDot={{ r: 3, strokeWidth: 0 }}
-            connectNulls isAnimationActive={false} />
+            activeDot={{ r: 3, strokeWidth: 0 }} connectNulls isAnimationActive={false} />
         ))}
       </LineChart>
     </ResponsiveContainer>
   );
 };
 
-// ── Sliding comments preview ──────────────────────────────────
+// ── Sliding comments ──────────────────────────────────────────
 const SlidingComments = ({ comments }: { comments: any[] }) => {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
@@ -106,18 +94,13 @@ const SlidingComments = ({ comments }: { comments: any[] }) => {
     <div className="h-8 overflow-hidden relative">
       <AnimatePresence mode="wait">
         <motion.div key={idx}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.3 }}
-          className="flex items-center gap-2 text-xs text-muted-foreground"
-        >
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}
+          className="flex items-center gap-2 text-xs text-muted-foreground">
           <div className="h-5 w-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[9px] font-bold shrink-0">
             {comments[idx]?.profiles?.username?.[0]?.toUpperCase() || "?"}
           </div>
-          <span className="font-medium text-foreground/60 shrink-0">
-            @{comments[idx]?.profiles?.username || "anon"}:
-          </span>
+          <span className="font-medium text-foreground/60 shrink-0">@{comments[idx]?.profiles?.username || "anon"}:</span>
           <span className="truncate">{comments[idx]?.content}</span>
         </motion.div>
       </AnimatePresence>
@@ -125,7 +108,7 @@ const SlidingComments = ({ comments }: { comments: any[] }) => {
   );
 };
 
-// ── Two-step stake panel ──────────────────────────────────────
+// ── Two-step stake panel (desktop) ────────────────────────────
 const StakePanel = ({
   opinion, options, userCall, isOpen,
   hasActivity, latestProbabilities, countdown,
@@ -136,23 +119,12 @@ const StakePanel = ({
   const [stakeAmount, setStakeAmount] = useState(50);
   const potentialReturn = stakeAmount * 2;
 
-  const handleOptionClick = (opt: string) => {
-    setSelected(opt);
-    setStep(2);
-  };
-
-  const handleCall = () => {
-    if (!isLoggedIn) { toast.error("Log in to call!"); navigate("/auth"); return; }
-    onCall(selected, stakeAmount);
-  };
-
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden">
       {/* Step bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/20">
         {step === 2 && (
-          <button onClick={() => setStep(1)}
-            className="text-muted-foreground hover:text-foreground transition-colors mr-1">
+          <button onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground transition-colors mr-1">
             <ChevronLeft className="h-4 w-4" />
           </button>
         )}
@@ -166,18 +138,13 @@ const StakePanel = ({
       </div>
 
       <AnimatePresence mode="wait">
-        {/* Step 1 — Pick option */}
         {step === 1 && (
-          <motion.div key="step1"
+          <motion.div key="s1"
             initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }}
             className="p-4 space-y-3">
-            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Make Your Call
-            </p>
-            <p className="text-sm font-semibold text-foreground leading-snug line-clamp-3">
-              {opinion.statement}
-            </p>
+            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Make Your Call</p>
+            <p className="text-sm font-semibold text-foreground leading-snug line-clamp-3">{opinion.statement}</p>
             {userCall && (
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50 border border-border">
                 <CheckCircle2 className="h-3.5 w-3.5 text-[#22C55E]" />
@@ -191,21 +158,17 @@ const StakePanel = ({
                 const color = optColor(opt, i);
                 return (
                   <button key={opt}
-                    onClick={() => isOpen && handleOptionClick(opt)}
+                    onClick={() => isOpen && (setSelected(opt), setStep(2))}
                     disabled={!isOpen}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:bg-secondary/40 disabled:opacity-60 disabled:cursor-not-allowed ${userCall?.chosen_option === opt
-                        ? "border-2 bg-secondary/30"
-                        : "border-border/60 bg-secondary/10"
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:bg-secondary/40 disabled:opacity-60 ${userCall?.chosen_option === opt ? "border-2 bg-secondary/30" : "border-border/60 bg-secondary/10"
                       }`}
-                    style={userCall?.chosen_option === opt ? { borderColor: color } : {}}
-                  >
+                    style={userCall?.chosen_option === opt ? { borderColor: color } : {}}>
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
                       <span style={{ color }}>{opt}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold tabular-nums"
-                        style={{ color: pct !== null ? color : undefined }}>
+                      <span className="text-xs font-bold tabular-nums" style={{ color: pct !== null ? color : undefined }}>
                         {pct !== null ? `${pct}%` : "—"}
                       </span>
                       {isOpen && <span className="text-[10px] text-muted-foreground">→</span>}
@@ -223,44 +186,35 @@ const StakePanel = ({
           </motion.div>
         )}
 
-        {/* Step 2 — Stake amount */}
         {step === 2 && (
-          <motion.div key="step2"
+          <motion.div key="s2"
             initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.15 }}
             className="p-4 space-y-4">
-            {/* Selected recap */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/40 border border-border">
               <div className="h-2 w-2 rounded-full shrink-0"
                 style={{ background: optColor(selected || "", options.indexOf(selected)) }} />
-              <span className="text-sm font-semibold text-foreground flex-1"
-                style={{ color: optColor(selected || "", options.indexOf(selected)) }}>
-                {selected}
-              </span>
-              {hasActivity && (
+              <span className="text-sm font-semibold flex-1"
+                style={{ color: optColor(selected || "", options.indexOf(selected)) }}>{selected}</span>
+              {hasActivity && selected && (
                 <span className="text-xs font-bold tabular-nums"
-                  style={{ color: optColor(selected || "", options.indexOf(selected)) }}>
-                  {latestProbabilities[selected!]}%
+                  style={{ color: optColor(selected, options.indexOf(selected)) }}>
+                  {latestProbabilities[selected]}%
                 </span>
               )}
             </div>
 
-            {/* Stake */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Stake</span>
                 <span className="text-xs text-muted-foreground">
-                  Balance: <span className="text-foreground font-semibold">
-                    {(user?.balance || 0).toLocaleString()}
-                  </span> coins
+                  Balance: <span className="text-foreground font-semibold">{(user?.balance || 0).toLocaleString()}</span> coins
                 </span>
               </div>
               <div className="flex gap-1.5 mb-2 flex-wrap">
                 {STAKE_OPTS.map(s => (
                   <button key={s} onClick={() => setStakeAmount(s)}
-                    className={`flex-1 min-w-[40px] py-2 rounded-lg text-xs font-bold transition-all border ${stakeAmount === s
-                        ? "bg-foreground text-background border-foreground"
-                        : "border-border text-muted-foreground hover:border-foreground/30"
+                    className={`flex-1 min-w-[40px] py-2 rounded-lg text-xs font-bold transition-all border ${stakeAmount === s ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:border-foreground/30"
                       }`}>{s}</button>
                 ))}
               </div>
@@ -273,7 +227,6 @@ const StakePanel = ({
               </div>
             </div>
 
-            {/* Return preview */}
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-secondary/40 rounded-xl p-3 text-center">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You stake</p>
@@ -286,7 +239,7 @@ const StakePanel = ({
             </div>
 
             <motion.button whileTap={{ scale: 0.97 }}
-              onClick={handleCall}
+              onClick={() => { if (!isLoggedIn) { toast.error("Log in!"); navigate("/auth"); return; } onCall(selected, stakeAmount); }}
               disabled={!selected || submitting || (user?.balance || 0) < stakeAmount}
               className="w-full py-4 rounded-xl bg-gold text-primary-foreground text-base font-black hover:bg-gold-hover transition-all disabled:opacity-40">
               {submitting ? "Placing..." : userCall ? "Update Call" : "Call It →"}
@@ -339,6 +292,7 @@ const OpinionDetail = () => {
   const [activeCommentTab, setActiveCommentTab] = useState<typeof COMMENT_TABS[number]>("Comments");
   const [countdown, setCountdown] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
 
   useEffect(() => { if (id) fetchOpinion(); }, [id]);
 
@@ -378,8 +332,7 @@ const OpinionDetail = () => {
 
   const handleCall = async (selectedOption: string, stakeAmount: number) => {
     if (!isLoggedIn) { toast.error("Log in to call!"); navigate("/auth"); return; }
-    if (!selectedOption) return;
-    if (submitting) return;
+    if (!selectedOption || submitting) return;
     setSubmitting(true);
     try {
       const { data: { user: au } } = await supabase.auth.getUser();
@@ -401,9 +354,8 @@ const OpinionDetail = () => {
         .from("opinions").select(`*, topics(name, slug, icon, color), profiles(username, avatar_url)`)
         .eq("id", id).single();
       if (ref) setOpinion(ref);
-    } catch (e: any) {
-      toast.error(e.message || "Failed");
-    } finally { setSubmitting(false); }
+    } catch (e: any) { toast.error(e.message || "Failed"); }
+    finally { setSubmitting(false); }
   };
 
   const handleComment = async () => {
@@ -421,16 +373,9 @@ const OpinionDetail = () => {
 
   const marketOptions: string[] = Array.isArray(opinion?.options) ? opinion.options : ["Yes", "No"];
   const { hasActivity, optionSeries: marketSeries, latestProbabilities } = useMarketTimeline({
-    opinionId: id,
-    options: marketOptions,
-    maxPoints: 30,
-    enabled: !!opinion,
+    opinionId: id, options: marketOptions, maxPoints: 30, enabled: !!opinion,
   });
-
-  const coloredSeries = marketSeries.map((s, i) => ({
-    ...s,
-    color: optColor(s.label, i),
-  }));
+  const coloredSeries = marketSeries.map((s, i) => ({ ...s, color: optColor(s.label, i) }));
 
   if (loading) return (
     <div className="min-h-screen bg-background">
@@ -457,31 +402,26 @@ const OpinionDetail = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <div className="px-4 md:px-10 pt-6 pb-24">
+      <div className="px-4 md:px-10 pt-6 pb-32">
         <div className="flex gap-8 max-w-7xl mx-auto">
 
-          {/* ══ LEFT COLUMN ══ */}
+          {/* ══ LEFT ══ */}
           <div className="flex-[62] min-w-0 space-y-6">
 
-            {/* Back */}
             <button onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
 
-            {/* ── QUESTION HEAD BLOCK ── */}
+            {/* Question head block */}
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
-
-              {/* Topic + status bar */}
               <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-secondary/20">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {opinion.topics?.icon} {opinion.topics?.name || "General"}
                 </span>
                 <div className="flex items-center gap-3">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isOpen ? "bg-[#22C55E]/15 text-[#22C55E]" : "bg-muted text-muted-foreground"
-                    }`}>
-                    {isOpen ? "● Open" : "Closed"}
-                  </span>
+                    }`}>{isOpen ? "● Open" : "Closed"}</span>
                   <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                     <Users className="h-3 w-3" /> {opinion.call_count || 0}
                   </span>
@@ -489,17 +429,13 @@ const OpinionDetail = () => {
               </div>
 
               <div className="p-5 space-y-4">
-                {/* Question */}
                 <h1 className="font-headline text-2xl sm:text-3xl text-foreground leading-tight">
                   {opinion.statement}
                 </h1>
 
                 {/* Two-col: options LEFT, graph RIGHT */}
                 <div className="grid grid-cols-2 gap-4 items-stretch min-h-[140px]">
-
-                  {/* LEFT — options */}
                   <div className="flex flex-col justify-center gap-1.5">
-                    {/* Binary: vertical stack with colored labels */}
                     {isBinary ? (
                       options.map((opt: string, i: number) => {
                         const pct = hasActivity ? latestProbabilities[opt] : null;
@@ -524,7 +460,6 @@ const OpinionDetail = () => {
                         );
                       })
                     ) : (
-                      /* Multi-choice: compact list */
                       options.map((opt: string, i: number) => {
                         const pct = hasActivity ? latestProbabilities[opt] : null;
                         const color = optColor(opt, i);
@@ -554,21 +489,19 @@ const OpinionDetail = () => {
                         : `${countdown || formatTimeLeft(opinion.end_time)} left · No stakes yet`}
                     </p>
                   </div>
-
-                  {/* RIGHT — graph */}
                   <div className="flex flex-col justify-center">
                     <CompactGraph optionSeries={coloredSeries} height={140} />
                   </div>
                 </div>
 
-                {/* Sliding comments — full width below both columns */}
+                {/* Sliding comments — full width */}
                 <div className="border-t border-border/40 pt-3">
                   <SlidingComments comments={comments} />
                 </div>
               </div>
             </div>
 
-            {/* ── CONTEXT ── */}
+            {/* Context */}
             {opinion.description && opinion.description.length > 15 && (
               <div className="rounded-2xl border border-border bg-card p-5">
                 <div className="flex items-center gap-2 mb-3">
@@ -588,22 +521,22 @@ const OpinionDetail = () => {
               </div>
             )}
 
-            {/* ── LIVE SIGNALS ── */}
+            {/* Live signals */}
             <LiveSignalFeed opinionId={id} />
 
-            {/* ── TOP ARGUMENTS ── */}
+            {/* Arguments */}
             <div className="rounded-2xl border border-border bg-card p-5">
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Arguments</h3>
               <TopArguments opinionId={id!} />
             </div>
 
-            {/* ── DEBATE ── */}
+            {/* Debate */}
             <div className="rounded-2xl border border-border bg-card p-5" id="debate">
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Take a Stand</h3>
               <DebatePanel opinionId={id!} opinionStatement={opinion.statement} defaultExpanded={true} />
             </div>
 
-            {/* ── COMMENTS ── */}
+            {/* Comments */}
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="flex border-b border-border">
                 {COMMENT_TABS.map(tab => (
@@ -616,7 +549,6 @@ const OpinionDetail = () => {
                   </button>
                 ))}
               </div>
-
               <div className="p-5">
                 {activeCommentTab === "Comments" && (
                   <>
@@ -666,7 +598,6 @@ const OpinionDetail = () => {
                     )}
                   </>
                 )}
-
                 {activeCommentTab === "Positions" && (
                   <div className="space-y-2">
                     {options.map((opt: string, i: number) => {
@@ -694,7 +625,6 @@ const OpinionDetail = () => {
                     })}
                   </div>
                 )}
-
                 {activeCommentTab === "Activity" && <LiveSignalFeed opinionId={id} />}
               </div>
             </div>
@@ -712,28 +642,44 @@ const OpinionDetail = () => {
             </div>
           </div>
 
-          {/* ══ RIGHT COLUMN — Stake Panel ══ */}
+          {/* ══ RIGHT — desktop stake panel ══ */}
           <div className="hidden lg:block flex-[38] min-w-[300px] max-w-[360px]">
             <div className="sticky top-24">
               <StakePanel
-                opinion={opinion}
-                options={options}
-                userCall={userCall}
-                isOpen={isOpen}
-                hasActivity={hasActivity}
-                latestProbabilities={latestProbabilities}
-                countdown={countdown}
-                onCall={handleCall}
-                submitting={submitting}
-                user={user}
-                isLoggedIn={isLoggedIn}
-                navigate={navigate}
+                opinion={opinion} options={options} userCall={userCall}
+                isOpen={isOpen} hasActivity={hasActivity}
+                latestProbabilities={latestProbabilities} countdown={countdown}
+                onCall={handleCall} submitting={submitting}
+                user={user} isLoggedIn={isLoggedIn} navigate={navigate}
               />
             </div>
           </div>
 
         </div>
       </div>
+
+      {/* ── Mobile floating CTA ── */}
+      {isOpen && (
+        <div className="lg:hidden fixed bottom-6 left-4 right-4 z-50">
+          <motion.button whileTap={{ scale: 0.97 }}
+            onClick={() => setMobileSheetOpen(true)}
+            className="w-full py-4 rounded-2xl bg-gold text-primary-foreground text-base font-black shadow-2xl">
+            {userCall ? `Your call: ${userCall.chosen_option} — Update` : "Call It →"}
+          </motion.button>
+        </div>
+      )}
+
+      {/* ── Mobile stake sheet ── */}
+      {mobileSheetOpen && (
+        <MobileStakeSheet
+          opinion={opinion} options={options} userCall={userCall}
+          isOpen={isOpen} hasActivity={hasActivity}
+          latestProbabilities={latestProbabilities} countdown={countdown}
+          onCall={handleCall} submitting={submitting}
+          user={user} isLoggedIn={isLoggedIn}
+          onClose={() => setMobileSheetOpen(false)}
+        />
+      )}
     </div>
   );
 };

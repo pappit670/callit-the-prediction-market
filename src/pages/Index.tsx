@@ -53,27 +53,10 @@ const TOPIC_PILLS = [
   { label: "Fuel", slug: "kenya-fuel" },
 ];
 
-function generateFeaturedChartData(percent: number, seed: number, points = 20) {
-  const data: { time: string; probability: number }[] = [];
-  const labels = ["Day 1", "Day 3", "Day 5", "Day 7", "Day 10", "Day 14", "Day 17", "Day 20", "Day 24", "Day 27", "Day 30", "Day 33", "Day 36", "Day 40", "Day 44", "Day 47", "Day 50", "Day 54", "Day 57", "Now"];
-  let val = 40 + (seed % 20);
-  for (let i = 0; i < points; i++) {
-    const noise = Math.sin(seed * 13.37 + i * 2.1) * 8 + Math.cos(seed * 7.53 + i * 3.7) * 5;
-    val = val + (percent - val) * 0.15 + noise * (1 - (i / points) * 0.7);
-    val = Math.max(2, Math.min(98, val));
-    if (i === points - 1) val = percent;
-    data.push({ time: labels[i] || `Day ${i + 1}`, probability: Math.round(val) });
-  }
-  return data;
-}
-
+// ── Featured card ─────────────────────────────────────────────
 const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void }) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
-  const {
-    hasActivity,
-    optionSeries: marketOptionSeries,
-    latestProbabilities,
-  } = useMarketTimeline({
+  const { hasActivity, optionSeries: marketOptionSeries, latestProbabilities } = useMarketTimeline({
     opinionId: opinion?.id,
     options,
     maxPoints: 20,
@@ -110,9 +93,21 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
             </p>
           )}
         </div>
-        <div className="px-3">
-          <CallitPredictionCard title="Market Probability" optionSeries={marketOptionSeries} height={160} />
+
+        {/* Chart — min height ensures "No activity yet" is centered */}
+        <div className="px-3 min-h-[160px] flex items-center justify-center">
+          <div className="w-full">
+            <CallitPredictionCard
+              title="Market Probability"
+              optionSeries={marketOptionSeries.map((s, i) => ({
+                ...s,
+                color: OPTION_HEX[i % OPTION_HEX.length],
+              }))}
+              height={160}
+            />
+          </div>
         </div>
+
         <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <div className="flex items-center gap-3">
             {options.slice(0, 3).map((opt, i) => (
@@ -144,8 +139,8 @@ const TopicFilterBar = ({ active, onChange }: { active: string | null; onChange:
           key={p.slug ?? "all"}
           onClick={() => onChange(p.slug)}
           className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${active === p.slug
-              ? "bg-foreground text-background"
-              : "bg-secondary text-muted-foreground hover:text-foreground"
+            ? "bg-foreground text-background"
+            : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}
         >
           {p.label}
@@ -175,9 +170,8 @@ const FeaturedTabs = () => {
     <div className="bg-card border border-border rounded-2xl overflow-hidden">
       <div className="flex border-b border-border">
         {(["debates", "activity"] as const).map(t => (
-          <button key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 capitalize ${tab === t ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
+          <button key={t} onClick={() => setTab(t)}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}>
             {t === "debates" ? <Swords className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -206,13 +200,13 @@ const FeaturedTabs = () => {
                   {d.opinions?.statement?.slice(0, 55)}...
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] text-[#00C278] font-semibold">{d.challenger_alias}</span>
+                  <span className="text-[10px] text-[#22C55E] font-semibold">{d.challenger_alias}</span>
                   <span className="text-[10px] text-muted-foreground">vs</span>
-                  <span className="text-[10px] text-[#EF4444] font-semibold">{d.defender_alias}</span>
+                  <span className="text-[10px] text-[#DC2626] font-semibold">{d.defender_alias}</span>
                   <span className="text-[10px] text-gold ml-auto">{d.challenger_votes + d.defender_votes} votes</span>
                 </div>
-                <div className="mt-1.5 h-1 rounded-full bg-[#EF4444]/20 overflow-hidden">
-                  <div className="h-full bg-[#00C278] rounded-full transition-all"
+                <div className="mt-1.5 h-1 rounded-full bg-[#DC2626]/20 overflow-hidden">
+                  <div className="h-full bg-[#22C55E] rounded-full transition-all"
                     style={{
                       width: `${(d.challenger_votes + d.defender_votes) > 0
                         ? Math.round((d.challenger_votes / (d.challenger_votes + d.defender_votes)) * 100)
@@ -317,7 +311,8 @@ const Index = () => {
     topicColor: op.topics?.color,
     status: op.status,
     creatorUsername: op.profiles?.username || null,
-    creatorReputation: op.profiles?.reputation_score ? Math.round(op.profiles.reputation_score) : undefined,
+    creatorReputation: op.profiles?.reputation_score
+      ? Math.round(op.profiles.reputation_score) : undefined,
     createdAt: op.created_at,
     followerCount: op.follower_count || 0,
     isRising: (op.rising_score || 0) > 10,
@@ -329,7 +324,7 @@ const Index = () => {
       : undefined,
   });
 
-  // ── Landing ─────────────────────────────────────────────
+  // ── Landing ──────────────────────────────────────────────
   if (!hasSeenHero) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -359,16 +354,16 @@ const Index = () => {
     );
   }
 
-  // ── Home feed ────────────────────────────────────────────
+  // ── Home feed ─────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-
       <main className="mx-auto max-w-7xl px-4 md:px-6 py-6 pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-8">
 
           {/* LEFT */}
-          <div>
+          <div className="min-w-0">
+
             {/* Featured carousel */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
@@ -423,10 +418,10 @@ const Index = () => {
               </div>
             </div>
 
-            {/* ── Topic filter bar — sits right below All Calls ── */}
+            {/* Topic filter bar */}
             <TopicFilterBar
               active={activeTopic}
-              onChange={(slug) => { setActiveTopic(slug); setPage(0); setOpinions([]); }}
+              onChange={slug => { setActiveTopic(slug); setPage(0); setOpinions([]); }}
             />
 
             {/* Cards grid */}

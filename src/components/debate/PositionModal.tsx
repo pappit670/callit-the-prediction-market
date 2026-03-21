@@ -1,106 +1,153 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, CheckCircle2, XCircle, Send } from "lucide-react";
+import { X, CheckCircle2, XCircle } from "lucide-react";
 import { supabase } from "@/supabaseClient";
-import { useApp } from "@/context/AppContext";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useApp } from "@/context/AppContext";
 
-interface PositionModalProps {
+interface Props {
   opinionId: string;
   opinionStatement: string;
   stance: "agree" | "disagree";
   onClose: () => void;
-  onSuccess?: (position: any) => void;
 }
 
-export function PositionModal({ opinionId, opinionStatement, stance, onClose, onSuccess }: PositionModalProps) {
-  const { isLoggedIn } = useApp();
-  const navigate = useNavigate();
+export function PositionModal({ opinionId, opinionStatement, stance, onClose }: Props) {
+  const { user, isLoggedIn } = useApp();
   const [argument, setArgument] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [anonymous, setAnonymous] = useState(false);
 
-  const isAgree = stance === "agree";
-  const color   = isAgree ? "#00C278" : "#EF4444";
-  const Icon    = isAgree ? CheckCircle2 : XCircle;
+  // Lock body scroll when open
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
+  const color = stance === "agree" ? "#22C55E" : "#DC2626";
+  const label = stance === "agree" ? "Agree" : "Disagree";
+  const Icon = stance === "agree" ? CheckCircle2 : XCircle;
 
   const handleSubmit = async () => {
-    if (!isLoggedIn) { toast.error("Log in first!"); navigate("/auth"); return; }
+    if (!isLoggedIn) { toast.error("Log in first!"); return; }
+    if (!argument.trim()) { toast.error("Add your argument!"); return; }
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not logged in");
-      const alias = `Caller ${Math.floor(Math.random() * 9000) + 1000}`;
-      const { data, error } = await supabase.from("positions").upsert({
-        opinion_id: opinionId, user_id: user.id,
-        stance, argument: argument.trim() || null,
+      const { data: { user: au } } = await supabase.auth.getUser();
+      if (!au) throw new Error("Not logged in");
+
+      const alias = anonymous
+        ? `Caller ${Math.floor(Math.random() * 900 + 100)}`
+        : (user?.username || "Caller");
+
+      const { error } = await supabase.from("positions").upsert({
+        opinion_id: opinionId,
+        user_id: au.id,
+        stance,
+        argument: argument.trim(),
         anonymous_alias: alias,
-      }, { onConflict: "opinion_id,user_id" }).select().single();
+        anonymous: anonymous,
+      }, { onConflict: "opinion_id,user_id" });
+
       if (error) throw error;
-      toast.success(`${isAgree ? "Agreed" : "Disagreed"}!`);
-      onSuccess?.(data);
+      toast.success(`Your ${label} stance posted!`);
       onClose();
     } catch (e: any) {
-      toast.error(e.message || "Failed");
+      toast.error(e.message || "Failed to post");
     } finally { setSubmitting(false); }
   };
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
         onClick={onClose}
       >
         <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 10 }}
+          transition={{ duration: 0.18 }}
           className="w-full max-w-md bg-card border border-border rounded-2xl overflow-hidden shadow-2xl"
-          initial={{ opacity: 0, y: 40, scale: 0.97 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 40 }}
-          transition={{ type: "spring", stiffness: 320, damping: 30 }}
           onClick={e => e.stopPropagation()}
         >
+          {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-border">
             <div className="flex items-center gap-2">
               <Icon className="h-5 w-5" style={{ color }} />
-              <span className="font-bold text-foreground text-sm">{isAgree ? "Agree with this call" : "Disagree with this call"}</span>
+              <span className="text-sm font-bold text-foreground">
+                I {label} with this
+              </span>
             </div>
-            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1">
+            <button onClick={onClose}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
               <X className="h-4 w-4" />
             </button>
           </div>
 
           <div className="p-5 space-y-4">
-            <div className="bg-secondary/60 rounded-xl p-3 border-l-2" style={{ borderLeftColor: color }}>
-              <p className="text-sm text-foreground leading-snug line-clamp-2">{opinionStatement}</p>
+            {/* Opinion preview */}
+            <div className="px-3 py-2.5 rounded-xl bg-secondary/50 border border-border/60">
+              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                "{opinionStatement}"
+              </p>
             </div>
 
+            {/* Stance badge */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+              style={{ borderColor: color + "40", background: color + "08" }}>
+              <div className="h-2 w-2 rounded-full" style={{ background: color }} />
+              <span className="text-xs font-bold" style={{ color }}>
+                Taking the {label} side
+              </span>
+            </div>
+
+            {/* Argument input */}
             <div>
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                Your argument <span className="font-normal text-muted-foreground">(optional)</span>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">
+                Your Argument
               </label>
               <textarea
                 value={argument}
                 onChange={e => setArgument(e.target.value)}
-                placeholder={isAgree ? "Why do you agree? Make your case..." : "Why do you disagree? Be specific."}
-                maxLength={280} rows={3}
-                className="w-full rounded-xl border border-border bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors resize-none"
+                placeholder={`Why do you ${stance} with this? Make your case...`}
+                rows={4}
+                className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors resize-none"
               />
-              <p className="text-[11px] text-muted-foreground text-right mt-1">{argument.length}/280</p>
+              <p className="text-[10px] text-muted-foreground mt-1 text-right">
+                {argument.length}/280
+              </p>
             </div>
 
-            <div className="flex gap-2">
-              <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">
-                Cancel
+            {/* Anonymous toggle */}
+            <div className="flex items-center justify-between py-2 border-t border-border">
+              <div>
+                <p className="text-xs font-semibold text-foreground">Post anonymously</p>
+                <p className="text-[10px] text-muted-foreground">Your name won't be shown</p>
+              </div>
+              <button onClick={() => setAnonymous(a => !a)}
+                className={`h-6 w-11 rounded-full p-1 transition-colors relative ${anonymous ? "bg-gold" : "bg-secondary border border-border"}`}>
+                <motion.div
+                  animate={{ x: anonymous ? 20 : 0 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  className="h-4 w-4 bg-white rounded-full shadow-sm"
+                />
               </button>
-              <motion.button
-                whileTap={{ scale: 0.97 }} onClick={handleSubmit} disabled={submitting}
-                className="flex-1 py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
-                style={{ background: color }}
-              >
-                {submitting ? "Submitting..." : <><Send className="h-4 w-4" />{isAgree ? "Agree" : "Disagree"}</>}
-              </motion.button>
             </div>
+
+            {/* Submit */}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={handleSubmit}
+              disabled={submitting || !argument.trim()}
+              className="w-full py-3.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
+              style={{ background: color }}
+            >
+              {submitting ? "Posting..." : `Post ${label} Stance`}
+            </motion.button>
           </div>
         </motion.div>
       </motion.div>
