@@ -7,13 +7,6 @@ import { useApp } from "@/context/AppContext";
 import { SlidingNumber } from "@/components/ui/sliding-number";
 import { SearchModal } from "@/components/SearchModal";
 
-const tickerItems = [
-  "US Fed expected to cut rates by 25bps next month",
-  "Bitcoin surges past $95k following institutional adoption",
-  "Tech giants announce new AI safety standards agreement",
-  "Local markets show resilience amid global volatility"
-];
-
 const NAV_TOPICS = [
   { label: "Politics", slug: "politics" },
   { label: "Sports", slug: "sports" },
@@ -76,68 +69,61 @@ const Navbar = () => {
       >
         {!hasSeenHero ? (
           <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-center px-4">
-            <Link to="/" className="font-headline text-3xl font-bold tracking-tight text-foreground hover:text-gold transition-colors">
+            <Link to="/" className="font-headline text-3xl font-bold tracking-tight text-foreground hover:opacity-80 transition-opacity">
               Callit
             </Link>
           </div>
         ) : (
           <>
-            {/* Main bar */}
+            {/* ── Main bar ── */}
             <div className="mx-auto flex h-[68px] max-w-7xl items-center justify-between px-4 md:px-6 gap-4">
-              <Link to="/" className="font-headline text-2xl font-bold tracking-tight text-foreground select-none shrink-0 hover:text-gold transition-colors">
+              <Link to="/"
+                className="font-headline text-2xl font-bold tracking-tight text-foreground select-none shrink-0 hover:opacity-80 transition-opacity">
                 Callit
               </Link>
 
-              {/* Search button */}
+              {/* Search button — opens SearchModal */}
               <div className="hidden md:flex items-center justify-start flex-1 max-w-[320px]">
                 <button
                   onClick={() => setSearchOpen(true)}
-                  className="w-full flex items-center gap-3 rounded-full border border-border bg-secondary/30 px-4 py-2 text-[14px] text-muted-foreground hover:border-gold/50 hover:bg-secondary/50 transition-all text-left">
+                  className="w-full flex items-center gap-3 rounded-full border border-border bg-secondary/30 px-4 py-2 text-[14px] text-muted-foreground hover:border-foreground/30 hover:bg-secondary/50 transition-all text-left">
                   <Search className="h-[18px] w-[18px] shrink-0" />
                   <span>Search calls...</span>
                 </button>
               </div>
 
-              {/* Live ticker */}
-              <div className="hidden lg:flex flex-1 max-w-[280px] items-center gap-3 overflow-hidden bg-secondary/20 rounded-full px-3 py-1.5 border border-border/50">
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-600" />
-                  </span>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Live</span>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <motion.div className="whitespace-nowrap flex gap-8"
-                    animate={{ x: [0, -1000] }} transition={{ duration: 40, repeat: Infinity, ease: "linear" }}>
-                    {Array(5).fill(tickerItems).flat().map((item, i) => (
-                      <span key={i} className="text-[12px] font-medium text-foreground/80">{item}</span>
-                    ))}
-                  </motion.div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 shrink-0">
+              {/* Right actions */}
+              <div className="flex items-center justify-end gap-3 shrink-0 ml-auto">
                 {!isLoggedIn ? (
                   <div className="flex items-center gap-3">
-                    <Link to="/auth" className="rounded-full border border-border px-4 py-1.5 text-xs font-bold hover:border-gold hover:text-gold transition-all">Log In</Link>
-                    <Link to="/auth" className="rounded-full bg-gold text-primary-foreground px-4 py-1.5 text-xs font-bold hover:bg-gold-hover transition-all">Sign Up</Link>
+                    <Link to="/auth"
+                      className="rounded-full border border-border px-4 py-1.5 text-xs font-bold hover:border-foreground/40 hover:text-foreground transition-all">
+                      Log In
+                    </Link>
+                    <Link to="/auth"
+                      className="rounded-full bg-foreground text-background px-4 py-1.5 text-xs font-bold hover:brightness-110 transition-all">
+                      Sign Up
+                    </Link>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <div className="hidden sm:flex items-center gap-1.5 bg-secondary/50 px-3 py-1.5 rounded-full border border-border mr-2">
-                      <span className="text-gold text-sm font-bold flex items-center gap-1">
+                    {/* Balance */}
+                    <div className="hidden sm:flex items-center gap-1.5 bg-secondary/50 px-3 py-1.5 rounded-full border border-border mr-1">
+                      <span className="text-sm font-bold text-foreground flex items-center gap-1">
                         🪙 <SlidingNumber value={user.balance || 0} />
                       </span>
                     </div>
 
+                    {/* Notifications */}
                     <button onClick={() => navigate("/notifications")}
-                      className="p-2 text-muted-foreground hover:text-gold transition-colors relative">
+                      className="p-2 text-muted-foreground hover:text-foreground transition-colors relative">
                       <Bell className="h-5 w-5" />
-                      <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-gold rounded-full border-2 border-background" />
+                      <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-foreground rounded-full border-2 border-background" />
                     </button>
 
-                    <Link to="/call-it" className="hidden md:flex rounded-full bg-gold text-primary-foreground px-5 py-1.5 text-sm font-bold hover:bg-gold-hover transition-all animate-gold-pulse">
+                    {/* Call It CTA */}
+                    <Link to="/call-it"
+                      className="hidden md:flex rounded-full bg-foreground text-background px-5 py-1.5 text-sm font-bold hover:brightness-110 transition-all">
                       Call It
                     </Link>
 
@@ -146,8 +132,10 @@ const Navbar = () => {
                       onMouseEnter={() => setShowProfilePopover(true)}
                       onMouseLeave={() => setShowProfilePopover(false)}>
                       <button className="flex items-center group">
-                        <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-bold text-muted-foreground group-hover:border-gold transition-colors overflow-hidden">
-                          {user.avatar ? <img src={user.avatar} alt="" className="w-full h-full object-cover" /> : user.initials || "?"}
+                        <div className="h-8 w-8 rounded-full bg-secondary border border-border flex items-center justify-center text-xs font-bold text-muted-foreground group-hover:border-foreground/40 transition-colors overflow-hidden">
+                          {user.avatar
+                            ? <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                            : user.initials || "?"}
                         </div>
                       </button>
 
@@ -162,7 +150,7 @@ const Navbar = () => {
                           >
                             <div className="p-4 border-b border-border">
                               <div className="flex items-center gap-3">
-                                <div className="h-11 w-11 rounded-full bg-gold/10 border-2 border-gold flex items-center justify-center text-sm font-bold text-gold flex-shrink-0">
+                                <div className="h-11 w-11 rounded-full bg-secondary border-2 border-border flex items-center justify-center text-sm font-bold text-foreground flex-shrink-0 overflow-hidden">
                                   {user.avatar
                                     ? <img src={user.avatar} alt="" className="w-full h-full object-cover rounded-full" />
                                     : user.initials || "?"}
@@ -174,7 +162,7 @@ const Navbar = () => {
                               </div>
                               <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border">
                                 {[
-                                  { val: user.wins || 0, label: "Wins", cls: "text-gold" },
+                                  { val: user.wins || 0, label: "Wins", cls: "text-[#22C55E]" },
                                   { val: user.losses || 0, label: "Losses", cls: "text-destructive" },
                                   { val: user.total_calls || 0, label: "Calls", cls: "text-foreground" },
                                 ].map(s => (
@@ -191,7 +179,7 @@ const Navbar = () => {
                               {profileMenuItems.map(item => (
                                 <button key={item.path}
                                   onClick={() => { navigate(item.path); setShowProfilePopover(false); }}
-                                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary hover:text-gold rounded-xl transition-colors">
+                                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary rounded-xl transition-colors">
                                   {item.label}
                                 </button>
                               ))}
@@ -210,13 +198,13 @@ const Navbar = () => {
                 )}
 
                 <button onClick={() => setIsDrawerOpen(true)}
-                  className="p-1.5 text-foreground hover:text-gold transition-colors bg-secondary/50 rounded-lg ml-1">
+                  className="p-1.5 text-foreground hover:opacity-70 transition-opacity bg-secondary/50 rounded-lg ml-1">
                   <Menu className="h-6 w-6" />
                 </button>
               </div>
             </div>
 
-            {/* Second bar — categories */}
+            {/* ── Second bar — text-only category topics, NO icons ── */}
             <div className="w-full border-t border-border bg-background">
               <div className="mx-auto max-w-7xl px-4 md:px-6">
                 <div className="flex items-center gap-0.5 overflow-x-auto py-1.5" style={{ scrollbarWidth: "none" }}>
@@ -224,8 +212,8 @@ const Navbar = () => {
                     <button key={t.slug}
                       onClick={() => navigate(`/topic/${t.slug}`)}
                       className={`whitespace-nowrap text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${location.pathname === `/topic/${t.slug}`
-                          ? "text-gold bg-gold/10"
-                          : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                          ? "text-foreground bg-secondary"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
                         }`}>
                       {t.label}
                     </button>
@@ -237,7 +225,7 @@ const Navbar = () => {
         )}
       </motion.nav>
 
-      {/* Drawer */}
+      {/* ── Side drawer ── */}
       <AnimatePresence>
         {isDrawerOpen && (
           <>
@@ -259,7 +247,7 @@ const Navbar = () => {
                 {isLoggedIn ? (
                   <>
                     <div className="flex items-center gap-3 px-4 pb-5 mb-4 border-b border-border">
-                      <div className="h-11 w-11 rounded-full bg-gold/10 border-2 border-gold flex items-center justify-center text-sm font-bold text-gold flex-shrink-0">
+                      <div className="h-11 w-11 rounded-full bg-secondary border-2 border-border flex items-center justify-center text-sm font-bold text-foreground flex-shrink-0">
                         {user.initials || "?"}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -272,8 +260,8 @@ const Navbar = () => {
                     <div className="space-y-1">
                       {drawerLinks.map(link => (
                         <Link key={link.name} to={link.path}
-                          className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-foreground font-semibold hover:bg-secondary hover:text-gold transition-colors group">
-                          <span className="text-muted-foreground group-hover:text-gold transition-colors">{link.icon}</span>
+                          className="flex items-center gap-4 px-4 py-3.5 rounded-xl text-foreground font-semibold hover:bg-secondary transition-colors group">
+                          <span className="text-muted-foreground group-hover:text-foreground transition-colors">{link.icon}</span>
                           {link.name}
                         </Link>
                       ))}
@@ -281,9 +269,17 @@ const Navbar = () => {
                   </>
                 ) : (
                   <div className="flex flex-col gap-4 px-4 pb-8 border-b border-border mb-6">
-                    <p className="text-sm text-muted-foreground text-center mb-2">Sign in to validate opinions and track your calls.</p>
-                    <Link to="/auth" className="w-full py-3.5 rounded-full bg-gold text-primary-foreground font-bold text-center hover:bg-gold-hover transition-colors">Log In</Link>
-                    <Link to="/auth" className="w-full py-3.5 rounded-full border border-border bg-background text-foreground font-bold text-center hover:border-gold hover:text-gold transition-colors">Sign Up</Link>
+                    <p className="text-sm text-muted-foreground text-center mb-2">
+                      Sign in to validate opinions and track your calls.
+                    </p>
+                    <Link to="/auth"
+                      className="w-full py-3.5 rounded-full bg-foreground text-background font-bold text-center hover:brightness-110 transition-all">
+                      Log In
+                    </Link>
+                    <Link to="/auth"
+                      className="w-full py-3.5 rounded-full border border-border bg-background text-foreground font-bold text-center hover:border-foreground/40 transition-all">
+                      Sign Up
+                    </Link>
                   </div>
                 )}
 
@@ -291,7 +287,8 @@ const Navbar = () => {
                   <div className="px-4 pb-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Resources</span>
                   </div>
-                  <Link to="/how-it-works" className="flex items-center px-4 py-3 rounded-xl text-muted-foreground font-medium hover:bg-secondary hover:text-foreground transition-colors">
+                  <Link to="/how-it-works"
+                    className="flex items-center px-4 py-3 rounded-xl text-muted-foreground font-medium hover:bg-secondary hover:text-foreground transition-colors">
                     How Callit Works
                   </Link>
                 </div>
@@ -302,17 +299,17 @@ const Navbar = () => {
                 <div className="px-4 py-2 flex items-center justify-between">
                   <span className="text-sm font-semibold">Dark Mode</span>
                   <button onClick={toggleTheme}
-                    className={`h-6 w-11 rounded-full p-1 transition-colors relative ${theme === "dark" ? "bg-gold" : "bg-muted"}`}>
+                    className={`h-6 w-11 rounded-full p-1 transition-colors relative ${theme === "dark" ? "bg-foreground" : "bg-muted"}`}>
                     <motion.div animate={{ x: theme === "dark" ? 20 : 0 }}
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                      className="h-4 w-4 bg-white rounded-full shadow-sm" />
+                      className="h-4 w-4 bg-background rounded-full shadow-sm" />
                   </button>
                 </div>
 
-                {/* Mobile search in drawer */}
+                {/* Mobile search */}
                 <div className="mt-6 border-t border-border pt-6 px-4">
                   <button onClick={() => { setIsDrawerOpen(false); setSearchOpen(true); }}
-                    className="w-full flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground hover:border-gold transition-all">
+                    className="w-full flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-4 py-3 text-sm text-muted-foreground hover:border-foreground/30 transition-all">
                     <Search className="h-4 w-4 shrink-0" />
                     <span>Search calls...</span>
                   </button>

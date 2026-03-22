@@ -9,7 +9,7 @@ const optColor = (label: string, i: number): string => {
     const l = label.toLowerCase().trim();
     if (l === "yes" || l === "agree") return "#2563EB";
     if (l === "no" || l === "disagree") return "#DC2626";
-    const multi = ["#F5C518", "#2563EB", "#DC2626", "#7C3AED", "#0891B2", "#059669"];
+    const multi = ["#7C3AED", "#0891B2", "#059669", "#EA580C", "#2563EB", "#DC2626"];
     return multi[i % multi.length];
 };
 
@@ -41,30 +41,26 @@ export function MobileStakeSheet({
     const [selected, setSelected] = useState<string | null>(userCall?.chosen_option || null);
     const [stakeAmount, setStakeAmount] = useState(50);
 
-    // ── Lock background scroll when sheet is open ──
+    // Lock body scroll — prevent background from scrolling
     useEffect(() => {
-        const original = document.body.style.overflow;
+        const prevOverflow = document.body.style.overflow;
+        const prevTouchAction = document.body.style.touchAction;
         document.body.style.overflow = "hidden";
         document.body.style.touchAction = "none";
         return () => {
-            document.body.style.overflow = original;
-            document.body.style.touchAction = "";
+            document.body.style.overflow = prevOverflow;
+            document.body.style.touchAction = prevTouchAction;
         };
     }, []);
 
-    // ── Prevent touch events from bubbling to background ──
+    // Prevent touch events from bubbling out of the sheet
     useEffect(() => {
         const el = sheetRef.current;
         if (!el) return;
-        const prevent = (e: TouchEvent) => e.stopPropagation();
-        el.addEventListener("touchmove", prevent, { passive: false });
-        return () => el.removeEventListener("touchmove", prevent);
+        const stop = (e: TouchEvent) => e.stopPropagation();
+        el.addEventListener("touchmove", stop, { passive: false });
+        return () => el.removeEventListener("touchmove", stop);
     }, []);
-
-    const handleOptionClick = (opt: string) => {
-        setSelected(opt);
-        setStep(2);
-    };
 
     const handleCall = () => {
         if (!isLoggedIn) { toast.error("Log in to call!"); navigate("/auth"); onClose(); return; }
@@ -73,44 +69,41 @@ export function MobileStakeSheet({
         onClose();
     };
 
-    const potentialReturn = stakeAmount * 2;
-
     return (
         <AnimatePresence>
-            {/* Backdrop — tap to close */}
+            {/* Backdrop — locked, tap to close */}
             <motion.div
+                key="backdrop"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm"
-                onClick={onClose}
+                className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm"
                 style={{ touchAction: "none" }}
+                onClick={onClose}
             />
 
-            {/* Sheet */}
+            {/* Sheet — max 92vh, flex column so inner content scrolls */}
             <motion.div
+                key="sheet"
                 ref={sheetRef}
                 initial={{ y: "100%" }}
                 animate={{ y: 0 }}
                 exit={{ y: "100%" }}
-                transition={{ type: "spring", damping: 30, stiffness: 320 }}
-                className="fixed bottom-0 left-0 right-0 z-[81] bg-card rounded-t-2xl border-t border-border flex flex-col"
-                style={{
-                    maxHeight: "88vh",
-                    touchAction: "pan-y",
-                }}
+                transition={{ type: "spring", damping: 30, stiffness: 280 }}
+                className="fixed bottom-0 left-0 right-0 z-[81] bg-card rounded-t-3xl border-t border-border shadow-2xl"
+                style={{ maxHeight: "92vh", display: "flex", flexDirection: "column" }}
                 onClick={e => e.stopPropagation()}
             >
-                {/* Handle bar */}
+                {/* Drag handle */}
                 <div className="flex justify-center pt-3 pb-1 shrink-0">
-                    <div className="h-1 w-10 rounded-full bg-border" />
+                    <div className="h-1 w-12 rounded-full bg-border/60" />
                 </div>
 
-                {/* Step bar */}
+                {/* Step bar + close */}
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-border shrink-0">
                     {step === 2 && (
                         <button onClick={() => setStep(1)}
-                            className="text-muted-foreground hover:text-foreground transition-colors mr-1">
+                            className="p-1 rounded-lg text-muted-foreground hover:text-foreground transition-colors">
                             <ChevronLeft className="h-4 w-4" />
                         </button>
                     )}
@@ -118,59 +111,77 @@ export function MobileStakeSheet({
                         <div className={`h-1 rounded-full flex-1 transition-colors ${step >= 1 ? "bg-foreground" : "bg-border"}`} />
                         <div className={`h-1 rounded-full flex-1 transition-colors ${step >= 2 ? "bg-foreground" : "bg-border"}`} />
                     </div>
-                    <span className="text-[10px] text-muted-foreground font-medium ml-2">
+                    <span className="text-[10px] text-muted-foreground font-medium mx-2">
                         {step === 1 ? "Pick a side" : "Confirm stake"}
                     </span>
                     <button onClick={onClose}
-                        className="ml-2 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
                         <X className="h-4 w-4" />
                     </button>
                 </div>
 
-                {/* Scrollable content */}
-                <div className="flex-1 overflow-y-auto overscroll-contain"
-                    style={{ WebkitOverflowScrolling: "touch" }}>
-
+                {/* Scrollable inner — ONLY this scrolls, not background */}
+                <div
+                    className="flex-1 overflow-y-auto overscroll-contain"
+                    style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
+                >
                     <AnimatePresence mode="wait">
+
                         {/* Step 1 — Pick option */}
                         {step === 1 && (
                             <motion.div key="s1"
-                                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: -8 }} transition={{ duration: 0.15 }}
-                                className="p-4 space-y-3 pb-10">
-
+                                initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.15 }}
+                                className="px-4 pt-4 pb-10 space-y-3"
+                            >
                                 <p className="text-sm font-semibold text-foreground leading-snug">
                                     {opinion.statement}
                                 </p>
 
                                 {userCall && (
-                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50 border border-border">
+                                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/50 border border-border">
                                         <CheckCircle2 className="h-3.5 w-3.5 text-[#22C55E]" />
                                         <span className="text-xs text-muted-foreground">Your call:</span>
                                         <span className="text-xs font-bold text-foreground">{userCall.chosen_option}</span>
                                     </div>
                                 )}
 
-                                <div className="space-y-2">
+                                {/* All options fully visible — sheet scrolls to show them all */}
+                                <div className="space-y-2.5">
                                     {options.map((opt, i) => {
                                         const pct = hasActivity ? latestProbabilities[opt] : null;
                                         const color = optColor(opt, i);
+                                        const isYN = ["yes", "no", "agree", "disagree"].includes(opt.toLowerCase().trim());
                                         return (
                                             <button key={opt}
-                                                onClick={() => opinionOpen && handleOptionClick(opt)}
+                                                onClick={() => { if (opinionOpen) { setSelected(opt); setStep(2); } }}
                                                 disabled={!opinionOpen}
-                                                className="w-full flex items-center justify-between px-4 py-4 rounded-xl border border-border/60 bg-secondary/10 hover:bg-secondary/40 active:scale-[0.98] transition-all text-left disabled:opacity-60"
+                                                className="w-full flex items-center justify-between px-4 py-4 rounded-2xl border transition-all text-left disabled:opacity-50 relative overflow-hidden group"
+                                                style={{
+                                                    borderColor: isYN ? color + "50" : "var(--border)",
+                                                    background: isYN ? color + "0D" : "var(--secondary-10, rgba(0,0,0,0.04))",
+                                                }}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: color }} />
-                                                    <span className="text-base font-bold" style={{ color }}>{opt}</span>
+                                                {/* Light-up hover overlay */}
+                                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+                                                    style={{
+                                                        background: isYN
+                                                            ? `linear-gradient(135deg, ${color}22 0%, ${color}08 100%)`
+                                                            : "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
+                                                    }} />
+                                                <div className="flex items-center gap-3 relative z-10">
+                                                    <div className="h-3 w-3 rounded-full shrink-0" style={{ background: color }} />
+                                                    <span className="text-base font-bold"
+                                                        style={{ color: isYN ? color : "var(--foreground)" }}>
+                                                        {opt}
+                                                    </span>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 relative z-10">
                                                     <span className="text-sm font-bold tabular-nums"
-                                                        style={{ color: pct !== null ? color : undefined }}>
+                                                        style={{ color: pct !== null ? (isYN ? color : "var(--muted-foreground)") : undefined }}>
                                                         {pct !== null ? `${pct}%` : "—"}
                                                     </span>
-                                                    {opinionOpen && <span className="text-muted-foreground">→</span>}
+                                                    {opinionOpen && <span className="text-xs text-muted-foreground">→</span>}
                                                 </div>
                                             </button>
                                         );
@@ -179,7 +190,7 @@ export function MobileStakeSheet({
 
                                 {!isLoggedIn && (
                                     <button onClick={() => { navigate("/auth"); onClose(); }}
-                                        className="w-full py-3.5 rounded-xl border border-gold text-gold font-bold hover:bg-gold hover:text-primary-foreground transition-all">
+                                        className="w-full py-4 rounded-2xl border border-[#2563EB] text-[#2563EB] font-bold hover:bg-[#2563EB]/10 transition-all">
                                         Log in to call
                                     </button>
                                 )}
@@ -187,98 +198,100 @@ export function MobileStakeSheet({
                         )}
 
                         {/* Step 2 — Stake amount */}
-                        {step === 2 && (
-                            <motion.div key="s2"
-                                initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.15 }}
-                                className="p-4 space-y-4 pb-10">
+                        {step === 2 && selected && (() => {
+                            const i = options.indexOf(selected);
+                            const color = optColor(selected, i);
+                            const pct = hasActivity ? latestProbabilities[selected] : null;
+                            const isYN = ["yes", "no", "agree", "disagree"].includes(selected.toLowerCase().trim());
 
-                                {/* Selected recap */}
-                                <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-secondary/40 border border-border">
-                                    <div className="h-2.5 w-2.5 rounded-full shrink-0"
-                                        style={{ background: optColor(selected || "", options.indexOf(selected || "")) }} />
-                                    <span className="text-base font-bold flex-1"
-                                        style={{ color: optColor(selected || "", options.indexOf(selected || "")) }}>
-                                        {selected}
-                                    </span>
-                                    {hasActivity && selected && (
-                                        <span className="text-sm font-bold tabular-nums"
-                                            style={{ color: optColor(selected, options.indexOf(selected)) }}>
-                                            {latestProbabilities[selected]}%
+                            return (
+                                <motion.div key="s2"
+                                    initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.15 }}
+                                    className="px-4 pt-4 pb-10 space-y-4"
+                                >
+                                    {/* Selected recap */}
+                                    <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border relative overflow-hidden"
+                                        style={{
+                                            borderColor: color + "40",
+                                            background: color + "08",
+                                        }}>
+                                        <div className="h-3 w-3 rounded-full shrink-0" style={{ background: color }} />
+                                        <span className="text-base font-bold flex-1"
+                                            style={{ color: isYN ? color : "var(--foreground)" }}>
+                                            {selected}
                                         </span>
-                                    )}
-                                </div>
-
-                                {/* Stake */}
-                                <div>
-                                    <div className="flex items-center justify-between mb-3">
-                                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                                            Stake amount
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                            Balance:{" "}
-                                            <span className="text-foreground font-bold">
-                                                {(user?.balance || 0).toLocaleString()}
-                                            </span> coins
-                                        </span>
+                                        {pct !== null && (
+                                            <span className="text-sm font-bold tabular-nums" style={{ color }}>{pct}%</span>
+                                        )}
                                     </div>
-                                    <div className="flex gap-2 mb-3 flex-wrap">
-                                        {STAKE_OPTS.map(s => (
-                                            <button key={s} onClick={() => setStakeAmount(s)}
-                                                className={`flex-1 min-w-[52px] py-3 rounded-xl text-sm font-bold transition-all border ${stakeAmount === s
-                                                        ? "bg-foreground text-background border-foreground"
-                                                        : "border-border text-muted-foreground hover:border-foreground/30"
-                                                    }`}>{s}</button>
+
+                                    {/* Stake amount */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Stake</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                Balance: <span className="text-foreground font-bold">{(user?.balance || 0).toLocaleString()}</span>c
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2 mb-3">
+                                            {STAKE_OPTS.map(s => (
+                                                <button key={s} onClick={() => setStakeAmount(s)}
+                                                    className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${stakeAmount === s
+                                                            ? "bg-foreground text-background border-foreground"
+                                                            : "border-border text-muted-foreground hover:border-foreground/30"
+                                                        }`}>{s}</button>
+                                            ))}
+                                        </div>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm">🪙</span>
+                                            <input type="number" value={stakeAmount}
+                                                onChange={e => setStakeAmount(Math.max(1, Math.min(user?.balance || 0, parseInt(e.target.value) || 0)))}
+                                                className="w-full pl-9 pr-4 py-3.5 rounded-xl border border-border bg-secondary/30 text-base font-bold text-foreground focus:outline-none focus:border-foreground/40 transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Return preview */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-secondary/40 rounded-2xl p-4 text-center">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You stake</p>
+                                            <p className="text-xl font-bold text-foreground">{stakeAmount}c</p>
+                                        </div>
+                                        <div className="rounded-2xl p-4 text-center border border-[#22C55E]/20 bg-[#22C55E]/5">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">If correct</p>
+                                            <p className="text-xl font-bold text-[#22C55E]">+{stakeAmount * 2}c</p>
+                                        </div>
+                                    </div>
+
+                                    {/* Market stats */}
+                                    <div className="grid grid-cols-3 border border-border rounded-2xl overflow-hidden">
+                                        {[
+                                            { val: <SlidingNumber value={opinion.call_count || 0} />, label: "Callers" },
+                                            { val: countdown || "—", label: "Time left", mid: true },
+                                            { val: opinion.follower_count || 0, label: "Watching" },
+                                        ].map((s, idx) => (
+                                            <div key={idx} className={`text-center py-3 ${s.mid ? "border-x border-border" : ""}`}>
+                                                <p className="text-sm font-bold text-foreground">{s.val}</p>
+                                                <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">{s.label}</p>
+                                            </div>
                                         ))}
                                     </div>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">🪙</span>
-                                        <input type="number" value={stakeAmount}
-                                            onChange={e => setStakeAmount(Math.max(1, Math.min(user?.balance || 0, parseInt(e.target.value) || 0)))}
-                                            className="w-full pl-9 pr-4 py-3 rounded-xl border border-border bg-secondary/30 text-base font-bold text-foreground focus:outline-none focus:border-gold transition-colors"
-                                        />
-                                    </div>
-                                </div>
 
-                                {/* Return preview */}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div className="bg-secondary/40 rounded-xl p-3 text-center">
-                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You stake</p>
-                                        <p className="text-lg font-bold text-foreground">{stakeAmount}c</p>
-                                    </div>
-                                    <div className="rounded-xl p-3 text-center border border-[#22C55E]/20 bg-[#22C55E]/5">
-                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">If correct</p>
-                                        <p className="text-lg font-bold text-[#22C55E]">+{potentialReturn}c</p>
-                                    </div>
-                                </div>
+                                    {/* CTA */}
+                                    <motion.button whileTap={{ scale: 0.97 }}
+                                        onClick={handleCall}
+                                        disabled={!selected || submitting || (user?.balance || 0) < stakeAmount}
+                                        className="w-full py-4 rounded-2xl bg-foreground text-background text-base font-black transition-all disabled:opacity-40">
+                                        {submitting ? "Placing..." : userCall ? "Update Call" : "Call It →"}
+                                    </motion.button>
 
-                                {/* Stats */}
-                                <div className="grid grid-cols-3 gap-0 border border-border rounded-xl overflow-hidden">
-                                    {[
-                                        { val: <SlidingNumber value={opinion.call_count || 0} />, label: "Callers" },
-                                        { val: countdown || "—", label: "Time left", border: true },
-                                        { val: opinion.follower_count || 0, label: "Watching" },
-                                    ].map((s, i) => (
-                                        <div key={i} className={`text-center py-3 ${s.border ? "border-x border-border" : ""}`}>
-                                            <p className="text-sm font-bold text-foreground">{s.val}</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">{s.label}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                {/* CTA */}
-                                <motion.button whileTap={{ scale: 0.97 }}
-                                    onClick={handleCall}
-                                    disabled={!selected || submitting || (user?.balance || 0) < stakeAmount}
-                                    className="w-full py-4 rounded-xl bg-gold text-primary-foreground text-base font-black hover:bg-gold-hover transition-all disabled:opacity-40">
-                                    {submitting ? "Placing..." : userCall ? "Update Call" : "Call It →"}
-                                </motion.button>
-
-                                <p className="text-[10px] text-muted-foreground text-center pb-4">
-                                    {userCall ? "Updating is free" : `${stakeAmount} coins deducted on confirm`}
-                                </p>
-                            </motion.div>
-                        )}
+                                    <p className="text-[10px] text-muted-foreground text-center pb-2">
+                                        {userCall ? "Updating is free" : `${stakeAmount} coins deducted on confirm`}
+                                    </p>
+                                </motion.div>
+                            );
+                        })()}
                     </AnimatePresence>
                 </div>
             </motion.div>

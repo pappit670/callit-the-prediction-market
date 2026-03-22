@@ -1,8 +1,8 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Share2, Send, ThumbsUp, MessageCircle,
-  Info, Bookmark, Users, ChevronLeft, CheckCircle2
+  Info, Bookmark, Users, ChevronLeft, CheckCircle2,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/supabaseClient";
@@ -15,18 +15,19 @@ import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 import { LiveSignalFeed } from "@/components/LiveSignalFeed";
 import { TopArguments } from "@/components/TopArguments";
 import { MobileStakeSheet } from "@/components/MobileStakeSheet";
-import {
-  LineChart, Line, ResponsiveContainer, YAxis,
-  Tooltip, CartesianGrid
-} from "recharts";
+import { MarketGraph } from "@/components/MarketGraph";
 
+// ── Colour system ─────────────────────────────────────────────
 const optColor = (label: string, i: number): string => {
   const l = label.toLowerCase().trim();
   if (l === "yes" || l === "agree") return "#2563EB";
   if (l === "no" || l === "disagree") return "#DC2626";
-  const multi = ["#F5C518", "#2563EB", "#DC2626", "#7C3AED", "#0891B2", "#059669"];
+  const multi = ["#7C3AED", "#0891B2", "#059669", "#EA580C", "#2563EB", "#DC2626"];
   return multi[i % multi.length];
 };
+
+const isYNLabel = (l: string) =>
+  ["yes", "no", "agree", "disagree"].includes(l.toLowerCase().trim());
 
 const STAKE_OPTS = [10, 25, 50, 100, 250];
 const COMMENT_TABS = ["Comments", "Positions", "Activity"] as const;
@@ -42,44 +43,6 @@ function formatTimeLeft(endTime: string): string {
   if (h > 0) return `${h}h ${m}m`;
   return `${m}m ${s}s`;
 }
-
-// ── Compact graph ─────────────────────────────────────────────
-const CompactGraph = ({
-  optionSeries, height = 130
-}: { optionSeries: { label: string; color: string; data: any[] }[]; height?: number }) => {
-  const hasData = optionSeries.some(s => s.data.length > 1);
-  if (!hasData) {
-    return (
-      <div className="flex items-center justify-center rounded-xl border border-dashed border-border" style={{ height }}>
-        <p className="text-xs text-muted-foreground text-center px-2">No activity yet · Graph appears after first stake</p>
-      </div>
-    );
-  }
-  const allTimes = Array.from(new Set(optionSeries.flatMap(s => s.data.map((d: any) => d.time))));
-  const merged = allTimes.map(time => {
-    const pt: Record<string, any> = { time };
-    optionSeries.forEach(s => { const m = s.data.find((d: any) => d.time === time); pt[s.label] = m?.probability ?? null; });
-    return pt;
-  });
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={merged} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
-        <CartesianGrid strokeDasharray="2 4" stroke="var(--border)" strokeOpacity={0.3} vertical={false} />
-        <YAxis domain={[0, 100]} hide />
-        <Tooltip
-          contentStyle={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "8px", fontSize: "11px", padding: "4px 8px" }}
-          formatter={(v: number, name: string) => [`${v}%`, name]}
-          labelStyle={{ display: "none" }}
-        />
-        {optionSeries.map(s => (
-          <Line key={s.label} type="monotone" dataKey={s.label}
-            stroke={s.color} strokeWidth={1.5} dot={false}
-            activeDot={{ r: 3, strokeWidth: 0 }} connectNulls isAnimationActive={false} />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
-  );
-};
 
 // ── Sliding comments ──────────────────────────────────────────
 const SlidingComments = ({ comments }: { comments: any[] }) => {
@@ -100,7 +63,9 @@ const SlidingComments = ({ comments }: { comments: any[] }) => {
           <div className="h-5 w-5 rounded-full bg-secondary border border-border flex items-center justify-center text-[9px] font-bold shrink-0">
             {comments[idx]?.profiles?.username?.[0]?.toUpperCase() || "?"}
           </div>
-          <span className="font-medium text-foreground/60 shrink-0">@{comments[idx]?.profiles?.username || "anon"}:</span>
+          <span className="font-medium text-foreground/60 shrink-0">
+            @{comments[idx]?.profiles?.username || "anon"}:
+          </span>
           <span className="truncate">{comments[idx]?.content}</span>
         </motion.div>
       </AnimatePresence>
@@ -108,15 +73,26 @@ const SlidingComments = ({ comments }: { comments: any[] }) => {
   );
 };
 
-// ── Two-step stake panel (desktop) ────────────────────────────
+// ── Desktop stake panel ───────────────────────────────────────
 const StakePanel = ({
   opinion, options, userCall, isOpen,
   hasActivity, latestProbabilities, countdown,
   onCall, submitting, user, isLoggedIn, navigate,
+  preselected, onPreselectedConsumed,
 }: any) => {
   const [step, setStep] = useState<1 | 2>(1);
   const [selected, setSelected] = useState<string | null>(userCall?.chosen_option || null);
   const [stakeAmount, setStakeAmount] = useState(50);
+
+  // When user taps an option in the question head, reflect it here
+  useEffect(() => {
+    if (preselected) {
+      setSelected(preselected);
+      setStep(2);
+      onPreselectedConsumed?.();
+    }
+  }, [preselected]);
+
   const potentialReturn = stakeAmount * 2;
 
   return (
@@ -124,7 +100,8 @@ const StakePanel = ({
       {/* Step bar */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border bg-secondary/20">
         {step === 2 && (
-          <button onClick={() => setStep(1)} className="text-muted-foreground hover:text-foreground transition-colors mr-1">
+          <button onClick={() => setStep(1)}
+            className="text-muted-foreground hover:text-foreground transition-colors mr-1">
             <ChevronLeft className="h-4 w-4" />
           </button>
         )}
@@ -156,19 +133,30 @@ const StakePanel = ({
               {options.map((opt: string, i: number) => {
                 const pct = hasActivity ? latestProbabilities[opt] : null;
                 const color = optColor(opt, i);
+                const yn = isYNLabel(opt);
                 return (
                   <button key={opt}
                     onClick={() => isOpen && (setSelected(opt), setStep(2))}
                     disabled={!isOpen}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:bg-secondary/40 disabled:opacity-60 ${userCall?.chosen_option === opt ? "border-2 bg-secondary/30" : "border-border/60 bg-secondary/10"
-                      }`}
-                    style={userCall?.chosen_option === opt ? { borderColor: color } : {}}>
-                    <div className="flex items-center gap-2">
+                    className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-sm font-semibold transition-all hover:brightness-110 disabled:opacity-60 relative overflow-hidden group"
+                    style={{
+                      borderColor: userCall?.chosen_option === opt ? color : (yn ? color + "40" : "var(--border)"),
+                      borderWidth: userCall?.chosen_option === opt ? 2 : 1,
+                      background: yn ? color + "0D" : "var(--secondary-10, rgba(128,128,128,0.06))",
+                    }}>
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none"
+                      style={{
+                        background: yn
+                          ? `linear-gradient(135deg, ${color}20 0%, ${color}06 100%)`
+                          : "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 100%)",
+                      }} />
+                    <div className="flex items-center gap-2 relative z-10">
                       <div className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
-                      <span style={{ color }}>{opt}</span>
+                      <span style={{ color: yn ? color : "var(--foreground)" }}>{opt}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold tabular-nums" style={{ color: pct !== null ? color : undefined }}>
+                    <div className="flex items-center gap-1.5 relative z-10">
+                      <span className="text-xs font-bold tabular-nums"
+                        style={{ color: pct !== null ? color : undefined }}>
                         {pct !== null ? `${pct}%` : "—"}
                       </span>
                       {isOpen && <span className="text-[10px] text-muted-foreground">→</span>}
@@ -179,7 +167,7 @@ const StakePanel = ({
             </div>
             {!isLoggedIn && (
               <button onClick={() => navigate("/auth")}
-                className="w-full py-2.5 rounded-xl border border-gold text-gold text-xs font-bold hover:bg-gold hover:text-primary-foreground transition-all">
+                className="w-full py-2.5 rounded-xl border border-foreground/30 text-foreground text-xs font-bold hover:bg-secondary transition-all">
                 Log in to call
               </button>
             )}
@@ -191,30 +179,38 @@ const StakePanel = ({
             initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 8 }} transition={{ duration: 0.15 }}
             className="p-4 space-y-4">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-secondary/40 border border-border">
-              <div className="h-2 w-2 rounded-full shrink-0"
-                style={{ background: optColor(selected || "", options.indexOf(selected)) }} />
-              <span className="text-sm font-semibold flex-1"
-                style={{ color: optColor(selected || "", options.indexOf(selected)) }}>{selected}</span>
-              {hasActivity && selected && (
-                <span className="text-xs font-bold tabular-nums"
-                  style={{ color: optColor(selected, options.indexOf(selected)) }}>
-                  {latestProbabilities[selected]}%
-                </span>
-              )}
-            </div>
+            {selected && (() => {
+              const si = options.indexOf(selected);
+              const color = optColor(selected, si);
+              const yn = isYNLabel(selected);
+              return (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl border"
+                  style={{ borderColor: color + "40", background: color + "08" }}>
+                  <div className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
+                  <span className="text-sm font-semibold flex-1"
+                    style={{ color: yn ? color : "var(--foreground)" }}>{selected}</span>
+                  {hasActivity && (
+                    <span className="text-xs font-bold tabular-nums" style={{ color }}>
+                      {latestProbabilities[selected]}%
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
 
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Stake</span>
                 <span className="text-xs text-muted-foreground">
-                  Balance: <span className="text-foreground font-semibold">{(user?.balance || 0).toLocaleString()}</span> coins
+                  Balance: <span className="text-foreground font-semibold">{(user?.balance || 0).toLocaleString()}</span>c
                 </span>
               </div>
               <div className="flex gap-1.5 mb-2 flex-wrap">
                 {STAKE_OPTS.map(s => (
                   <button key={s} onClick={() => setStakeAmount(s)}
-                    className={`flex-1 min-w-[40px] py-2 rounded-lg text-xs font-bold transition-all border ${stakeAmount === s ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:border-foreground/30"
+                    className={`flex-1 min-w-[40px] py-2 rounded-lg text-xs font-bold transition-all border ${stakeAmount === s
+                        ? "bg-foreground text-background border-foreground"
+                        : "border-border text-muted-foreground hover:border-foreground/30"
                       }`}>{s}</button>
                 ))}
               </div>
@@ -222,7 +218,7 @@ const StakePanel = ({
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">🪙</span>
                 <input type="number" value={stakeAmount}
                   onChange={e => setStakeAmount(Math.max(1, Math.min(user?.balance || 0, parseInt(e.target.value) || 0)))}
-                  className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-border bg-secondary/30 text-sm font-bold text-foreground focus:outline-none focus:border-gold transition-colors"
+                  className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-border bg-secondary/30 text-sm font-bold text-foreground focus:outline-none focus:border-foreground/40 transition-colors"
                 />
               </div>
             </div>
@@ -239,9 +235,12 @@ const StakePanel = ({
             </div>
 
             <motion.button whileTap={{ scale: 0.97 }}
-              onClick={() => { if (!isLoggedIn) { toast.error("Log in!"); navigate("/auth"); return; } onCall(selected, stakeAmount); }}
+              onClick={() => {
+                if (!isLoggedIn) { toast.error("Log in!"); navigate("/auth"); return; }
+                onCall(selected, stakeAmount);
+              }}
               disabled={!selected || submitting || (user?.balance || 0) < stakeAmount}
-              className="w-full py-4 rounded-xl bg-gold text-primary-foreground text-base font-black hover:bg-gold-hover transition-all disabled:opacity-40">
+              className="w-full py-4 rounded-xl bg-foreground text-background text-base font-black hover:brightness-110 transition-all disabled:opacity-40">
               {submitting ? "Placing..." : userCall ? "Update Call" : "Call It →"}
             </motion.button>
             <p className="text-[10px] text-muted-foreground text-center">
@@ -270,7 +269,9 @@ const StakePanel = ({
           <span className="text-[11px] text-muted-foreground">Source</span>
           {opinion.source_url
             ? <a href={opinion.source_url} target="_blank" rel="noopener noreferrer"
-              className="text-[11px] text-gold hover:underline">{opinion.source_name} ↗</a>
+              className="text-[11px] text-foreground/70 hover:text-foreground hover:underline transition-colors">
+              {opinion.source_name} ↗
+            </a>
             : <span className="text-[11px] text-muted-foreground">{opinion.source_name}</span>}
         </div>
       )}
@@ -293,6 +294,8 @@ const OpinionDetail = () => {
   const [countdown, setCountdown] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  // When user taps an option in the question head on desktop, preselect it in StakePanel
+  const [desktopPreselected, setDesktopPreselected] = useState<string | null>(null);
 
   useEffect(() => { if (id) fetchOpinion(); }, [id]);
 
@@ -322,7 +325,7 @@ const OpinionDetail = () => {
         const { data: { user: au } } = await supabase.auth.getUser();
         if (au) {
           const { data: callData } = await supabase.from("calls").select("*")
-            .eq("opinion_id", id).eq("user_id", au.id).single();
+            .eq("opinion_id", id).eq("user_id", au.id).maybeSingle();
           setUserCall(callData || null);
         }
       }
@@ -371,17 +374,32 @@ const OpinionDetail = () => {
     } catch (e: any) { toast.error(e.message); }
   };
 
+  const handleOptionTapInHead = (opt: string) => {
+    if (!isOpen) return;
+    const isMobile = window.innerWidth < 1024;
+    if (isMobile) {
+      setMobileSheetOpen(true);
+    } else {
+      // Desktop — reflect in right panel
+      setDesktopPreselected(opt);
+    }
+  };
+
   const marketOptions: string[] = Array.isArray(opinion?.options) ? opinion.options : ["Yes", "No"];
   const { hasActivity, optionSeries: marketSeries, latestProbabilities } = useMarketTimeline({
     opinionId: id, options: marketOptions, maxPoints: 30, enabled: !!opinion,
   });
-  const coloredSeries = marketSeries.map((s, i) => ({ ...s, color: optColor(s.label, i) }));
+
+  const graphSeries = marketSeries.map(s => ({
+    label: s.label,
+    data: s.data.map(p => ({ time: p.time, probability: p.probability })),
+  }));
 
   if (loading) return (
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-border border-t-foreground rounded-full animate-spin" />
       </div>
     </div>
   );
@@ -390,7 +408,7 @@ const OpinionDetail = () => {
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-center">
         <p className="text-muted-foreground mb-4">Opinion not found.</p>
-        <button onClick={() => navigate("/")} className="text-gold font-semibold">Go home →</button>
+        <button onClick={() => navigate("/")} className="text-foreground font-semibold hover:underline">Go home →</button>
       </div>
     </div>
   );
@@ -398,6 +416,7 @@ const OpinionDetail = () => {
   const options = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const isOpen = opinion.status === "open";
   const isBinary = options.length === 2;
+  const isYNBinary = isBinary && options.every((o: string) => isYNLabel(o));
 
   return (
     <div className="min-h-screen bg-background">
@@ -413,7 +432,7 @@ const OpinionDetail = () => {
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
 
-            {/* Question head block */}
+            {/* ── Question head ── */}
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-secondary/20">
                 <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -433,68 +452,74 @@ const OpinionDetail = () => {
                   {opinion.statement}
                 </h1>
 
-                {/* Two-col: options LEFT, graph RIGHT */}
+                {/* Two-col: tappable options LEFT, graph RIGHT */}
                 <div className="grid grid-cols-2 gap-4 items-stretch min-h-[140px]">
+
+                  {/* Options — tappable, open sheet on mobile / reflect panel on desktop */}
                   <div className="flex flex-col justify-center gap-1.5">
-                    {isBinary ? (
-                      options.map((opt: string, i: number) => {
-                        const pct = hasActivity ? latestProbabilities[opt] : null;
-                        const color = optColor(opt, i);
-                        return (
-                          <div key={opt} className="relative rounded-lg border border-border/50 overflow-hidden">
-                            {hasActivity && (
-                              <div className="absolute inset-y-0 left-0 transition-all duration-700 opacity-[0.08]"
-                                style={{ width: `${pct ?? 0}%`, background: color }} />
-                            )}
-                            <div className="relative flex items-center justify-between px-3 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
-                                <span className="text-sm font-bold" style={{ color }}>{opt}</span>
-                              </div>
-                              <span className="text-sm font-bold tabular-nums"
-                                style={{ color: pct !== null ? color : undefined }}>
-                                {pct !== null ? `${pct}%` : "—"}
+                    {options.map((opt: string, i: number) => {
+                      const pct = hasActivity ? latestProbabilities[opt] : null;
+                      const color = optColor(opt, i);
+                      const yn = isYNLabel(opt);
+                      return (
+                        <button
+                          key={opt}
+                          onClick={() => handleOptionTapInHead(opt)}
+                          disabled={!isOpen}
+                          className="relative rounded-xl border overflow-hidden text-left transition-all hover:brightness-110 disabled:cursor-default group"
+                          style={{
+                            borderColor: yn ? color + "40" : "var(--border)",
+                            background: yn ? color + "0D" : "var(--secondary-10, rgba(128,128,128,0.06))",
+                          }}
+                        >
+                          {/* Colour fill behind for percentage — yes/no only */}
+                          {hasActivity && yn && (
+                            <div className="absolute inset-y-0 left-0 transition-all duration-700"
+                              style={{ width: `${pct ?? 0}%`, background: color, opacity: 0.08 }} />
+                          )}
+                          {/* Light-up hover overlay */}
+                          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none"
+                            style={{
+                              background: yn
+                                ? `linear-gradient(135deg, ${color}1A 0%, ${color}06 100%)`
+                                : "linear-gradient(135deg, rgba(255,255,255,0.05) 0%, transparent 100%)",
+                            }} />
+                          <div className="relative flex items-center justify-between px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
+                              <span className="text-sm font-bold"
+                                style={{ color: yn ? color : "var(--foreground)" }}>
+                                {opt}
                               </span>
                             </div>
+                            <span className="text-sm font-bold tabular-nums"
+                              style={{ color: pct !== null ? color : "var(--muted-foreground)" }}>
+                              {pct !== null ? `${pct}%` : "—"}
+                            </span>
                           </div>
-                        );
-                      })
-                    ) : (
-                      options.map((opt: string, i: number) => {
-                        const pct = hasActivity ? latestProbabilities[opt] : null;
-                        const color = optColor(opt, i);
-                        return (
-                          <div key={opt} className="relative rounded-lg border border-border/50 overflow-hidden">
-                            {hasActivity && (
-                              <div className="absolute inset-y-0 left-0 transition-all duration-700 opacity-[0.07]"
-                                style={{ width: `${pct ?? 0}%`, background: color }} />
-                            )}
-                            <div className="relative flex items-center justify-between px-2.5 py-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
-                                <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-                                <span className="text-xs font-medium text-foreground truncate">{opt}</span>
-                              </div>
-                              <span className="text-xs font-bold tabular-nums shrink-0 ml-2"
-                                style={{ color: pct !== null ? color : undefined }}>
-                                {pct !== null ? `${pct}%` : "—"}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
+                        </button>
+                      );
+                    })}
                     <p className="text-[10px] text-muted-foreground mt-0.5">
                       {hasActivity
                         ? `${opinion.call_count || 0} callers · ${countdown || formatTimeLeft(opinion.end_time)} left`
                         : `${countdown || formatTimeLeft(opinion.end_time)} left · No stakes yet`}
                     </p>
                   </div>
+
+                  {/* Graph — new MarketGraph, no gold */}
                   <div className="flex flex-col justify-center">
-                    <CompactGraph optionSeries={coloredSeries} height={140} />
+                    <MarketGraph
+                      series={graphSeries}
+                      height={140}
+                      compact={false}
+                      showGrid={true}
+                      showTooltip={true}
+                    />
                   </div>
                 </div>
 
-                {/* Sliding comments — full width */}
+                {/* Sliding comments */}
                 <div className="border-t border-border/40 pt-3">
                   <SlidingComments comments={comments} />
                 </div>
@@ -514,23 +539,22 @@ const OpinionDetail = () => {
                     <span className="text-xs text-muted-foreground">Source:</span>
                     {opinion.source_url
                       ? <a href={opinion.source_url} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-gold hover:underline">{opinion.source_name || "View"} ↗</a>
+                        className="text-xs text-foreground/70 hover:text-foreground hover:underline transition-colors">
+                        {opinion.source_name || "View"} ↗
+                      </a>
                       : <span className="text-xs text-muted-foreground">{opinion.source_name}</span>}
                   </div>
                 )}
               </div>
             )}
 
-            {/* Live signals */}
             <LiveSignalFeed opinionId={id} />
 
-            {/* Arguments */}
             <div className="rounded-2xl border border-border bg-card p-5">
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Arguments</h3>
               <TopArguments opinionId={id!} />
             </div>
 
-            {/* Debate */}
             <div className="rounded-2xl border border-border bg-card p-5" id="debate">
               <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Take a Stand</h3>
               <DebatePanel opinionId={id!} opinionStatement={opinion.statement} defaultExpanded={true} />
@@ -542,8 +566,8 @@ const OpinionDetail = () => {
                 {COMMENT_TABS.map(tab => (
                   <button key={tab} onClick={() => setActiveCommentTab(tab)}
                     className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${activeCommentTab === tab
-                      ? "border-foreground text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
+                        ? "border-foreground text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}>
                     {tab === "Comments" ? `Comments (${comments.length})` : tab}
                   </button>
@@ -561,11 +585,11 @@ const OpinionDetail = () => {
                         onKeyDown={e => e.key === "Enter" && handleComment()}
                         placeholder={isLoggedIn ? "Drop your take..." : "Log in to comment"}
                         disabled={!isLoggedIn}
-                        className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-gold transition-colors disabled:opacity-50"
+                        className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-foreground/40 transition-colors disabled:opacity-50"
                       />
                       <button onClick={handleComment} disabled={!isLoggedIn}
-                        className="h-9 w-9 rounded-lg bg-gold flex items-center justify-center hover:bg-gold-hover transition-colors shrink-0 disabled:opacity-50">
-                        <Send className="h-3.5 w-3.5 text-primary-foreground" />
+                        className="h-9 w-9 rounded-lg bg-foreground flex items-center justify-center hover:brightness-110 transition-all shrink-0 disabled:opacity-50">
+                        <Send className="h-3.5 w-3.5 text-background" />
                       </button>
                     </div>
                     {comments.length === 0 ? (
@@ -603,12 +627,14 @@ const OpinionDetail = () => {
                     {options.map((opt: string, i: number) => {
                       const pct = hasActivity ? latestProbabilities[opt] : 0;
                       const color = optColor(opt, i);
+                      const yn = isYNLabel(opt);
                       return (
                         <div key={i} className="rounded-xl bg-secondary/40 p-3">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <div className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-                              <span className="text-sm font-bold" style={{ color }}>{opt}</span>
+                              <span className="text-sm font-bold"
+                                style={{ color: yn ? color : "var(--foreground)" }}>{opt}</span>
                             </div>
                             <span className="text-sm font-bold tabular-nums" style={{ color }}>
                               {hasActivity ? `${pct}%` : "—"}
@@ -629,28 +655,36 @@ const OpinionDetail = () => {
               </div>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center gap-3">
               <button onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copied!"); }}
-                className="rounded-xl border border-border text-muted-foreground text-sm font-semibold py-2.5 px-5 flex items-center gap-2 hover:border-foreground hover:text-foreground transition-all">
+                className="rounded-xl border border-border text-muted-foreground text-sm font-semibold py-2.5 px-5 flex items-center gap-2 hover:border-foreground/40 hover:text-foreground transition-all">
                 <Share2 className="h-4 w-4" /> Share
               </button>
               <button onClick={() => toast.success("Saved!")}
-                className="rounded-xl border border-border text-muted-foreground text-sm font-semibold py-2.5 px-5 flex items-center gap-2 hover:border-foreground hover:text-foreground transition-all">
+                className="rounded-xl border border-border text-muted-foreground text-sm font-semibold py-2.5 px-5 flex items-center gap-2 hover:border-foreground/40 hover:text-foreground transition-all">
                 <Bookmark className="h-4 w-4" /> Save
               </button>
             </div>
           </div>
 
-          {/* ══ RIGHT — desktop stake panel ══ */}
+          {/* ══ RIGHT — desktop stake panel only ══ */}
           <div className="hidden lg:block flex-[38] min-w-[300px] max-w-[360px]">
             <div className="sticky top-24">
               <StakePanel
-                opinion={opinion} options={options} userCall={userCall}
-                isOpen={isOpen} hasActivity={hasActivity}
-                latestProbabilities={latestProbabilities} countdown={countdown}
-                onCall={handleCall} submitting={submitting}
-                user={user} isLoggedIn={isLoggedIn} navigate={navigate}
+                opinion={opinion}
+                options={options}
+                userCall={userCall}
+                isOpen={isOpen}
+                hasActivity={hasActivity}
+                latestProbabilities={latestProbabilities}
+                countdown={countdown}
+                onCall={handleCall}
+                submitting={submitting}
+                user={user}
+                isLoggedIn={isLoggedIn}
+                navigate={navigate}
+                preselected={desktopPreselected}
+                onPreselectedConsumed={() => setDesktopPreselected(null)}
               />
             </div>
           </div>
@@ -658,27 +692,35 @@ const OpinionDetail = () => {
         </div>
       </div>
 
-      {/* ── Mobile floating CTA ── */}
+      {/* Mobile floating CTA — only on mobile */}
       {isOpen && (
         <div className="lg:hidden fixed bottom-6 left-4 right-4 z-50">
           <motion.button whileTap={{ scale: 0.97 }}
             onClick={() => setMobileSheetOpen(true)}
-            className="w-full py-4 rounded-2xl bg-gold text-primary-foreground text-base font-black shadow-2xl">
+            className="w-full py-4 rounded-2xl bg-foreground text-background text-base font-black shadow-2xl hover:brightness-110 transition-all">
             {userCall ? `Your call: ${userCall.chosen_option} — Update` : "Call It →"}
           </motion.button>
         </div>
       )}
 
-      {/* ── Mobile stake sheet ── */}
+      {/* Mobile stake sheet — mobile only */}
       {mobileSheetOpen && (
-        <MobileStakeSheet
-          opinion={opinion} options={options} userCall={userCall}
-          isOpen={isOpen} hasActivity={hasActivity}
-          latestProbabilities={latestProbabilities} countdown={countdown}
-          onCall={handleCall} submitting={submitting}
-          user={user} isLoggedIn={isLoggedIn}
-          onClose={() => setMobileSheetOpen(false)}
-        />
+        <div className="lg:hidden">
+          <MobileStakeSheet
+            opinion={opinion}
+            options={options}
+            userCall={userCall}
+            isOpen={isOpen}
+            hasActivity={hasActivity}
+            latestProbabilities={latestProbabilities}
+            countdown={countdown}
+            onCall={handleCall}
+            submitting={submitting}
+            user={user}
+            isLoggedIn={isLoggedIn}
+            onClose={() => setMobileSheetOpen(false)}
+          />
+        </div>
       )}
     </div>
   );
