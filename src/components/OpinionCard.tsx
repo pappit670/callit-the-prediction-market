@@ -12,6 +12,7 @@ import { PositionModal } from "@/components/debate/PositionModal";
 import { MarketGraph } from "@/components/MarketGraph";
 import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 import { ShareSheet } from "@/components/ShareSheet";
+import { QuestionIcon } from "@/components/QuestionIcon";
 import { MobileStakeSheet } from "@/components/MobileStakeSheet";
 
 // ── Colour system ─────────────────────────────────────────────
@@ -389,44 +390,79 @@ const OpinionCard = ({
       >
         <div className="p-4 flex flex-col gap-2.5 flex-1">
 
-          {/* ── Header ── */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              {topicIcon && <span className="text-sm shrink-0">{topicIcon}</span>}
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {cleanGenre}
-              </span>
-              {leagueName && (
-                <>
-                  <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
-                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
-                </>
+          {/* ── Header: icon left + meta right ── */}
+          <div className="flex items-start gap-3">
+
+            {/* Question icon — 48×48, resolves from keyword/iconUrl */}
+            <QuestionIcon
+              iconUrl={data.iconUrl}
+              statement={question}
+              size={48}
+              className="mt-0.5 shrink-0"
+            />
+
+            {/* Right side: meta + question + creator */}
+            <div className="flex-1 min-w-0">
+
+              {/* Topic row + action buttons */}
+              <div className="flex items-center justify-between gap-1 mb-1.5">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                  {topicIcon && <span className="text-xs shrink-0">{topicIcon}</span>}
+                  <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                    {cleanGenre}
+                  </span>
+                  {leagueName && (
+                    <>
+                      <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
+                      <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
+                    </>
+                  )}
+                  {activityTag && (
+                    <span className="flex items-center gap-0.5 text-[10px] font-bold shrink-0"
+                      style={{ color: activityTag.color }}>
+                      {activityTag.icon} {activityTag.label}
+                    </span>
+                  )}
+                  {isLive && !activityTag && (
+                    <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <button onClick={e => { e.stopPropagation(); setShareSheet(true); }}
+                    className="p-1 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                    <Share2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); toast.success("Saved!"); }}
+                    className="p-1 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                    <Bookmark className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Question text */}
+              <h3 className="text-[15px] leading-snug font-semibold text-foreground line-clamp-2">{question}</h3>
+
+              {/* Creator + accuracy */}
+              {creatorUsername && (
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <span className="text-[11px] text-muted-foreground">
+                    by <span className="font-medium text-foreground/70">@{creatorUsername}</span>
+                  </span>
+                  {creatorReputation !== undefined && (
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded bg-secondary ${reputationColor(creatorReputation)}`}>
+                      {creatorReputation}% acc.
+                    </span>
+                  )}
+                  {createdAt && <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>}
+                </div>
               )}
-              {activityTag && (
-                <span className="flex items-center gap-0.5 text-[10px] font-bold shrink-0 ml-0.5"
-                  style={{ color: activityTag.color }}>
-                  {activityTag.icon} {activityTag.label}
-                </span>
-              )}
-              {isLive && !activityTag && (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-0.5 shrink-0">
-              <button onClick={e => { e.stopPropagation(); setShareSheet(true); }}
-                className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-                <Share2 className="h-3.5 w-3.5" />
-              </button>
-              <button onClick={e => { e.stopPropagation(); toast.success("Saved!"); }}
-                className="p-1.5 rounded text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-                <Bookmark className="h-3.5 w-3.5" />
-              </button>
+
             </div>
           </div>
 
-          {/* ── Live scoreboard ── */}
+          {/* ── Live scoreboard (shown below the icon+question row) ── */}
           {isLiveGame && homeTeam && awayTeam && (
             <div className="bg-secondary/60 rounded-lg px-3 py-2 flex items-center justify-between border border-border/50">
               <div className="text-center min-w-0 flex-1">
@@ -441,24 +477,6 @@ const OpinionCard = ({
                 <p className="text-sm font-semibold text-foreground truncate">{awayTeam}</p>
                 <p className="text-[10px] text-muted-foreground">Away</p>
               </div>
-            </div>
-          )}
-
-          {/* ── Question ── */}
-          <h3 className="text-[15px] leading-snug font-semibold text-foreground line-clamp-2">{question}</h3>
-
-          {/* ── Creator + accuracy badge ── */}
-          {creatorUsername && (
-            <div className="flex items-center gap-2 -mt-0.5 flex-wrap">
-              <span className="text-[11px] text-muted-foreground">
-                by <span className="font-medium text-foreground/70">@{creatorUsername}</span>
-              </span>
-              {creatorReputation !== undefined && (
-                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded bg-secondary ${reputationColor(creatorReputation)}`}>
-                  {creatorReputation}% acc.
-                </span>
-              )}
-              {createdAt && <span className="text-[11px] text-muted-foreground">· {timeAgo(createdAt)}</span>}
             </div>
           )}
 

@@ -11,6 +11,7 @@ import {
   TrendingUp, Swords
 } from "lucide-react";
 import { supabase } from "@/supabaseClient";
+import { QuestionIcon } from "@/components/QuestionIcon";
 import { useApp } from "@/context/AppContext";
 
 const GRAPH_COLORS = ["#2563EB", "#DC2626", "#7C3AED", "#0891B2", "#059669"];
@@ -85,21 +86,37 @@ const FeaturedCard = ({ opinion, onClick, onOptionTap }: {
       <div className="bg-card border border-border rounded-2xl overflow-hidden hover:brightness-[1.03] transition-all">
 
         <div className="p-5 pb-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                {opinion.topics?.icon} {opinion.topics?.name || "General"}
-              </span>
-              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
-                Featured
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1"><Users className="h-3 w-3" />{opinion.call_count || 0}</span>
-              <span className="flex items-center gap-1"><Timer className="h-3 w-3" />{timeLeft}</span>
+          {/* Featured card header with icon */}
+          <div className="flex items-start gap-3 mb-3">
+            <QuestionIcon
+              iconUrl={opinion.icon_url}
+              statement={opinion.statement}
+              size={44}
+              className="shrink-0 mt-0.5"
+            />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                    {opinion.topics?.icon} {opinion.topics?.name || "General"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                    Featured
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1"><Users className="h-3 w-3" />{opinion.call_count || 0}</span>
+                  <span className="flex items-center gap-1"><Timer className="h-3 w-3" />{timeLeft}</span>
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-foreground leading-snug mb-1">{opinion.statement}</h2>
+              {opinion.profiles?.username && (
+                <p className="text-xs text-muted-foreground">
+                  by <span className="text-foreground/70 font-semibold">@{opinion.profiles.username}</span>
+                </p>
+              )}
             </div>
           </div>
-          <h2 className="text-xl font-bold text-foreground leading-snug mb-1">{opinion.statement}</h2>
           {opinion.profiles?.username && (
             <p className="text-xs text-muted-foreground">
               by <span className="text-foreground/70 font-semibold">@{opinion.profiles.username}</span>
@@ -171,8 +188,8 @@ const TopicFilterBar = ({
       {TOPIC_PILLS.map(p => (
         <button key={p.slug ?? "all"} onClick={() => onChange(p.slug)}
           className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${active === p.slug
-              ? "bg-foreground text-background"
-              : "bg-secondary text-muted-foreground hover:text-foreground"
+            ? "bg-foreground text-background"
+            : "bg-secondary text-muted-foreground hover:text-foreground"
             }`}>
           {p.label}
         </button>
@@ -202,8 +219,8 @@ const FeaturedTabs = () => {
         {(["debates", "activity"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "border-foreground text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
               }`}>
             {t === "debates" ? <Swords className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
             {t.charAt(0).toUpperCase() + t.slice(1)}
