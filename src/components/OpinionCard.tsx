@@ -1,3 +1,4 @@
+// src/components/OpinionCard.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -9,11 +10,11 @@ import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { PositionModal } from "@/components/debate/PositionModal";
 import { MarketGraph } from "@/components/MarketGraph";
-import { QuestionIcon } from "@/components/QuestionIcon";
 import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 import { ShareSheet } from "@/components/ShareSheet";
 import { MobileStakeSheet } from "@/components/MobileStakeSheet";
 
+// ── Colour system ─────────────────────────────────────────────
 const optColor = (label: string, i: number): string => {
   const l = label.toLowerCase().trim();
   if (l === "yes" || l === "agree") return "#2563EB";
@@ -22,6 +23,7 @@ const optColor = (label: string, i: number): string => {
   return multi[i % multi.length];
 };
 
+// Only applies colour fade to binary Yes/No or two-person/two-team cards
 const isBinaryYesNo = (opts: { label: string }[]): boolean => {
   if (opts.length !== 2) return false;
   const labels = opts.map(o => o.label.toLowerCase().trim());
@@ -30,6 +32,9 @@ const isBinaryYesNo = (opts: { label: string }[]): boolean => {
     (labels.includes("no") || labels.includes("disagree"))
   );
 };
+
+// Two-answer competition (names, teams, dates) — gets light-up but NO colour fade
+const isTwoAnswer = (opts: { label: string }[]): boolean => opts.length === 2;
 
 export interface OpinionCardData {
   id: number | string;
@@ -100,7 +105,66 @@ function getActivityTag(data: OpinionCardData) {
   return null;
 }
 
-// ── Single option bar ─────────────────────────────────────────
+// ── Binary option card — colour fade + light-up hover ─────────
+// Used for Yes/No, Agree/Disagree, two-person, two-team
+const BinaryOptionCard = ({
+  label, percent, showPercent, delta, index,
+  withColorFade, // true for Yes/No, false for names/teams/dates
+  onClick,
+}: {
+  label: string; percent: number; showPercent: boolean;
+  delta: number; index: number; withColorFade: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) => {
+  const color = optColor(label, index);
+  return (
+    <button
+      onClick={onClick}
+      className="flex-1 flex flex-col items-center justify-center py-3.5 rounded-xl border transition-all duration-200 relative overflow-hidden group"
+      style={{
+        borderColor: withColorFade ? color + "50" : "var(--border)",
+        background: withColorFade ? color + "0D" : "var(--secondary-20)",
+      }}
+    >
+      {/* Light-up on hover — brightness lift NOT glow */}
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+        style={{
+          background: withColorFade
+            ? `linear-gradient(135deg, ${color}20 0%, ${color}08 100%)`
+            : "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
+        }}
+      />
+      <span
+        className="text-sm font-bold relative z-10"
+        style={{ color: withColorFade ? color : "var(--foreground)" }}
+      >
+        {label}
+      </span>
+      {showPercent && (
+        <span
+          className="text-xs font-semibold tabular-nums mt-0.5 relative z-10"
+          style={{ color: withColorFade ? color + "CC" : "var(--muted-foreground)" }}
+        >
+          {percent}%
+        </span>
+      )}
+      {showPercent && delta !== 0 && (
+        <span
+          className="text-[10px] font-semibold tabular-nums mt-0.5 relative z-10"
+          style={{ color: delta > 0 ? "#22C55E" : "#DC2626" }}
+        >
+          {delta > 0 ? `+${delta}%` : `${delta}%`}
+        </span>
+      )}
+      {!showPercent && (
+        <span className="text-[10px] text-muted-foreground mt-0.5 relative z-10">—</span>
+      )}
+    </button>
+  );
+};
+
+// ── Multi-choice option bar — NO colour fade, plain style ─────
 const OptionBar = ({
   label, percent, showPercent, delta, index, onClick,
 }: {
@@ -110,16 +174,15 @@ const OptionBar = ({
   const color = optColor(label, index);
   return (
     <button onClick={onClick}
-      className="w-full shrink-0 rounded-lg border border-border/50 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.98] transition-all duration-150 overflow-hidden text-left">
+      className="w-full shrink-0 rounded-lg border border-border/40 bg-secondary/15 hover:bg-secondary/35 transition-colors duration-150 overflow-hidden text-left">
       <div className="px-3 py-2">
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: color }} />
-            <span className="text-[13px] font-semibold truncate" style={{ color }}>{label}</span>
+            <span className="text-[13px] font-semibold truncate text-foreground">{label}</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            <span className="text-[13px] font-bold tabular-nums"
-              style={{ color: showPercent ? color : undefined }}>
+            <span className="text-[13px] font-bold tabular-nums text-muted-foreground">
               {showPercent ? `${percent}%` : "—"}
             </span>
             {showPercent && delta !== 0 && (
@@ -130,9 +193,9 @@ const OptionBar = ({
             )}
           </div>
         </div>
-        <div className="h-[2px] rounded-full bg-border/40 overflow-hidden">
+        <div className="h-[2px] rounded-full bg-border/30 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-500"
-            style={{ width: showPercent ? `${percent}%` : "0%", background: color + "80" }} />
+            style={{ width: showPercent ? `${percent}%` : "0%", background: "var(--muted-foreground)" + "40" }} />
         </div>
       </div>
     </button>
@@ -160,15 +223,12 @@ const ScrollableOptions = ({
     setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
   };
 
-  useEffect(() => {
-    const t = setTimeout(checkScroll, 120);
-    return () => clearTimeout(t);
-  }, [options.length]);
+  useEffect(() => { const t = setTimeout(checkScroll, 120); return () => clearTimeout(t); }, [options.length]);
 
   return (
     <div className="relative">
       {canScrollUp && (
-        <div className="absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none rounded-t-lg"
+        <div className="absolute top-0 left-0 right-0 h-5 z-10 pointer-events-none"
           style={{ background: "linear-gradient(to bottom, var(--card), transparent)" }} />
       )}
       <div
@@ -178,7 +238,7 @@ const ScrollableOptions = ({
         onTouchMove={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
         className="flex flex-col gap-1.5 overflow-y-auto overscroll-contain"
-        style={{ maxHeight: "128px", scrollbarWidth: "none", msOverflowStyle: "none" }}
+        style={{ maxHeight: "120px", scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {options.map((opt, i) => (
           <OptionBar
@@ -193,9 +253,9 @@ const ScrollableOptions = ({
         ))}
       </div>
       {canScrollDown && (
-        <div className="absolute bottom-0 left-0 right-0 h-8 z-10 pointer-events-none flex items-end justify-center pb-0.5 rounded-b-lg"
+        <div className="absolute bottom-0 left-0 right-0 h-7 z-10 pointer-events-none flex items-end justify-center pb-0.5"
           style={{ background: "linear-gradient(to top, var(--card) 40%, transparent)" }}>
-          <span className="text-[9px] text-muted-foreground font-medium">↕ scroll for more</span>
+          <span className="text-[9px] text-muted-foreground">↕ scroll</span>
         </div>
       )}
     </div>
@@ -205,7 +265,7 @@ const ScrollableOptions = ({
 // ── Main card ─────────────────────────────────────────────────
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
   const {
-    question, coins, timeLeft, genre, topicIcon, topicSlug, iconUrl,
+    question, coins, timeLeft, genre, topicIcon,
     isLiveGame, homeTeam, awayTeam, homeScore, awayScore, matchMinute,
     options, leagueName, creatorUsername, creatorReputation, createdAt,
     followerCount = 0,
@@ -229,7 +289,9 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       ? options
       : [{ label: "Yes", percent: 50 }, { label: "No", percent: 50 }];
 
-  const binary = isBinaryYesNo(allOptions);
+  const isYesNo = isBinaryYesNo(allOptions);
+  const isTwoOpt = isTwoAnswer(allOptions);
+  const isMulti = !isTwoOpt && allOptions.length > 2;
   const optionLabels = allOptions.map(o => o.label);
 
   const { hasActivity, optionSeries, latestProbabilities, participants, totalCoinsStaked } = useMarketTimeline({
@@ -280,7 +342,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     prevPartsRef.current = participants;
   }, [participants, hasActivity, leadingDelta]);
 
-  // Build graph series for MarketGraph
   const graphSeries = useMemo(() =>
     optionSeries.slice(0, 3).map(s => ({
       label: s.label,
@@ -305,7 +366,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
   return (
     <>
       <motion.div
-        className="bg-card border border-border rounded-xl overflow-hidden flex flex-col cursor-pointer hover:border-border/60 transition-colors duration-200"
+        className="bg-card border border-border rounded-xl overflow-hidden flex flex-col cursor-pointer hover:brightness-[1.04] transition-all duration-200"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.25) }}
@@ -313,34 +374,30 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
       >
         <div className="p-4 flex flex-col gap-3 flex-1">
 
-          {/* ── Header: icon + topic + actions ── */}
+          {/* Header — NO icon, topic text only */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              {/* Polymarket-style left icon */}
-              <QuestionIcon iconUrl={iconUrl} statement={question} size={24} />
-
-              <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                  {cleanGenre}
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              {topicIcon && <span className="text-sm shrink-0">{topicIcon}</span>}
+              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                {cleanGenre}
+              </span>
+              {leagueName && (
+                <>
+                  <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
+                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
+                </>
+              )}
+              {activityTag && (
+                <span className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0 ml-0.5"
+                  style={{ color: activityTag.color }}>
+                  {activityTag.icon} {activityTag.label}
                 </span>
-                {leagueName && (
-                  <>
-                    <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
-                    <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
-                  </>
-                )}
-                {activityTag && (
-                  <span className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0"
-                    style={{ color: activityTag.color }}>
-                    {activityTag.icon} {activityTag.label}
-                  </span>
-                )}
-                {isLive && !activityTag && (
-                  <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
-                  </span>
-                )}
-              </div>
+              )}
+              {isLive && !activityTag && (
+                <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-0.5 shrink-0">
               <button onClick={e => { e.stopPropagation(); setShareSheet(true); }}
@@ -390,41 +447,33 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           )}
 
-          {/* Minimal market graph — faint when no activity, live when active */}
+          {/* Graph */}
           <div>
-            <MarketGraph
-              series={graphSeries}
-              height={60}
-              compact={true}
-              showTooltip={hasActivity}
-            />
+            <MarketGraph series={graphSeries} height={60} compact={true} showTooltip={hasActivity} />
             {signal && hasActivity && (
               <p className="mt-0.5 text-[10px] text-muted-foreground">{signal}</p>
             )}
           </div>
 
-          {/* Options */}
-          {binary ? (
-            /* Yes/No — HORIZONTAL */
-            <div className="grid grid-cols-2 gap-2" onClick={e => e.stopPropagation()}>
-              {allOptions.map((opt, i) => {
-                const color = optColor(opt.label, i);
-                const pct = hasActivity ? (latestProbabilities[opt.label] ?? opt.percent) : null;
-                return (
-                  <button key={opt.label}
-                    onClick={handleOptionTap}
-                    className="flex flex-col items-center justify-center py-3 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.97] transition-all">
-                    <span className="text-sm font-bold" style={{ color }}>{opt.label}</span>
-                    <span className="text-xs font-semibold tabular-nums mt-0.5"
-                      style={{ color: pct !== null ? color : undefined }}>
-                      {pct !== null ? `${pct}%` : "—"}
-                    </span>
-                  </button>
-                );
-              })}
+          {/* ── Options ── */}
+          {isTwoOpt ? (
+            /* Two answers: Yes/No or two names/teams — horizontal, light-up */
+            <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+              {allOptions.map((opt, i) => (
+                <BinaryOptionCard
+                  key={opt.label}
+                  label={opt.label}
+                  percent={latestProbabilities[opt.label] ?? opt.percent}
+                  showPercent={hasActivity}
+                  delta={deltaByLabel[opt.label] ?? 0}
+                  index={i}
+                  withColorFade={isYesNo} // colour fade ONLY for Yes/No
+                  onClick={handleOptionTap}
+                />
+              ))}
             </div>
           ) : (
-            /* Multi-choice — SCROLLABLE */
+            /* Multi-choice: vertical scrollable, NO colour fade */
             <ScrollableOptions
               options={allOptions}
               latestProbabilities={latestProbabilities}
@@ -435,7 +484,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-auto">
+          <div className="flex items-center justify-between pt-2 border-t border-border/30 mt-auto">
             <div className="flex items-center gap-2 min-w-0">
               {hasActivity ? (
                 <span className="flex items-center gap-1 text-[11px] text-[#22C55E] font-semibold">
@@ -449,7 +498,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
               {hasActivity && leadingDelta !== 0 && (
                 <>
-                  <span className="text-muted-foreground/40 text-[11px]">·</span>
+                  <span className="text-muted-foreground/30 text-[11px]">·</span>
                   <span className="flex items-center gap-0.5 text-[11px] font-semibold"
                     style={{ color: leadingDelta > 0 ? "#22C55E" : "#DC2626" }}>
                     {leadingDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
@@ -459,7 +508,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
               {!hasActivity && (
                 <>
-                  <span className="text-muted-foreground/40 text-[11px]">·</span>
+                  <span className="text-muted-foreground/30 text-[11px]">·</span>
                   <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                     <Timer className="h-3 w-3" /> {timeLeft}
                   </span>
@@ -467,7 +516,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
               {hasActivity && isLive && (
                 <>
-                  <span className="text-muted-foreground/40 text-[11px]">·</span>
+                  <span className="text-muted-foreground/30 text-[11px]">·</span>
                   <span className="flex items-center gap-1 text-[11px] font-medium text-[#22C55E]">
                     <Activity className="h-3 w-3" /> Live
                   </span>
@@ -475,9 +524,9 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               )}
             </div>
             <button onClick={handleFollow}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors border shrink-0 ${followed
-                  ? "text-[#22C55E] border-[#22C55E] bg-[#22C55E]/8"
-                  : "text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border shrink-0 ${followed
+                  ? "text-[#22C55E] border-[#22C55E]/50 bg-[#22C55E]/8"
+                  : "text-muted-foreground border-border/50 hover:brightness-110"
                 }`}>
               <Bell className={`h-3 w-3 ${followed ? "fill-[#22C55E]" : ""}`} />
               {followed ? "Following" : "Follow"}
@@ -494,7 +543,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         />
       )}
 
-      {/* Mobile stake sheet — full height, all options visible */}
       {stakeSheet && (
         <MobileStakeSheet
           opinion={{ id: String(data.id), statement: question, call_count: coins, follower_count: followerCount, end_time: "", source_name: null, source_url: null }}

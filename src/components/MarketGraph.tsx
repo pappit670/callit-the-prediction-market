@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
     LineChart, Line, ResponsiveContainer, YAxis,
-    Tooltip, CartesianGrid, ReferenceLine,
+    Tooltip, CartesianGrid,
 } from "recharts";
 
 const GRAPH_COLORS = [
@@ -23,7 +23,7 @@ interface Props {
     height?: number;
     showGrid?: boolean;
     showTooltip?: boolean;
-    compact?: boolean; // true = card mini graph, false = full detail graph
+    compact?: boolean;
 }
 
 export function MarketGraph({
@@ -35,7 +35,6 @@ export function MarketGraph({
 }: Props) {
     const hasData = series.some(s => s.data.length > 1);
 
-    // Merge all series into one array keyed by time
     const merged = useMemo(() => {
         if (!hasData) return [];
         const allTimes = Array.from(
@@ -52,9 +51,8 @@ export function MarketGraph({
     }, [series, hasData]);
 
     if (!hasData) {
-        // Faint placeholder graph — flat lines at even intervals
         const placeholderData = Array.from({ length: 10 }, (_, i) => ({ time: i }));
-        const levels = series.map((s, i) => Math.round(100 / (series.length + 1)) * (i + 1));
+        const levels = series.map((_, i) => Math.round(100 / (series.length + 1)) * (i + 1));
 
         return (
             <ResponsiveContainer width="100%" height={height}>
