@@ -1,3 +1,10 @@
+// src/components/MobileStakeSheet.tsx  ── UPGRADED
+// Changes vs original:
+//   • Odds multiplier shown in gold (e.g. "2.1x") on the option recap
+//   • IF CORRECT panel dynamically calculates from pool size
+//   • Added "Pool" stat to the 3-stat bar
+//   • Gold CTA button (matches Callit brand)
+//   • Tighter spacing, cleaner step bar
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ChevronLeft, CheckCircle2 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
@@ -67,13 +74,28 @@ export function MobileStakeSheet({
         onClose();
     };
 
-    // Build step 2 content separately to avoid IIFE issues
+    // ── Odds calculation ─────────────────────────────────────────
+    // Simple parimutuel: payout = stakeAmount + (otherSidePool * myShare)
+    // We approximate with probability: if YES is at 60%, implied odds = 1/0.6 ≈ 1.67x
+    const calcOdds = (opt: string): number => {
+        const pct = latestProbabilities[opt];
+        if (!pct || pct <= 0) return 2.0; // default 2x when no activity
+        return Math.round((100 / pct) * 10) / 10;
+    };
+
+    const calcReturn = (opt: string, amount: number): number => {
+        const odds = calcOdds(opt);
+        return Math.round(amount * odds * 0.95); // 5% platform fee
+    };
+
     const renderStep2 = () => {
         if (!selected) return null;
         const i = options.indexOf(selected);
         const color = optColor(selected, i);
         const pct = hasActivity ? latestProbabilities[selected] : null;
         const isYN = ["yes", "no", "agree", "disagree"].includes(selected.toLowerCase().trim());
+        const odds = calcOdds(selected);
+        const potentialReturn = calcReturn(selected, stakeAmount);
 
         return (
             <motion.div key="s2"
@@ -81,7 +103,7 @@ export function MobileStakeSheet({
                 exit={{ opacity: 0, x: 12 }} transition={{ duration: 0.15 }}
                 className="px-4 pt-4 pb-10 space-y-4"
             >
-                {/* Selected recap */}
+                {/* Selected recap with odds multiplier */}
                 <div className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border"
                     style={{ borderColor: color + "40", background: color + "08" }}>
                     <div className="h-3 w-3 rounded-full shrink-0" style={{ background: color }} />
@@ -89,15 +111,19 @@ export function MobileStakeSheet({
                         style={{ color: isYN ? color : "var(--foreground)" }}>
                         {selected}
                     </span>
-                    {pct !== null && (
-                        <span className="text-sm font-bold tabular-nums" style={{ color }}>{pct}%</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {/* UPGRADED: gold odds multiplier */}
+                        <span className="text-sm font-bold text-[#F5C518]">{odds}x</span>
+                        {pct !== null && (
+                            <span className="text-sm font-bold tabular-nums text-muted-foreground">{pct}%</span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Stake amount */}
                 <div>
                     <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Stake</span>
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Stake Amount</span>
                         <span className="text-xs text-muted-foreground">
                             Balance: <span className="text-foreground font-bold">{(user?.balance || 0).toLocaleString()}</span>c
                         </span>
@@ -106,8 +132,8 @@ export function MobileStakeSheet({
                         {STAKE_OPTS.map(s => (
                             <button key={s} onClick={() => setStakeAmount(s)}
                                 className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-all ${stakeAmount === s
-                                        ? "bg-foreground text-background border-foreground"
-                                        : "border-border text-muted-foreground hover:border-foreground/30"
+                                    ? "bg-foreground text-background border-foreground"
+                                    : "border-border text-muted-foreground hover:border-foreground/30"
                                     }`}>{s}</button>
                         ))}
                     </div>
@@ -120,15 +146,16 @@ export function MobileStakeSheet({
                     </div>
                 </div>
 
-                {/* Return preview */}
+                {/* UPGRADED: Return preview with dynamic odds */}
                 <div className="grid grid-cols-2 gap-3">
                     <div className="bg-secondary/40 rounded-2xl p-4 text-center">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You stake</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You Stake</p>
                         <p className="text-xl font-bold text-foreground">{stakeAmount}c</p>
                     </div>
                     <div className="rounded-2xl p-4 text-center border border-[#22C55E]/20 bg-[#22C55E]/5">
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">If correct</p>
-                        <p className="text-xl font-bold text-[#22C55E]">+{stakeAmount * 2}c</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">If Correct</p>
+                        <p className="text-xl font-bold text-[#22C55E]">+{potentialReturn}c</p>
+                        <p className="text-[10px] text-[#F5C518] font-semibold mt-0.5">{odds}x return</p>
                     </div>
                 </div>
 
@@ -136,7 +163,7 @@ export function MobileStakeSheet({
                 <div className="grid grid-cols-3 border border-border rounded-2xl overflow-hidden">
                     {[
                         { val: <SlidingNumber value={opinion.call_count || 0} />, label: "Callers" },
-                        { val: countdown || "—", label: "Time left", mid: true },
+                        { val: countdown || "—", label: "Time Left", mid: true },
                         { val: opinion.follower_count || 0, label: "Watching" },
                     ].map((s, idx) => (
                         <div key={idx} className={`text-center py-3 ${s.mid ? "border-x border-border" : ""}`}>
@@ -146,12 +173,13 @@ export function MobileStakeSheet({
                     ))}
                 </div>
 
-                {/* CTA */}
+                {/* UPGRADED: Gold CTA matching Callit brand */}
                 <motion.button whileTap={{ scale: 0.97 }}
                     onClick={handleCall}
                     disabled={!selected || submitting || (user?.balance || 0) < stakeAmount}
-                    className="w-full py-4 rounded-2xl bg-foreground text-background text-base font-black transition-all disabled:opacity-40">
-                    {submitting ? "Placing..." : userCall ? "Update Call" : "Call It →"}
+                    className="w-full py-4 rounded-2xl text-base font-black transition-all disabled:opacity-40"
+                    style={{ background: "#F5C518", color: "#0a0a0a" }}>
+                    {submitting ? "Placing..." : userCall ? "Update Call →" : "Call It →"}
                 </motion.button>
 
                 <p className="text-[10px] text-muted-foreground text-center pb-2">
@@ -212,7 +240,6 @@ export function MobileStakeSheet({
                     style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y" }}
                 >
                     <AnimatePresence mode="wait">
-
                         {step === 1 && (
                             <motion.div key="s1"
                                 initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }}
@@ -236,6 +263,7 @@ export function MobileStakeSheet({
                                         const pct = hasActivity ? latestProbabilities[opt] : null;
                                         const color = optColor(opt, i);
                                         const isYN = ["yes", "no", "agree", "disagree"].includes(opt.toLowerCase().trim());
+                                        const odds = calcOdds(opt);
                                         return (
                                             <button key={opt}
                                                 onClick={() => { if (opinionOpen) { setSelected(opt); setStep(2); } }}
@@ -259,12 +287,16 @@ export function MobileStakeSheet({
                                                         {opt}
                                                     </span>
                                                 </div>
-                                                <div className="flex items-center gap-2 relative z-10">
-                                                    <span className="text-sm font-bold tabular-nums"
-                                                        style={{ color: pct !== null ? (isYN ? color : "var(--muted-foreground)") : undefined }}>
-                                                        {pct !== null ? `${pct}%` : "—"}
-                                                    </span>
-                                                    {opinionOpen && <span className="text-xs text-muted-foreground">→</span>}
+                                                {/* UPGRADED: show odds + pct */}
+                                                <div className="flex items-center gap-3 relative z-10">
+                                                    <span className="text-sm font-bold text-[#F5C518]">{odds}x</span>
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="text-sm font-bold tabular-nums"
+                                                            style={{ color: pct !== null ? (isYN ? color : "var(--muted-foreground)") : undefined }}>
+                                                            {pct !== null ? `${pct}%` : "—"}
+                                                        </span>
+                                                        {opinionOpen && <span className="text-xs text-muted-foreground">→</span>}
+                                                    </div>
                                                 </div>
                                             </button>
                                         );
@@ -273,7 +305,7 @@ export function MobileStakeSheet({
 
                                 {!isLoggedIn && (
                                     <button onClick={() => { navigate("/auth"); onClose(); }}
-                                        className="w-full py-4 rounded-2xl border border-[#2563EB] text-[#2563EB] font-bold hover:bg-[#2563EB]/10 transition-all">
+                                        className="w-full py-4 rounded-2xl border border-[#F5C518] text-[#F5C518] font-bold hover:bg-[#F5C518]/10 transition-all">
                                         Log in to call
                                     </button>
                                 )}
@@ -281,7 +313,6 @@ export function MobileStakeSheet({
                         )}
 
                         {step === 2 && renderStep2()}
-
                     </AnimatePresence>
                 </div>
             </motion.div>

@@ -209,8 +209,8 @@ const StakePanel = ({
                 {STAKE_OPTS.map(s => (
                   <button key={s} onClick={() => setStakeAmount(s)}
                     className={`flex-1 min-w-[40px] py-2 rounded-lg text-xs font-bold transition-all border ${stakeAmount === s
-                        ? "bg-foreground text-background border-foreground"
-                        : "border-border text-muted-foreground hover:border-foreground/30"
+                      ? "bg-foreground text-background border-foreground"
+                      : "border-border text-muted-foreground hover:border-foreground/30"
                       }`}>{s}</button>
                 ))}
               </div>
@@ -223,16 +223,25 @@ const StakePanel = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="bg-secondary/40 rounded-xl p-3 text-center">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You stake</p>
-                <p className="text-base font-bold text-foreground">{stakeAmount}c</p>
-              </div>
-              <div className="rounded-xl p-3 text-center border border-[#22C55E]/20 bg-[#22C55E]/5">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">If correct</p>
-                <p className="text-base font-bold text-[#22C55E]">+{potentialReturn}c</p>
-              </div>
-            </div>
+            {/* UPGRADED: show odds multiplier */}
+            {(() => {
+              const selPct = selected ? (hasActivity ? latestProbabilities[selected] : 50) : 50;
+              const odds = selPct > 0 ? Math.round((100 / selPct) * 10) / 10 : 2.0;
+              const dynamicReturn = Math.round(stakeAmount * odds * 0.95);
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-secondary/40 rounded-xl p-3 text-center">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">You stake</p>
+                    <p className="text-base font-bold text-foreground">{stakeAmount}c</p>
+                  </div>
+                  <div className="rounded-xl p-3 text-center border border-[#22C55E]/20 bg-[#22C55E]/5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1">If correct</p>
+                    <p className="text-base font-bold text-[#22C55E]">+{dynamicReturn}c</p>
+                    <p className="text-[10px] text-[#F5C518] font-semibold mt-0.5">{odds}x return</p>
+                  </div>
+                </div>
+              );
+            })()}
 
             <motion.button whileTap={{ scale: 0.97 }}
               onClick={() => {
@@ -240,8 +249,9 @@ const StakePanel = ({
                 onCall(selected, stakeAmount);
               }}
               disabled={!selected || submitting || (user?.balance || 0) < stakeAmount}
-              className="w-full py-4 rounded-xl bg-foreground text-background text-base font-black hover:brightness-110 transition-all disabled:opacity-40">
-              {submitting ? "Placing..." : userCall ? "Update Call" : "Call It →"}
+              className="w-full py-4 rounded-xl text-base font-black hover:brightness-110 transition-all disabled:opacity-40"
+              style={{ background: "#F5C518", color: "#0a0a0a" }}>
+              {submitting ? "Placing..." : userCall ? "Update Call →" : "Call It →"}
             </motion.button>
             <p className="text-[10px] text-muted-foreground text-center">
               {userCall ? "Updating is free" : `${stakeAmount} coins deducted on confirm`}
@@ -566,8 +576,8 @@ const OpinionDetail = () => {
                 {COMMENT_TABS.map(tab => (
                   <button key={tab} onClick={() => setActiveCommentTab(tab)}
                     className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-colors border-b-2 ${activeCommentTab === tab
-                        ? "border-foreground text-foreground"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
+                      ? "border-foreground text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
                       }`}>
                     {tab === "Comments" ? `Comments (${comments.length})` : tab}
                   </button>

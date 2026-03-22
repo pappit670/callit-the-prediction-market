@@ -93,6 +93,21 @@ const Portfolio = () => {
           ))}
         </div>
 
+        {/* UPGRADED: First-call onboarding banner — only shows when no calls made */}
+        {(profile?.total_calls || 0) === 0 && (
+          <div className="mt-6 rounded-xl border border-gold/30 bg-gold/5 p-5 flex items-start gap-4">
+            <div className="text-2xl">🎯</div>
+            <div className="flex-1">
+              <p className="text-sm font-bold text-foreground mb-1">Make your first call</p>
+              <p className="text-xs text-muted-foreground mb-3">Pick a question, stake coins, and start building your prediction record. Your wins and accuracy are tracked here.</p>
+              <button onClick={() => navigate("/")}
+                className="rounded-full bg-gold px-4 py-1.5 text-xs font-bold text-primary-foreground hover:bg-gold-hover transition-colors">
+                Browse calls →
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="relative border-b border-border mt-10">
           <div className="flex gap-1">
             {tabs.map((tab) => (

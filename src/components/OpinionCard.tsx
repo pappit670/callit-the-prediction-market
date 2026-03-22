@@ -1,9 +1,9 @@
-// src/components/OpinionCard.tsx
+// src/components/OpinionCard.tsx  ── UPGRADED
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bookmark, Activity, Timer, Share2,
-  Bell, TrendingUp, TrendingDown, Coins, Flame, Zap,
+  Bell, TrendingUp, TrendingDown, Coins, Flame, Zap, Users,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -23,7 +23,6 @@ const optColor = (label: string, i: number): string => {
   return multi[i % multi.length];
 };
 
-// Only applies colour fade to binary Yes/No or two-person/two-team cards
 const isBinaryYesNo = (opts: { label: string }[]): boolean => {
   if (opts.length !== 2) return false;
   const labels = opts.map(o => o.label.toLowerCase().trim());
@@ -33,7 +32,6 @@ const isBinaryYesNo = (opts: { label: string }[]): boolean => {
   );
 };
 
-// Two-answer competition (names, teams, dates) — gets light-up but NO colour fade
 const isTwoAnswer = (opts: { label: string }[]): boolean => opts.length === 2;
 
 export interface OpinionCardData {
@@ -105,12 +103,9 @@ function getActivityTag(data: OpinionCardData) {
   return null;
 }
 
-// ── Binary option card — colour fade + light-up hover ─────────
-// Used for Yes/No, Agree/Disagree, two-person, two-team
+// ── UPGRADED: Binary option button — matches Polymarket side-by-side style
 const BinaryOptionCard = ({
-  label, percent, showPercent, delta, index,
-  withColorFade, // true for Yes/No, false for names/teams/dates
-  onClick,
+  label, percent, showPercent, delta, index, withColorFade, onClick,
 }: {
   label: string; percent: number; showPercent: boolean;
   delta: number; index: number; withColorFade: boolean;
@@ -120,51 +115,49 @@ const BinaryOptionCard = ({
   return (
     <button
       onClick={onClick}
-      className="flex-1 flex flex-col items-center justify-center py-3.5 rounded-xl border transition-all duration-200 relative overflow-hidden group"
+      className="flex-1 flex items-center justify-between px-3.5 py-3 rounded-xl border transition-all duration-200 relative overflow-hidden group"
       style={{
         borderColor: withColorFade ? color + "50" : "var(--border)",
-        background: withColorFade ? color + "0D" : "var(--secondary-20)",
+        background: withColorFade ? color + "0D" : "var(--secondary)",
       }}
     >
-      {/* Light-up on hover — brightness lift NOT glow */}
-      <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
         style={{
           background: withColorFade
-            ? `linear-gradient(135deg, ${color}20 0%, ${color}08 100%)`
+            ? `linear-gradient(135deg, ${color}22 0%, ${color}08 100%)`
             : "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
         }}
       />
-      <span
-        className="text-sm font-bold relative z-10"
-        style={{ color: withColorFade ? color : "var(--foreground)" }}
-      >
-        {label}
-      </span>
-      {showPercent && (
-        <span
-          className="text-xs font-semibold tabular-nums mt-0.5 relative z-10"
-          style={{ color: withColorFade ? color + "CC" : "var(--muted-foreground)" }}
-        >
-          {percent}%
+      {/* Dot + label */}
+      <div className="flex items-center gap-2 relative z-10">
+        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: color }} />
+        <span className="text-sm font-bold" style={{ color: withColorFade ? color : "var(--foreground)" }}>
+          {label}
         </span>
-      )}
-      {showPercent && delta !== 0 && (
-        <span
-          className="text-[10px] font-semibold tabular-nums mt-0.5 relative z-10"
-          style={{ color: delta > 0 ? "#22C55E" : "#DC2626" }}
-        >
-          {delta > 0 ? `+${delta}%` : `${delta}%`}
-        </span>
-      )}
-      {!showPercent && (
-        <span className="text-[10px] text-muted-foreground mt-0.5 relative z-10">—</span>
-      )}
+      </div>
+      {/* Percent + delta */}
+      <div className="flex flex-col items-end relative z-10">
+        {showPercent ? (
+          <>
+            <span className="text-sm font-bold tabular-nums" style={{ color: withColorFade ? color : "var(--foreground)" }}>
+              {percent}%
+            </span>
+            {delta !== 0 && (
+              <span className="text-[10px] font-semibold tabular-nums leading-none mt-0.5"
+                style={{ color: delta > 0 ? "#22C55E" : "#DC2626" }}>
+                {delta > 0 ? `+${delta}%` : `${delta}%`}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </div>
     </button>
   );
 };
 
-// ── Multi-choice option bar — NO colour fade, plain style ─────
+// ── Multi-choice option bar ───────────────────────────────────
 const OptionBar = ({
   label, percent, showPercent, delta, index, onClick,
 }: {
@@ -195,84 +188,107 @@ const OptionBar = ({
         </div>
         <div className="h-[2px] rounded-full bg-border/30 overflow-hidden">
           <div className="h-full rounded-full transition-all duration-500"
-            style={{ width: showPercent ? `${percent}%` : "0%", background: "var(--muted-foreground)" + "40" }} />
+            style={{ width: showPercent ? `${percent}%` : "0%", background: color + "60" }} />
         </div>
       </div>
     </button>
   );
 };
 
-// ── Scrollable multi-choice ───────────────────────────────────
-const ScrollableOptions = ({
-  options, latestProbabilities, hasActivity, deltaByLabel, onOptionTap,
-}: {
-  options: { label: string; percent: number }[];
-  latestProbabilities: Record<string, number>;
-  hasActivity: boolean;
-  deltaByLabel: Record<string, number>;
-  onOptionTap: (e: React.MouseEvent, label: string) => void;
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [canScrollUp, setCanScrollUp] = useState(false);
-  const [canScrollDown, setCanScrollDown] = useState(false);
+// Scrollable multi options
+const ScrollableOptions = ({ options, latestProbabilities, hasActivity, deltaByLabel, onOptionTap }: any) => (
+  <div className="flex flex-col gap-1.5 max-h-[140px] overflow-y-auto pr-0.5" style={{ scrollbarWidth: "none" }}>
+    {options.map((opt: any, i: number) => (
+      <OptionBar
+        key={opt.label}
+        label={opt.label}
+        percent={latestProbabilities[opt.label] ?? opt.percent}
+        showPercent={hasActivity}
+        delta={deltaByLabel[opt.label] ?? 0}
+        index={i}
+        onClick={onOptionTap}
+      />
+    ))}
+  </div>
+);
 
-  const checkScroll = () => {
-    const el = containerRef.current;
-    if (!el) return;
-    setCanScrollUp(el.scrollTop > 4);
-    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
-  };
-
-  useEffect(() => { const t = setTimeout(checkScroll, 120); return () => clearTimeout(t); }, [options.length]);
-
-  return (
-    <div className="relative">
-      {canScrollUp && (
-        <div className="absolute top-0 left-0 right-0 h-5 z-10 pointer-events-none"
-          style={{ background: "linear-gradient(to bottom, var(--card), transparent)" }} />
+// ── UPGRADED: Compact stats bar — volume prominent like Kalshi/Polymarket
+const StatsBar = ({
+  hasActivity, totalCoinsStaked, participants, timeLeft,
+  leadingDelta, isLive, followed, onFollow,
+}: any) => (
+  <div className="flex items-center justify-between pt-2.5 border-t border-border/30 mt-auto">
+    <div className="flex items-center gap-3 min-w-0 flex-1">
+      {/* Volume — most prominent */}
+      {hasActivity ? (
+        <span className="flex items-center gap-1 text-[11px] font-bold text-[#22C55E]">
+          <Coins className="h-3 w-3" />
+          {formatCount(totalCoinsStaked)}c
+        </span>
+      ) : (
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Coins className="h-3 w-3" /> No stakes yet
+        </span>
       )}
-      <div
-        ref={containerRef}
-        onScroll={checkScroll}
-        onWheel={e => e.stopPropagation()}
-        onTouchMove={e => e.stopPropagation()}
-        onClick={e => e.stopPropagation()}
-        className="flex flex-col gap-1.5 overflow-y-auto overscroll-contain"
-        style={{ maxHeight: "120px", scrollbarWidth: "none", msOverflowStyle: "none" }}
-      >
-        {options.map((opt, i) => (
-          <OptionBar
-            key={opt.label}
-            label={opt.label}
-            percent={latestProbabilities[opt.label] ?? opt.percent}
-            showPercent={hasActivity}
-            delta={deltaByLabel[opt.label] ?? 0}
-            index={i}
-            onClick={e => onOptionTap(e, opt.label)}
-          />
-        ))}
-      </div>
-      {canScrollDown && (
-        <div className="absolute bottom-0 left-0 right-0 h-7 z-10 pointer-events-none flex items-end justify-center pb-0.5"
-          style={{ background: "linear-gradient(to top, var(--card) 40%, transparent)" }}>
-          <span className="text-[9px] text-muted-foreground">↕ scroll</span>
-        </div>
+
+      {/* Participants */}
+      {hasActivity && participants > 0 && (
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Users className="h-3 w-3" />
+          {participants}
+        </span>
+      )}
+
+      {/* Movement */}
+      {hasActivity && leadingDelta !== 0 && (
+        <span className="flex items-center gap-0.5 text-[11px] font-semibold"
+          style={{ color: leadingDelta > 0 ? "#22C55E" : "#DC2626" }}>
+          {leadingDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+          {leadingDelta > 0 ? `+${leadingDelta}%` : `${leadingDelta}%`}
+        </span>
+      )}
+
+      {/* Time */}
+      {!isLive && (
+        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+          <Timer className="h-3 w-3" /> {timeLeft}
+        </span>
+      )}
+      {isLive && (
+        <span className="flex items-center gap-1 text-[11px] font-bold text-[#DC2626]">
+          <Activity className="h-3 w-3" /> Live
+        </span>
       )}
     </div>
-  );
-};
+
+    <button onClick={onFollow}
+      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border shrink-0 ${followed
+        ? "text-[#22C55E] border-[#22C55E]/50 bg-[#22C55E]/8"
+        : "text-muted-foreground border-border/50 hover:brightness-110"
+        }`}>
+      <Bell className={`h-3 w-3 ${followed ? "fill-[#22C55E]" : ""}`} />
+      {followed ? "Following" : "Follow"}
+    </button>
+  </div>
+);
 
 // ── Main card ─────────────────────────────────────────────────
-const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
-  const {
-    question, coins, timeLeft, genre, topicIcon,
-    isLiveGame, homeTeam, awayTeam, homeScore, awayScore, matchMinute,
-    options, leagueName, creatorUsername, creatorReputation, createdAt,
-    followerCount = 0,
-  } = data;
-
+const OpinionCard = ({
+  data,
+  index = 0,
+}: {
+  data: OpinionCardData;
+  index?: number;
+}) => {
   const navigate = useNavigate();
   const { isLoggedIn, user } = useApp();
+  const {
+    question, genre, topicIcon, timeLeft, leagueName,
+    creatorUsername, creatorReputation, createdAt,
+    followerCount, isLiveGame,
+    homeTeam, awayTeam, homeScore, awayScore, matchMinute,
+    options,
+  } = data;
 
   const [followed, setFollowed] = useState(false);
   const [shareSheet, setShareSheet] = useState(false);
@@ -291,7 +307,6 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
 
   const isYesNo = isBinaryYesNo(allOptions);
   const isTwoOpt = isTwoAnswer(allOptions);
-  const isMulti = !isTwoOpt && allOptions.length > 2;
   const optionLabels = allOptions.map(o => o.label);
 
   const { hasActivity, optionSeries, latestProbabilities, participants, totalCoinsStaked } = useMarketTimeline({
@@ -333,7 +348,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     const elapsed = now - prevSignalAtRef.current;
     if (delta > 0) {
       const c = Math.round((delta * 50 * 120000) / Math.max(1, elapsed));
-      setSignal(delta >= 6 ? `${delta} users joined` : `+${Math.max(50, c)}c in 2 min`);
+      setSignal(delta >= 6 ? `${delta} users just joined` : `+${Math.max(50, c)}c in 2 min`);
       prevSignalAtRef.current = now;
     } else if (hasActivity && elapsed > 30000) {
       setSignal(Math.abs(leadingDelta) >= 2 ? "Debate heating up" : "Market tightening");
@@ -372,9 +387,9 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.25) }}
         onClick={goToDetail}
       >
-        <div className="p-4 flex flex-col gap-3 flex-1">
+        <div className="p-4 flex flex-col gap-2.5 flex-1">
 
-          {/* Header — NO icon, topic text only */}
+          {/* ── Header ── */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-1">
               {topicIcon && <span className="text-sm shrink-0">{topicIcon}</span>}
@@ -388,7 +403,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                 </>
               )}
               {activityTag && (
-                <span className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0 ml-0.5"
+                <span className="flex items-center gap-0.5 text-[10px] font-bold shrink-0 ml-0.5"
                   style={{ color: activityTag.color }}>
                   {activityTag.icon} {activityTag.label}
                 </span>
@@ -411,7 +426,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           </div>
 
-          {/* Live score */}
+          {/* ── Live scoreboard ── */}
           {isLiveGame && homeTeam && awayTeam && (
             <div className="bg-secondary/60 rounded-lg px-3 py-2 flex items-center justify-between border border-border/50">
               <div className="text-center min-w-0 flex-1">
@@ -429,12 +444,12 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           )}
 
-          {/* Question */}
+          {/* ── Question ── */}
           <h3 className="text-[15px] leading-snug font-semibold text-foreground line-clamp-2">{question}</h3>
 
-          {/* Creator */}
+          {/* ── Creator + accuracy badge ── */}
           {creatorUsername && (
-            <div className="flex items-center gap-2 -mt-1 flex-wrap">
+            <div className="flex items-center gap-2 -mt-0.5 flex-wrap">
               <span className="text-[11px] text-muted-foreground">
                 by <span className="font-medium text-foreground/70">@{creatorUsername}</span>
               </span>
@@ -447,17 +462,19 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           )}
 
-          {/* Graph */}
-          <div>
-            <MarketGraph series={graphSeries} height={60} compact={true} showTooltip={hasActivity} />
+          {/* ── UPGRADED Graph: always shows, dashed placeholder when no data ── */}
+          <div className="-mx-0">
+            <MarketGraph series={graphSeries} height={56} compact={true} showTooltip={hasActivity} />
             {signal && hasActivity && (
-              <p className="mt-0.5 text-[10px] text-muted-foreground">{signal}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <div className="h-1 w-1 rounded-full bg-[#22C55E] animate-pulse" />
+                <p className="text-[10px] text-muted-foreground">{signal}</p>
+              </div>
             )}
           </div>
 
-          {/* ── Options ── */}
+          {/* ── UPGRADED Options ── */}
           {isTwoOpt ? (
-            /* Two answers: Yes/No or two names/teams — horizontal, light-up */
             <div className="flex gap-2" onClick={e => e.stopPropagation()}>
               {allOptions.map((opt, i) => (
                 <BinaryOptionCard
@@ -467,13 +484,12 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
                   showPercent={hasActivity}
                   delta={deltaByLabel[opt.label] ?? 0}
                   index={i}
-                  withColorFade={isYesNo} // colour fade ONLY for Yes/No
+                  withColorFade={isYesNo}
                   onClick={handleOptionTap}
                 />
               ))}
             </div>
           ) : (
-            /* Multi-choice: vertical scrollable, NO colour fade */
             <ScrollableOptions
               options={allOptions}
               latestProbabilities={latestProbabilities}
@@ -483,55 +499,17 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             />
           )}
 
-          {/* Footer */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/30 mt-auto">
-            <div className="flex items-center gap-2 min-w-0">
-              {hasActivity ? (
-                <span className="flex items-center gap-1 text-[11px] text-[#22C55E] font-semibold">
-                  <Coins className="h-3 w-3" />
-                  {formatCount(totalCoinsStaked)}c staked
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Coins className="h-3 w-3" /> No activity yet
-                </span>
-              )}
-              {hasActivity && leadingDelta !== 0 && (
-                <>
-                  <span className="text-muted-foreground/30 text-[11px]">·</span>
-                  <span className="flex items-center gap-0.5 text-[11px] font-semibold"
-                    style={{ color: leadingDelta > 0 ? "#22C55E" : "#DC2626" }}>
-                    {leadingDelta > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                    {leadingDelta > 0 ? `+${leadingDelta}%` : `${leadingDelta}%`}
-                  </span>
-                </>
-              )}
-              {!hasActivity && (
-                <>
-                  <span className="text-muted-foreground/30 text-[11px]">·</span>
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <Timer className="h-3 w-3" /> {timeLeft}
-                  </span>
-                </>
-              )}
-              {hasActivity && isLive && (
-                <>
-                  <span className="text-muted-foreground/30 text-[11px]">·</span>
-                  <span className="flex items-center gap-1 text-[11px] font-medium text-[#22C55E]">
-                    <Activity className="h-3 w-3" /> Live
-                  </span>
-                </>
-              )}
-            </div>
-            <button onClick={handleFollow}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all border shrink-0 ${followed
-                  ? "text-[#22C55E] border-[#22C55E]/50 bg-[#22C55E]/8"
-                  : "text-muted-foreground border-border/50 hover:brightness-110"
-                }`}>
-              <Bell className={`h-3 w-3 ${followed ? "fill-[#22C55E]" : ""}`} />
-              {followed ? "Following" : "Follow"}
-            </button>
-          </div>
+          {/* ── UPGRADED Footer with volume + participants prominent ── */}
+          <StatsBar
+            hasActivity={hasActivity}
+            totalCoinsStaked={totalCoinsStaked}
+            participants={participants}
+            timeLeft={timeLeft}
+            leadingDelta={leadingDelta}
+            isLive={isLive}
+            followed={followed}
+            onFollow={handleFollow}
+          />
 
         </div>
       </motion.div>
@@ -545,7 +523,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
 
       {stakeSheet && (
         <MobileStakeSheet
-          opinion={{ id: String(data.id), statement: question, call_count: coins, follower_count: followerCount, end_time: "", source_name: null, source_url: null }}
+          opinion={{ id: String(data.id), statement: question, call_count: data.coins, follower_count: followerCount, end_time: "", source_name: null, source_url: null }}
           options={optionLabels}
           userCall={null}
           isOpen={isOpen}
