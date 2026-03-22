@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
-import { CallitPredictionCard } from "@/components/ui/callit-prediction-card";
 import { ActivityFeed } from "@/components/ActivityFeed";
+import { MarketGraph } from "@/components/MarketGraph";
+import { QuestionIcon } from "@/components/QuestionIcon";
 import {
   Zap, ChevronLeft, ChevronRight, Timer, Users, Plus,
   TrendingUp, Swords
@@ -12,7 +13,7 @@ import {
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
 
-const OPTION_HEX = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#8B5CF6"];
+const GRAPH_COLORS = ["#2563EB", "#DC2626", "#7C3AED", "#0891B2", "#059669"];
 const SORT_OPTIONS = ["Trending", "Newest", "Most Called", "Ending Soon"];
 
 const TOPIC_PILLS = [
@@ -52,12 +53,16 @@ const TOPIC_PILLS = [
   { label: "Fuel", slug: "kenya-fuel" },
 ];
 
-const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void }) => {
+// ── Featured card ─────────────────────────────────────────────
+const FeaturedCard = ({ opinion, onClick, onOptionTap }: {
+  opinion: any;
+  onClick: () => void;
+  onOptionTap: (opt: string) => void;
+}) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const basePercent = Math.round(100 / options.length);
   const staticSeries = options.map((label, i) => ({
     label,
-    color: OPTION_HEX[i % OPTION_HEX.length],
     data: [] as { time: string; probability: number }[],
   }));
   const timeLeft = opinion.end_time
@@ -70,12 +75,15 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
     <motion.div className="w-full cursor-pointer" onClick={onClick}
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-      <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-gold/40 transition-all">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-border/60 transition-all">
+
         <div className="p-5 pb-3">
+          {/* Header with icon */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-gold uppercase tracking-wider">
-                {opinion.topics?.icon} {opinion.topics?.name || "General"}
+              <QuestionIcon iconUrl={opinion.icon_url} statement={opinion.statement} size={22} />
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                {opinion.topics?.name || "General"}
               </span>
               <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Featured</span>
             </div>
@@ -87,60 +95,56 @@ const FeaturedCard = ({ opinion, onClick }: { opinion: any; onClick: () => void 
           <h2 className="text-xl font-bold text-foreground leading-snug mb-1">{opinion.statement}</h2>
           {opinion.profiles?.username && (
             <p className="text-xs text-muted-foreground">
-              by <span className="text-gold font-semibold">@{opinion.profiles.username}</span>
+              by <span className="text-foreground/70 font-semibold">@{opinion.profiles.username}</span>
             </p>
           )}
         </div>
 
-        <div className="px-3 min-h-[160px] flex items-center justify-center">
-          <div className="w-full">
-            <CallitPredictionCard
-              title="Market Probability"
-              optionSeries={staticSeries}
-              height={160}
-            />
-          </div>
+        {/* Minimal graph — no gold colors */}
+        <div className="px-5 pb-2">
+          <MarketGraph series={staticSeries} height={70} compact={true} showTooltip={false} />
         </div>
 
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border">
-          <div className="flex items-center gap-3">
-            {options.slice(0, 3).map((opt, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full" style={{ background: OPTION_HEX[i % OPTION_HEX.length] }} />
-                <span className="text-xs text-muted-foreground">{opt}</span>
-                <span className="text-xs font-bold" style={{ color: OPTION_HEX[i % OPTION_HEX.length] }}>
-                  {basePercent}%
-                </span>
+        {/* Tappable options */}
+        <div className="px-5 pb-4 grid grid-cols-2 gap-2" onClick={e => e.stopPropagation()}>
+          {options.slice(0, 4).map((opt, i) => (
+            <button key={opt}
+              onClick={e => { e.stopPropagation(); onOptionTap(opt); }}
+              className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.97] transition-all">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full" style={{ background: GRAPH_COLORS[i % GRAPH_COLORS.length] }} />
+                <span className="text-xs font-semibold text-foreground">{opt}</span>
               </div>
-            ))}
-          </div>
-          <span className="text-xs font-bold text-gold">View →</span>
+              <span className="text-xs font-bold tabular-nums"
+                style={{ color: GRAPH_COLORS[i % GRAPH_COLORS.length] }}>
+                {basePercent}%
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between px-5 py-2.5 border-t border-border">
+          <span className="text-xs text-muted-foreground">{opinion.call_count || 0} callers · {timeLeft}</span>
+          <span className="text-xs font-bold text-foreground/70">View details →</span>
         </div>
       </div>
     </motion.div>
   );
 };
 
+// ── Topic filter bar ──────────────────────────────────────────
 const TopicFilterBar = ({
   active, onChange,
-}: {
-  active: string | null;
-  onChange: (s: string | null) => void;
-}) => (
+}: { active: string | null; onChange: (s: string | null) => void }) => (
   <div className="-mx-4 sm:-mx-6 mb-5">
-    <div
-      className="flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 border-y border-border bg-background"
-      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-    >
+    <div className="flex items-center gap-1.5 overflow-x-auto px-4 py-2.5 border-y border-border bg-background"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
       {TOPIC_PILLS.map(p => (
-        <button
-          key={p.slug ?? "all"}
-          onClick={() => onChange(p.slug)}
+        <button key={p.slug ?? "all"} onClick={() => onChange(p.slug)}
           className={`flex-shrink-0 px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${active === p.slug
               ? "bg-foreground text-background"
               : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-        >
+            }`}>
           {p.label}
         </button>
       ))}
@@ -148,6 +152,7 @@ const TopicFilterBar = ({
   </div>
 );
 
+// ── Debates + Activity tabs ───────────────────────────────────
 const FeaturedTabs = () => {
   const [tab, setTab] = useState<"debates" | "activity">("debates");
   const [debates, setDebates] = useState<any[]>([]);
@@ -167,14 +172,13 @@ const FeaturedTabs = () => {
       <div className="flex border-b border-border">
         {(["debates", "activity"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t ? "border-gold text-gold" : "border-transparent text-muted-foreground hover:text-foreground"
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
               }`}>
             {t === "debates" ? <Swords className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
             {t.charAt(0).toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
-
       {tab === "debates" && (
         <div className="divide-y divide-border/50">
           {debates.length === 0 ? (
@@ -185,8 +189,7 @@ const FeaturedTabs = () => {
             </div>
           ) : debates.map((d, i) => (
             <motion.button key={d.id}
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
               onClick={() => navigate(`/opinion/${d.opinion_id}`)}
               className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors text-left">
               <div className="h-7 w-7 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -200,7 +203,7 @@ const FeaturedTabs = () => {
                   <span className="text-[10px] text-[#22C55E] font-semibold">{d.challenger_alias}</span>
                   <span className="text-[10px] text-muted-foreground">vs</span>
                   <span className="text-[10px] text-[#DC2626] font-semibold">{d.defender_alias}</span>
-                  <span className="text-[10px] text-gold ml-auto">{d.challenger_votes + d.defender_votes} votes</span>
+                  <span className="text-[10px] text-foreground/50 ml-auto">{d.challenger_votes + d.defender_votes} votes</span>
                 </div>
                 <div className="mt-1.5 h-1 rounded-full bg-[#DC2626]/20 overflow-hidden">
                   <div className="h-full bg-[#22C55E] rounded-full transition-all"
@@ -220,6 +223,7 @@ const FeaturedTabs = () => {
   );
 };
 
+// ── Main Index ────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
   const { hasSeenHero, setHasSeenHero } = useApp();
@@ -232,6 +236,11 @@ const Index = () => {
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [activeSort, setActiveSort] = useState("Trending");
   const [page, setPage] = useState(0);
+
+  // Mobile stake sheet for featured card taps
+  const [featuredStakeSheet, setFeaturedStakeSheet] = useState(false);
+  const [featuredSelectedOpt, setFeaturedSelectedOpt] = useState<string | null>(null);
+
   const PAGE_SIZE = 6;
 
   useEffect(() => {
@@ -248,9 +257,7 @@ const Index = () => {
     const { data } = await supabase
       .from("opinions")
       .select("id, statement, call_count, rising_score, topics!opinions_topic_id_fkey(name, icon)")
-      .eq("status", "open")
-      .order("rising_score", { ascending: false })
-      .limit(4);
+      .eq("status", "open").order("rising_score", { ascending: false }).limit(4);
     setRising(data || []);
   };
 
@@ -259,7 +266,7 @@ const Index = () => {
     try {
       let query = supabase
         .from("opinions")
-        .select("id, statement, status, options, end_time, call_count, rising_score, follower_count, created_at, topic_id, image_url, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
+        .select("id, statement, status, options, end_time, call_count, rising_score, follower_count, created_at, icon_url, topics!opinions_topic_id_fkey(name, slug, icon, color), profiles(username, reputation_score)")
         .eq("status", "open")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
@@ -269,14 +276,10 @@ const Index = () => {
         if (topicRow?.id) query = query.eq("topic_id", topicRow.id);
       }
 
-      if (activeSort === "Newest")
-        query = query.order("created_at", { ascending: false });
-      else if (activeSort === "Most Called")
-        query = query.order("call_count", { ascending: false });
-      else if (activeSort === "Ending Soon")
-        query = query.order("end_time", { ascending: true });
-      else
-        query = query.order("call_count", { ascending: false });
+      if (activeSort === "Newest") query = query.order("created_at", { ascending: false });
+      else if (activeSort === "Most Called") query = query.order("call_count", { ascending: false });
+      else if (activeSort === "Ending Soon") query = query.order("end_time", { ascending: true });
+      else query = query.order("call_count", { ascending: false });
 
       const { data } = await query;
       if (data) {
@@ -287,9 +290,7 @@ const Index = () => {
       const { data: breakingData } = await supabase
         .from("opinions")
         .select("id, statement, call_count, topics!opinions_topic_id_fkey(name, icon)")
-        .eq("status", "open")
-        .order("created_at", { ascending: false })
-        .limit(5);
+        .eq("status", "open").order("created_at", { ascending: false }).limit(5);
       if (breakingData) setBreaking(breakingData);
 
     } catch (e) { console.error(e); }
@@ -311,7 +312,7 @@ const Index = () => {
     topicIcon: op.topics?.icon,
     topicColor: op.topics?.color,
     topicSlug: op.topics?.slug || null,
-    imageUrl: op.image_url || null,
+    iconUrl: op.icon_url || null,
     status: op.status,
     creatorUsername: op.profiles?.username || null,
     creatorReputation: op.profiles?.reputation_score
@@ -327,6 +328,10 @@ const Index = () => {
       : undefined,
   });
 
+  const currentFeatured = featured[featuredIndex];
+  const { isLoggedIn, user } = useApp();
+
+  // ── Landing ──────────────────────────────────────────────
   if (!hasSeenHero) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -342,11 +347,11 @@ const Index = () => {
             </p>
             <div className="flex items-center justify-center gap-3">
               <button onClick={() => setHasSeenHero(true)}
-                className="rounded-full bg-gold px-10 py-4 text-base font-bold text-primary-foreground hover:bg-gold-hover transition-all">
+                className="rounded-full bg-foreground text-background px-10 py-4 text-base font-bold hover:opacity-90 transition-all">
                 Call It Now
               </button>
               <button onClick={() => navigate("/how-it-works")}
-                className="rounded-full border border-border px-8 py-4 text-base font-semibold text-foreground hover:border-gold hover:text-gold transition-all">
+                className="rounded-full border border-border px-8 py-4 text-base font-semibold text-foreground hover:border-foreground/50 transition-all">
                 How it works
               </button>
             </div>
@@ -356,6 +361,7 @@ const Index = () => {
     );
   }
 
+  // ── Home feed ─────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -368,81 +374,77 @@ const Index = () => {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
                 <span className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full bg-gold animate-pulse" /> Featured
+                  <span className="h-2 w-2 rounded-full bg-foreground/60 animate-pulse" /> Featured
                 </span>
                 {featured.length > 1 && (
                   <div className="flex items-center gap-1.5">
                     {featured.map((_, i) => (
                       <button key={i} onClick={() => setFeaturedIndex(i)}
-                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-gold" : "w-1.5 bg-border"}`} />
+                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-foreground" : "w-1.5 bg-border"}`} />
                     ))}
                     <button onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
-                      className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all ml-1">
+                      className="p-1.5 rounded-full border border-border hover:border-foreground/40 transition-all ml-1">
                       <ChevronLeft className="h-3 w-3" />
                     </button>
                     <button onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
-                      className="p-1.5 rounded-full border border-border hover:border-gold hover:text-gold transition-all">
+                      className="p-1.5 rounded-full border border-border hover:border-foreground/40 transition-all">
                       <ChevronRight className="h-3 w-3" />
                     </button>
                   </div>
                 )}
               </div>
               {loading && !featured.length ? (
-                <div className="h-[320px] rounded-2xl bg-secondary animate-pulse" />
-              ) : featured.length > 0 ? (
+                <div className="h-[280px] rounded-2xl bg-secondary animate-pulse" />
+              ) : currentFeatured ? (
                 <AnimatePresence mode="wait">
                   <FeaturedCard
                     key={featuredIndex}
-                    opinion={featured[featuredIndex]}
-                    onClick={() => navigate(`/opinion/${featured[featuredIndex].id}`)}
+                    opinion={currentFeatured}
+                    onClick={() => navigate(`/opinion/${currentFeatured.id}`)}
+                    onOptionTap={opt => {
+                      setFeaturedSelectedOpt(opt);
+                      setFeaturedStakeSheet(true);
+                    }}
                   />
                 </AnimatePresence>
               ) : null}
             </div>
 
             {/* Debates + Activity */}
-            <div className="mb-8">
-              <FeaturedTabs />
-            </div>
+            <div className="mb-8"><FeaturedTabs /></div>
 
-            {/* All Calls header */}
+            {/* All Calls */}
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xl font-bold text-foreground">All Calls</h2>
               <div className="flex items-center gap-2">
                 <button onClick={() => navigate("/call-it")}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-gold text-primary-foreground text-xs font-bold hover:bg-gold-hover transition-all">
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-foreground text-background text-xs font-bold hover:opacity-90 transition-all">
                   <Plus className="h-3.5 w-3.5" /> Create
                 </button>
                 <select value={activeSort}
                   onChange={e => { setActiveSort(e.target.value); setPage(0); setOpinions([]); }}
-                  className="bg-background border border-border text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-gold transition-colors">
+                  className="bg-background border border-border text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-foreground/40 transition-colors">
                   {SORT_OPTIONS.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
             </div>
 
-            <TopicFilterBar
-              active={activeTopic}
-              onChange={slug => { setActiveTopic(slug); setPage(0); setOpinions([]); }}
-            />
+            <TopicFilterBar active={activeTopic}
+              onChange={slug => { setActiveTopic(slug); setPage(0); setOpinions([]); }} />
 
             {loading && page === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className="h-52 rounded-2xl bg-secondary animate-pulse" />
-                ))}
+                {[...Array(6)].map((_, i) => <div key={i} className="h-52 rounded-2xl bg-secondary animate-pulse" />)}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {opinions.map((op, i) => (
-                  <OpinionCard key={op.id} data={mapToCard(op)} index={i} />
-                ))}
+                {opinions.map((op, i) => <OpinionCard key={op.id} data={mapToCard(op)} index={i} />)}
               </div>
             )}
 
             <div className="mt-8 flex justify-center">
               <button onClick={() => setPage(p => p + 1)} disabled={loading}
-                className="py-3 px-8 text-sm font-bold border border-border rounded-xl hover:border-gold hover:text-gold transition-colors disabled:opacity-50">
+                className="py-3 px-8 text-sm font-bold border border-border rounded-xl hover:border-foreground/40 transition-colors disabled:opacity-50">
                 {loading ? "Loading..." : "Load More"}
               </button>
             </div>
@@ -452,7 +454,7 @@ const Index = () => {
           <aside className="hidden lg:flex flex-col gap-6">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2 mb-3">
-                <Zap className="h-3.5 w-3.5 text-gold" /> Breaking
+                <Zap className="h-3.5 w-3.5" /> Breaking
               </h3>
               <div className="bg-card border border-border rounded-2xl overflow-hidden">
                 {breaking.slice(0, 5).map((item, i) => (
@@ -460,7 +462,7 @@ const Index = () => {
                     className="flex items-start gap-3 w-full px-4 py-3.5 border-b border-border last:border-0 hover:bg-secondary/40 transition-colors text-left group">
                     <span className="text-xs text-muted-foreground font-mono mt-0.5 w-4 shrink-0">{i + 1}.</span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground group-hover:text-gold transition-colors line-clamp-2 leading-snug">
+                      <p className="text-xs font-semibold text-foreground group-hover:text-foreground/70 transition-colors line-clamp-2 leading-snug">
                         {item.statement}
                       </p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -486,7 +488,7 @@ const Index = () => {
                       {i + 1}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground group-hover:text-gold transition-colors line-clamp-2 leading-snug">
+                      <p className="text-xs font-semibold text-foreground group-hover:text-foreground/70 transition-colors line-clamp-2 leading-snug">
                         {item.statement}
                       </p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -501,6 +503,36 @@ const Index = () => {
           </aside>
         </div>
       </main>
+
+      {/* Featured option stake sheet — mobile only */}
+      {featuredStakeSheet && currentFeatured && (
+        <div className="lg:hidden">
+          {/* Import MobileStakeSheet inline */}
+          {(() => {
+            const { MobileStakeSheet } = require("@/components/MobileStakeSheet");
+            const opts = Array.isArray(currentFeatured.options) ? currentFeatured.options : ["Yes", "No"];
+            return (
+              <MobileStakeSheet
+                opinion={{ id: currentFeatured.id, statement: currentFeatured.statement, call_count: currentFeatured.call_count || 0, follower_count: currentFeatured.follower_count || 0, end_time: currentFeatured.end_time || "", source_name: null, source_url: null }}
+                options={opts}
+                userCall={null}
+                isOpen={true}
+                hasActivity={false}
+                latestProbabilities={{}}
+                countdown=""
+                onCall={async (opt, amount) => {
+                  if (!isLoggedIn) { navigate("/auth"); return; }
+                  navigate(`/opinion/${currentFeatured.id}`);
+                }}
+                submitting={false}
+                user={user}
+                isLoggedIn={isLoggedIn}
+                onClose={() => setFeaturedStakeSheet(false)}
+              />
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 };

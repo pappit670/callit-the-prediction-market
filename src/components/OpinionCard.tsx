@@ -8,17 +8,17 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useApp } from "@/context/AppContext";
 import { PositionModal } from "@/components/debate/PositionModal";
-import MiniGraph from "@/components/MiniGraph";
+import { MarketGraph } from "@/components/MarketGraph";
+import { QuestionIcon } from "@/components/QuestionIcon";
 import { useMarketTimeline } from "@/hooks/useMarketTimeline";
 import { ShareSheet } from "@/components/ShareSheet";
 import { MobileStakeSheet } from "@/components/MobileStakeSheet";
-import { QuestionImage } from "@/components/QuestionImage";
 
 const optColor = (label: string, i: number): string => {
   const l = label.toLowerCase().trim();
   if (l === "yes" || l === "agree") return "#2563EB";
   if (l === "no" || l === "disagree") return "#DC2626";
-  const multi = ["#F5C518", "#2563EB", "#DC2626", "#7C3AED", "#0891B2", "#059669"];
+  const multi = ["#7C3AED", "#0891B2", "#059669", "#EA580C", "#2563EB", "#DC2626"];
   return multi[i % multi.length];
 };
 
@@ -42,7 +42,7 @@ export interface OpinionCardData {
   topicIcon?: string;
   topicColor?: string;
   topicSlug?: string | null;
-  imageUrl?: string | null;
+  iconUrl?: string | null;
   status?: "open" | "locked" | "resolved" | "draw";
   isLiveGame?: boolean;
   homeTeam?: string;
@@ -139,7 +139,7 @@ const OptionBar = ({
   );
 };
 
-// ── Scrollable multi-choice options ──────────────────────────
+// ── Scrollable multi-choice ───────────────────────────────────
 const ScrollableOptions = ({
   options, latestProbabilities, hasActivity, deltaByLabel, onOptionTap,
 }: {
@@ -165,17 +165,12 @@ const ScrollableOptions = ({
     return () => clearTimeout(t);
   }, [options.length]);
 
-  const ITEM_H = 58;
-  const VISIBLE = 2;
-  const maxH = ITEM_H * VISIBLE + 12;
-
   return (
     <div className="relative">
       {canScrollUp && (
         <div className="absolute top-0 left-0 right-0 h-6 z-10 pointer-events-none rounded-t-lg"
           style={{ background: "linear-gradient(to bottom, var(--card), transparent)" }} />
       )}
-
       <div
         ref={containerRef}
         onScroll={checkScroll}
@@ -183,7 +178,7 @@ const ScrollableOptions = ({
         onTouchMove={e => e.stopPropagation()}
         onClick={e => e.stopPropagation()}
         className="flex flex-col gap-1.5 overflow-y-auto overscroll-contain"
-        style={{ maxHeight: `${maxH}px`, scrollbarWidth: "none", msOverflowStyle: "none" }}
+        style={{ maxHeight: "128px", scrollbarWidth: "none", msOverflowStyle: "none" }}
       >
         {options.map((opt, i) => (
           <OptionBar
@@ -197,7 +192,6 @@ const ScrollableOptions = ({
           />
         ))}
       </div>
-
       {canScrollDown && (
         <div className="absolute bottom-0 left-0 right-0 h-8 z-10 pointer-events-none flex items-end justify-center pb-0.5 rounded-b-lg"
           style={{ background: "linear-gradient(to top, var(--card) 40%, transparent)" }}>
@@ -211,10 +205,10 @@ const ScrollableOptions = ({
 // ── Main card ─────────────────────────────────────────────────
 const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) => {
   const {
-    question, yesPercent, noPercent, coins, timeLeft, genre,
-    topicIcon, topicSlug, imageUrl, isLiveGame, homeTeam, awayTeam,
-    homeScore, awayScore, matchMinute, options, leagueName,
-    creatorUsername, creatorReputation, createdAt, followerCount = 0,
+    question, coins, timeLeft, genre, topicIcon, topicSlug, iconUrl,
+    isLiveGame, homeTeam, awayTeam, homeScore, awayScore, matchMinute,
+    options, leagueName, creatorUsername, creatorReputation, createdAt,
+    followerCount = 0,
   } = data;
 
   const navigate = useNavigate();
@@ -286,10 +280,11 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     prevPartsRef.current = participants;
   }, [participants, hasActivity, leadingDelta]);
 
-  const miniSeries = useMemo(() =>
-    optionSeries.slice(0, 2).map(s => ({
+  // Build graph series for MarketGraph
+  const graphSeries = useMemo(() =>
+    optionSeries.slice(0, 3).map(s => ({
       label: s.label,
-      history: s.data.slice(-12).map(p => ({ probability: p.probability })),
+      data: s.data.map(p => ({ time: p.time, probability: p.probability })),
     })), [optionSeries]);
 
   const goToDetail = () => navigate(`/opinion/${data.id}`);
@@ -301,7 +296,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
     toast.success(followed ? "Unfollowed" : "Following!");
   };
 
-  const handleOptionTap = (e: React.MouseEvent, label: string) => {
+  const handleOptionTap = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isOpen) { goToDetail(); return; }
     setStakeSheet(true);
@@ -316,41 +311,36 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         transition={{ duration: 0.22, delay: Math.min(index * 0.03, 0.25) }}
         onClick={goToDetail}
       >
-        {/* Question image */}
-        <QuestionImage
-          imageUrl={imageUrl}
-          topicSlug={topicSlug}
-          statement={question}
-          height={110}
-          className="rounded-none"
-        />
-
         <div className="p-4 flex flex-col gap-3 flex-1">
 
-          {/* Header */}
+          {/* ── Header: icon + topic + actions ── */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-              {topicIcon && <span className="text-sm shrink-0">{topicIcon}</span>}
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {cleanGenre}
-              </span>
-              {leagueName && (
-                <>
-                  <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
-                  <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
-                </>
-              )}
-              {activityTag && (
-                <span className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0 ml-0.5"
-                  style={{ color: activityTag.color }}>
-                  {activityTag.icon} {activityTag.label}
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              {/* Polymarket-style left icon */}
+              <QuestionIcon iconUrl={iconUrl} statement={question} size={24} />
+
+              <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                  {cleanGenre}
                 </span>
-              )}
-              {isLive && !activityTag && (
-                <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
-                </span>
-              )}
+                {leagueName && (
+                  <>
+                    <span className="text-[11px] text-muted-foreground/40 shrink-0">·</span>
+                    <span className="text-[11px] text-muted-foreground/60 uppercase tracking-wider truncate">{leagueName}</span>
+                  </>
+                )}
+                {activityTag && (
+                  <span className="flex items-center gap-0.5 text-[10px] font-semibold shrink-0"
+                    style={{ color: activityTag.color }}>
+                    {activityTag.icon} {activityTag.label}
+                  </span>
+                )}
+                {isLive && !activityTag && (
+                  <span className="flex items-center gap-1 text-[10px] font-bold text-[#DC2626] shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626] animate-pulse inline-block" /> LIVE
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-0.5 shrink-0">
               <button onClick={e => { e.stopPropagation(); setShareSheet(true); }}
@@ -400,23 +390,29 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
           )}
 
-          {/* Mini graph */}
+          {/* Minimal market graph — faint when no activity, live when active */}
           <div>
-            <MiniGraph series={miniSeries} height={40} />
+            <MarketGraph
+              series={graphSeries}
+              height={60}
+              compact={true}
+              showTooltip={hasActivity}
+            />
             {signal && hasActivity && (
-              <p className="mt-1 text-[10px] text-muted-foreground">{signal}</p>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">{signal}</p>
             )}
           </div>
 
           {/* Options */}
           {binary ? (
+            /* Yes/No — HORIZONTAL */
             <div className="grid grid-cols-2 gap-2" onClick={e => e.stopPropagation()}>
               {allOptions.map((opt, i) => {
                 const color = optColor(opt.label, i);
                 const pct = hasActivity ? (latestProbabilities[opt.label] ?? opt.percent) : null;
                 return (
                   <button key={opt.label}
-                    onClick={e => handleOptionTap(e, opt.label)}
+                    onClick={handleOptionTap}
                     className="flex flex-col items-center justify-center py-3 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.97] transition-all">
                     <span className="text-sm font-bold" style={{ color }}>{opt.label}</span>
                     <span className="text-xs font-semibold tabular-nums mt-0.5"
@@ -428,6 +424,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
               })}
             </div>
           ) : (
+            /* Multi-choice — SCROLLABLE */
             <ScrollableOptions
               options={allOptions}
               latestProbabilities={latestProbabilities}
@@ -441,7 +438,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
           <div className="flex items-center justify-between pt-2 border-t border-border/40 mt-auto">
             <div className="flex items-center gap-2 min-w-0">
               {hasActivity ? (
-                <span className="flex items-center gap-1 text-[11px] text-gold font-semibold">
+                <span className="flex items-center gap-1 text-[11px] text-[#22C55E] font-semibold">
                   <Coins className="h-3 w-3" />
                   {formatCount(totalCoinsStaked)}c staked
                 </span>
@@ -479,10 +476,10 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
             </div>
             <button onClick={handleFollow}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors border shrink-0 ${followed
-                  ? "text-gold border-gold bg-gold/8"
-                  : "text-muted-foreground border-border hover:text-gold hover:border-gold"
+                  ? "text-[#22C55E] border-[#22C55E] bg-[#22C55E]/8"
+                  : "text-muted-foreground border-border hover:text-foreground hover:border-foreground/40"
                 }`}>
-              <Bell className={`h-3 w-3 ${followed ? "fill-gold" : ""}`} />
+              <Bell className={`h-3 w-3 ${followed ? "fill-[#22C55E]" : ""}`} />
               {followed ? "Following" : "Follow"}
             </button>
           </div>
@@ -497,6 +494,7 @@ const OpinionCard = ({ data, index }: { data: OpinionCardData; index: number }) 
         />
       )}
 
+      {/* Mobile stake sheet — full height, all options visible */}
       {stakeSheet && (
         <MobileStakeSheet
           opinion={{ id: String(data.id), statement: question, call_count: coins, follower_count: followerCount, end_time: "", source_name: null, source_url: null }}
