@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import OpinionCard from "@/components/OpinionCard";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { MarketGraph } from "@/components/MarketGraph";
-import { QuestionIcon } from "@/components/QuestionIcon";
+import { MobileStakeSheet } from "@/components/MobileStakeSheet";
 import {
   Zap, ChevronLeft, ChevronRight, Timer, Users, Plus,
   TrendingUp, Swords
@@ -53,6 +53,9 @@ const TOPIC_PILLS = [
   { label: "Fuel", slug: "kenya-fuel" },
 ];
 
+const isYNLabel = (l: string) =>
+  ["yes", "no", "agree", "disagree"].includes(l.toLowerCase().trim());
+
 // ── Featured card ─────────────────────────────────────────────
 const FeaturedCard = ({ opinion, onClick, onOptionTap }: {
   opinion: any;
@@ -61,10 +64,14 @@ const FeaturedCard = ({ opinion, onClick, onOptionTap }: {
 }) => {
   const options: string[] = Array.isArray(opinion.options) ? opinion.options : ["Yes", "No"];
   const basePercent = Math.round(100 / options.length);
-  const staticSeries = options.map((label, i) => ({
+  const isTwoOpt = options.length === 2;
+  const isYN = isTwoOpt && options.every(o => isYNLabel(o));
+
+  const staticSeries = options.map((label) => ({
     label,
     data: [] as { time: string; probability: number }[],
   }));
+
   const timeLeft = opinion.end_time
     ? new Date(opinion.end_time) > new Date()
       ? `${Math.ceil((new Date(opinion.end_time).getTime() - Date.now()) / 86400000)} days left`
@@ -75,17 +82,17 @@ const FeaturedCard = ({ opinion, onClick, onOptionTap }: {
     <motion.div className="w-full cursor-pointer" onClick={onClick}
       initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.3 }}>
-      <div className="bg-card border border-border rounded-2xl overflow-hidden hover:border-border/60 transition-all">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden hover:brightness-[1.03] transition-all">
 
         <div className="p-5 pb-3">
-          {/* Header with icon */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <QuestionIcon iconUrl={opinion.icon_url} statement={opinion.statement} size={22} />
               <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                {opinion.topics?.name || "General"}
+                {opinion.topics?.icon} {opinion.topics?.name || "General"}
               </span>
-              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Featured</span>
+              <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                Featured
+              </span>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1"><Users className="h-3 w-3" />{opinion.call_count || 0}</span>
@@ -100,32 +107,54 @@ const FeaturedCard = ({ opinion, onClick, onOptionTap }: {
           )}
         </div>
 
-        {/* Minimal graph — no gold colors */}
-        <div className="px-5 pb-2">
+        {/* Minimal faint graph */}
+        <div className="px-5 pb-3">
           <MarketGraph series={staticSeries} height={70} compact={true} showTooltip={false} />
         </div>
 
-        {/* Tappable options */}
-        <div className="px-5 pb-4 grid grid-cols-2 gap-2" onClick={e => e.stopPropagation()}>
-          {options.slice(0, 4).map((opt, i) => (
-            <button key={opt}
-              onClick={e => { e.stopPropagation(); onOptionTap(opt); }}
-              className="flex items-center justify-between px-3 py-2.5 rounded-xl border border-border/60 bg-secondary/20 hover:bg-secondary/50 active:scale-[0.97] transition-all">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full" style={{ background: GRAPH_COLORS[i % GRAPH_COLORS.length] }} />
-                <span className="text-xs font-semibold text-foreground">{opt}</span>
-              </div>
-              <span className="text-xs font-bold tabular-nums"
-                style={{ color: GRAPH_COLORS[i % GRAPH_COLORS.length] }}>
-                {basePercent}%
-              </span>
-            </button>
-          ))}
+        {/* Tappable options — light-up hover, colour fade for Yes/No only */}
+        <div
+          className={`px-5 pb-4 grid gap-2 ${isTwoOpt ? "grid-cols-2" : "grid-cols-2"}`}
+          onClick={e => e.stopPropagation()}
+        >
+          {options.slice(0, 4).map((opt, i) => {
+            const color = GRAPH_COLORS[i % GRAPH_COLORS.length];
+            const yn = isYNLabel(opt);
+            return (
+              <button key={opt}
+                onClick={e => { e.stopPropagation(); onOptionTap(opt); }}
+                className="flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all relative overflow-hidden group"
+                style={{
+                  borderColor: yn ? color + "50" : "var(--border)",
+                  background: yn ? color + "0D" : "var(--secondary-20, rgba(128,128,128,0.08))",
+                }}
+              >
+                {/* Light-up hover */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"
+                  style={{
+                    background: yn
+                      ? `linear-gradient(135deg, ${color}20 0%, ${color}08 100%)`
+                      : "linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%)",
+                  }} />
+                <div className="flex items-center gap-2 relative z-10">
+                  <div className="h-2 w-2 rounded-full shrink-0" style={{ background: color }} />
+                  <span className="text-xs font-semibold"
+                    style={{ color: yn ? color : "var(--foreground)" }}>
+                    {opt}
+                  </span>
+                </div>
+                <span className="text-xs font-bold tabular-nums relative z-10"
+                  style={{ color }}>
+                  {basePercent}%
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex items-center justify-between px-5 py-2.5 border-t border-border">
           <span className="text-xs text-muted-foreground">{opinion.call_count || 0} callers · {timeLeft}</span>
-          <span className="text-xs font-bold text-foreground/70">View details →</span>
+          <span className="text-xs font-bold text-foreground/60">View details →</span>
         </div>
       </div>
     </motion.div>
@@ -172,7 +201,9 @@ const FeaturedTabs = () => {
       <div className="flex border-b border-border">
         {(["debates", "activity"] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-semibold transition-colors border-b-2 ${tab === t
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
               }`}>
             {t === "debates" ? <Swords className="h-4 w-4" /> : <Zap className="h-4 w-4" />}
             {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -189,7 +220,8 @@ const FeaturedTabs = () => {
             </div>
           ) : debates.map((d, i) => (
             <motion.button key={d.id}
-              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+              initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
               onClick={() => navigate(`/opinion/${d.opinion_id}`)}
               className="w-full flex items-start gap-3 px-4 py-3.5 hover:bg-secondary/40 transition-colors text-left">
               <div className="h-7 w-7 rounded-full bg-purple-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -203,7 +235,9 @@ const FeaturedTabs = () => {
                   <span className="text-[10px] text-[#22C55E] font-semibold">{d.challenger_alias}</span>
                   <span className="text-[10px] text-muted-foreground">vs</span>
                   <span className="text-[10px] text-[#DC2626] font-semibold">{d.defender_alias}</span>
-                  <span className="text-[10px] text-foreground/50 ml-auto">{d.challenger_votes + d.defender_votes} votes</span>
+                  <span className="text-[10px] text-foreground/50 ml-auto">
+                    {d.challenger_votes + d.defender_votes} votes
+                  </span>
                 </div>
                 <div className="mt-1.5 h-1 rounded-full bg-[#DC2626]/20 overflow-hidden">
                   <div className="h-full bg-[#22C55E] rounded-full transition-all"
@@ -226,7 +260,8 @@ const FeaturedTabs = () => {
 // ── Main Index ────────────────────────────────────────────────
 const Index = () => {
   const navigate = useNavigate();
-  const { hasSeenHero, setHasSeenHero } = useApp();
+  const { hasSeenHero, setHasSeenHero, isLoggedIn, user } = useApp();
+
   const [opinions, setOpinions] = useState<any[]>([]);
   const [featured, setFeatured] = useState<any[]>([]);
   const [breaking, setBreaking] = useState<any[]>([]);
@@ -236,10 +271,7 @@ const Index = () => {
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [activeSort, setActiveSort] = useState("Trending");
   const [page, setPage] = useState(0);
-
-  // Mobile stake sheet for featured card taps
-  const [featuredStakeSheet, setFeaturedStakeSheet] = useState(false);
-  const [featuredSelectedOpt, setFeaturedSelectedOpt] = useState<string | null>(null);
+  const [featuredSheet, setFeaturedSheet] = useState(false);
 
   const PAGE_SIZE = 6;
 
@@ -276,10 +308,14 @@ const Index = () => {
         if (topicRow?.id) query = query.eq("topic_id", topicRow.id);
       }
 
-      if (activeSort === "Newest") query = query.order("created_at", { ascending: false });
-      else if (activeSort === "Most Called") query = query.order("call_count", { ascending: false });
-      else if (activeSort === "Ending Soon") query = query.order("end_time", { ascending: true });
-      else query = query.order("call_count", { ascending: false });
+      if (activeSort === "Newest")
+        query = query.order("created_at", { ascending: false });
+      else if (activeSort === "Most Called")
+        query = query.order("call_count", { ascending: false });
+      else if (activeSort === "Ending Soon")
+        query = query.order("end_time", { ascending: true });
+      else
+        query = query.order("call_count", { ascending: false });
 
       const { data } = await query;
       if (data) {
@@ -329,7 +365,6 @@ const Index = () => {
   });
 
   const currentFeatured = featured[featuredIndex];
-  const { isLoggedIn, user } = useApp();
 
   // ── Landing ──────────────────────────────────────────────
   if (!hasSeenHero) {
@@ -380,13 +415,16 @@ const Index = () => {
                   <div className="flex items-center gap-1.5">
                     {featured.map((_, i) => (
                       <button key={i} onClick={() => setFeaturedIndex(i)}
-                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-foreground" : "w-1.5 bg-border"}`} />
+                        className={`h-1.5 rounded-full transition-all ${i === featuredIndex ? "w-5 bg-foreground" : "w-1.5 bg-border"
+                          }`} />
                     ))}
-                    <button onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
+                    <button
+                      onClick={() => setFeaturedIndex(i => (i - 1 + featured.length) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-foreground/40 transition-all ml-1">
                       <ChevronLeft className="h-3 w-3" />
                     </button>
-                    <button onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
+                    <button
+                      onClick={() => setFeaturedIndex(i => (i + 1) % featured.length)}
                       className="p-1.5 rounded-full border border-border hover:border-foreground/40 transition-all">
                       <ChevronRight className="h-3 w-3" />
                     </button>
@@ -401,10 +439,7 @@ const Index = () => {
                     key={featuredIndex}
                     opinion={currentFeatured}
                     onClick={() => navigate(`/opinion/${currentFeatured.id}`)}
-                    onOptionTap={opt => {
-                      setFeaturedSelectedOpt(opt);
-                      setFeaturedStakeSheet(true);
-                    }}
+                    onOptionTap={() => setFeaturedSheet(true)}
                   />
                 </AnimatePresence>
               ) : null}
@@ -429,16 +464,22 @@ const Index = () => {
               </div>
             </div>
 
-            <TopicFilterBar active={activeTopic}
-              onChange={slug => { setActiveTopic(slug); setPage(0); setOpinions([]); }} />
+            <TopicFilterBar
+              active={activeTopic}
+              onChange={slug => { setActiveTopic(slug); setPage(0); setOpinions([]); }}
+            />
 
             {loading && page === 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[...Array(6)].map((_, i) => <div key={i} className="h-52 rounded-2xl bg-secondary animate-pulse" />)}
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-52 rounded-2xl bg-secondary animate-pulse" />
+                ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {opinions.map((op, i) => <OpinionCard key={op.id} data={mapToCard(op)} index={i} />)}
+                {opinions.map((op, i) => (
+                  <OpinionCard key={op.id} data={mapToCard(op)} index={i} />
+                ))}
               </div>
             )}
 
@@ -504,33 +545,31 @@ const Index = () => {
         </div>
       </main>
 
-      {/* Featured option stake sheet — mobile only */}
-      {featuredStakeSheet && currentFeatured && (
+      {/* Featured stake sheet — mobile only, proper ESM import at top */}
+      {featuredSheet && currentFeatured && (
         <div className="lg:hidden">
-          {/* Import MobileStakeSheet inline */}
-          {(() => {
-            const { MobileStakeSheet } = require("@/components/MobileStakeSheet");
-            const opts = Array.isArray(currentFeatured.options) ? currentFeatured.options : ["Yes", "No"];
-            return (
-              <MobileStakeSheet
-                opinion={{ id: currentFeatured.id, statement: currentFeatured.statement, call_count: currentFeatured.call_count || 0, follower_count: currentFeatured.follower_count || 0, end_time: currentFeatured.end_time || "", source_name: null, source_url: null }}
-                options={opts}
-                userCall={null}
-                isOpen={true}
-                hasActivity={false}
-                latestProbabilities={{}}
-                countdown=""
-                onCall={async (opt, amount) => {
-                  if (!isLoggedIn) { navigate("/auth"); return; }
-                  navigate(`/opinion/${currentFeatured.id}`);
-                }}
-                submitting={false}
-                user={user}
-                isLoggedIn={isLoggedIn}
-                onClose={() => setFeaturedStakeSheet(false)}
-              />
-            );
-          })()}
+          <MobileStakeSheet
+            opinion={{
+              id: currentFeatured.id,
+              statement: currentFeatured.statement,
+              call_count: currentFeatured.call_count || 0,
+              follower_count: currentFeatured.follower_count || 0,
+              end_time: currentFeatured.end_time || "",
+              source_name: null,
+              source_url: null,
+            }}
+            options={Array.isArray(currentFeatured.options) ? currentFeatured.options : ["Yes", "No"]}
+            userCall={null}
+            isOpen={true}
+            hasActivity={false}
+            latestProbabilities={{}}
+            countdown=""
+            onCall={async () => { navigate(`/opinion/${currentFeatured.id}`); }}
+            submitting={false}
+            user={user}
+            isLoggedIn={isLoggedIn}
+            onClose={() => setFeaturedSheet(false)}
+          />
         </div>
       )}
     </div>
