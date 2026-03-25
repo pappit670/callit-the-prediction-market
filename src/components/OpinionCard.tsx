@@ -493,7 +493,8 @@ const OpinionCard = ({
 
           {/* ── UPGRADED Options ── */}
           {isTwoOpt ? (
-            <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+            /* Two options — vertical list (same as multi) for clean consistent layout */
+            <div className="flex flex-col gap-1.5" onClick={e => e.stopPropagation()}>
               {allOptions.map((opt, i) => (
                 <BinaryOptionCard
                   key={opt.label}
