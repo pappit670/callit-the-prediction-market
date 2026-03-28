@@ -1,0 +1,5 @@
+# Project: Callit — The Prediction Market
+# Supabase project ref: rzfyhkksaolyodlddrpo
+
+[functions.sync-notion]
+verify_jwt = false   # allow scheduler/cron to call without JWT
