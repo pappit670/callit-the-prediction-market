@@ -1,25 +1,23 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+﻿# Debug & test artifacts
+*_response.json
+*_check.json
+debug_*.json
+final*.json
+v2_*.json
+payload.json
+sync_*.json
+ds_query.json
+db_meta*.json
+test.js
+test_*.js
+test_*.json
+*.json
+!package.json
+!deno.json
 
+# Supabase temp files
+supabase/.temp/
+
+# Duplicate function folder
+supabase/functions/sync_notion/
 node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-.env
