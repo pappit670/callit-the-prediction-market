@@ -29,6 +29,7 @@ export interface AppNotification {
 }
 
 interface UserProfile {
+  [x: string]: any;
   username: string;
   displayName: string;
   initials: string;

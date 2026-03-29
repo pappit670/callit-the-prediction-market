@@ -14,6 +14,7 @@ interface Props {
     statement: string;
     size?: number;
     className?: string;
+
 }
 
 function letterColor(letter: string) {
