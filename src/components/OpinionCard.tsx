@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Timer, TrendingUp } from "lucide-react";
 import { QuestionIcon } from "@/components/QuestionIcon";
+import { MiniGraph } from "@/components/MiniGraph";
 
 interface CardOption {
   label: string;
@@ -102,6 +103,12 @@ export default function OpinionCard({ data, index = 0 }: Props) {
 
       {/* Options */}
       <div className="px-4 pb-3 space-y-2" onClick={e => e.stopPropagation()}>
+        {pureYN && options.length >= 2 && (
+          <MiniGraph 
+            yesPercent={options.find(o => ["yes", "agree"].includes(o.label.toLowerCase()))?.percent ?? 50} 
+            noPercent={options.find(o => ["no", "disagree"].includes(o.label.toLowerCase()))?.percent ?? 50} 
+          />
+        )}
         {showOpts.map((opt, i) => {
           const color = optColor(opt.label, i);
           const pct = opt.percent ?? Math.round(100 / options.length);

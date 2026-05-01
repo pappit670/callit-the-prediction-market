@@ -1,0 +1,7 @@
+# These instructions tell Goose how to interact with this project.
+
+# Ignore large subdirectories from context map completely
+- Never read, list, or include the `goose` directory in the initial context or project map.
+- Never read, list, or include the `.venv` directory.
+- Never read, list, or include the `.lovable` directory.
+- Never read, list, or include the `dist` directory.

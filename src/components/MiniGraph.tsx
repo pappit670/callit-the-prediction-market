@@ -1,77 +1,123 @@
-import { LineChart, Line, ResponsiveContainer, YAxis, Tooltip } from "recharts";
-
-interface SeriesItem {
-  label: string;
-  history: { probability: number }[];
-}
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 
 interface MiniGraphProps {
-  series: SeriesItem[];
-  height?: number;
+  yesPercent: number;
+  noPercent: number;
 }
 
-const COLORS = ["#F5C518", "#22C55E", "#EF4444", "#A855F7", "#3B82F6"];
+export function MiniGraph({ yesPercent, noPercent }: MiniGraphProps) {
+  const [points, setPoints] = useState<{ y: number; n: number }[]>([]);
 
-// Flatten series into recharts format: [{p0: 60, p1: 40}, ...]
-function buildData(series: SeriesItem[]) {
-  if (!series.length || series.every(s => !s.history.length)) return [];
-  const maxLen = Math.max(...series.map(s => s.history.length));
-  return Array.from({ length: maxLen }, (_, i) => {
-    const point: Record<string, number> = {};
-    series.forEach((s, si) => {
-      point[`p${si}`] = s.history[i]?.probability ?? s.history[s.history.length - 1]?.probability ?? 50;
-    });
-    return point;
-  });
-}
+  useEffect(() => {
+    // Generate seeded random walk converging to the current percentages
+    const pts = [];
+    let curY = 50;
+    let curN = 50;
+    
+    // Start at 50/50, end at yesPercent/noPercent
+    for (let i = 0; i <= 10; i++) {
+      if (i === 10) {
+        pts.push({ y: yesPercent, n: noPercent });
+      } else {
+        // Random walk towards target
+        const progress = i / 10;
+        const targetY = 50 + (yesPercent - 50) * progress;
+        const targetN = 50 + (noPercent - 50) * progress;
+        
+        curY = targetY + (Math.random() * 10 - 5);
+        curN = targetN + (Math.random() * 10 - 5);
+        
+        // Clamp
+        curY = Math.max(5, Math.min(95, curY));
+        curN = Math.max(5, Math.min(95, curN));
+        
+        pts.push({ y: curY, n: curN });
+      }
+    }
+    setPoints(pts);
+  }, [yesPercent, noPercent]);
 
-const MiniGraph = ({ series, height = 44 }: MiniGraphProps) => {
-  const hasData = series.some(s => s.history.length > 1);
-  const data    = buildData(series);
+  if (points.length === 0) return null;
 
-  if (!hasData) {
-    return (
-      <div
-        className="flex items-center justify-center border border-dashed border-border/40 rounded-lg"
-        style={{ height }}
-      >
-        <span className="text-[10px] text-muted-foreground">No activity yet</span>
-      </div>
-    );
-  }
+  const width = 200;
+  const height = 48;
+  const padding = 4;
+  
+  const dx = width / 10;
+  
+  const getPath = (key: "y" | "n") => {
+    let d = `M 0 ${height - (points[0][key] / 100) * (height - padding * 2) - padding}`;
+    for (let i = 1; i <= 10; i++) {
+      const x = i * dx;
+      const y = height - (points[i][key] / 100) * (height - padding * 2) - padding;
+      // Simple cubic bezier
+      const prevX = (i - 1) * dx;
+      const prevY = height - (points[i - 1][key] / 100) * (height - padding * 2) - padding;
+      const cpX1 = prevX + dx * 0.5;
+      const cpX2 = x - dx * 0.5;
+      d += ` C ${cpX1} ${prevY}, ${cpX2} ${y}, ${x} ${y}`;
+    }
+    return d;
+  };
+
+  const getArea = (key: "y" | "n") => {
+    const d = getPath(key);
+    return `${d} L ${width} ${height} L 0 ${height} Z`;
+  };
 
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <LineChart data={data} margin={{ top: 2, right: 2, bottom: 2, left: 0 }}>
-        <YAxis domain={[0, 100]} hide />
-        <Tooltip
-          contentStyle={{
-            background:   "var(--card, #fff)",
-            border:       "1px solid var(--border, #e5e7eb)",
-            borderRadius: "6px",
-            fontSize:     "11px",
-            padding:      "3px 7px",
-          }}
-          formatter={(val: number, key: string) => {
-            const idx = parseInt(key.replace("p", ""));
-            return [`${val}%`, series[idx]?.label || key];
-          }}
-          labelStyle={{ display: "none" }}
-        />
-        {series.map((s, i) => (
-          <Line
-            key={i}
-            type="monotone"
-            dataKey={`p${i}`}
-            stroke={COLORS[i % COLORS.length]}
-            strokeWidth={1.5}
-            dot={false}
-            activeDot={{ r: 2.5, strokeWidth: 0 }}
-            isAnimationActive={false}
+    <div className="flex items-center gap-3 w-full h-[48px] my-2">
+      <div className="relative flex-1 h-full">
+        <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" className="w-full h-full overflow-visible">
+          {/* Yes Area */}
+          <motion.path
+            d={getArea("y")}
+            fill="#22C55E"
+            opacity={0.1}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.1 }}
+            transition={{ duration: 0.6 }}
           />
-        ))}
-      </LineChart>
-    </ResponsiveContainer>
+          {/* No Area */}
+          <motion.path
+            d={getArea("n")}
+            fill="#3B82F6"
+            opacity={0.1}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.1 }}
+            transition={{ duration: 0.6 }}
+          />
+          {/* Yes Line */}
+          <motion.path
+            d={getPath("y")}
+            fill="none"
+            stroke="#22C55E"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          />
+          {/* No Line */}
+          <motion.path
+            d={getPath("n")}
+            fill="none"
+            stroke="#3B82F6"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            initial={{ pathLength: 0 }}
+            animate={{ pathLength: 1 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+          />
+        </svg>
+      </div>
+      <div className="flex flex-col justify-center items-end shrink-0 w-10">
+        <span className="text-[13px] font-bold text-[#22C55E]">{yesPercent}%</span>
+        <span className="text-[13px] font-bold text-[#3B82F6]">{noPercent}%</span>
+      </div>
+    </div>
   );
 }
-export default MiniGraph;

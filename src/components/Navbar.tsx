@@ -83,13 +83,26 @@ const Navbar = () => {
               </Link>
 
               {/* Search button — opens SearchModal */}
-              <div className="hidden md:flex items-center justify-start flex-1 max-w-[320px]">
+              <div className="hidden md:flex items-center justify-start max-w-[240px] xl:max-w-[320px] w-full">
                 <button
                   onClick={() => setSearchOpen(true)}
                   className="w-full flex items-center gap-3 rounded-full border border-border bg-secondary/30 px-4 py-2 text-[14px] text-muted-foreground hover:border-foreground/30 hover:bg-secondary/50 transition-all text-left">
                   <Search className="h-[18px] w-[18px] shrink-0" />
                   <span>Search calls...</span>
                 </button>
+              </div>
+
+              {/* Inline Breaking News Ticker */}
+              <div className="hidden lg:flex flex-1 max-w-[280px] h-9 items-center bg-secondary/30 border border-border rounded-full px-3 overflow-hidden">
+                <div className="flex items-center gap-2 shrink-0 pr-3 border-r border-border/50">
+                  <div className="h-2 w-2 rounded-full bg-[#DC2626] animate-pulse" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Live</span>
+                </div>
+                <div className="flex-1 overflow-hidden relative ml-3 flex items-center">
+                  <div className="whitespace-nowrap animate-ticker text-xs font-semibold text-foreground/80">
+                    Senate passes AI regulation bill • Bitcoin crosses $90k milestone • Kenya Supreme Court ruling expected today
+                  </div>
+                </div>
               </div>
 
               {/* Right actions */}
@@ -107,12 +120,10 @@ const Navbar = () => {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    {/* Balance */}
-                    <div className="hidden sm:flex items-center gap-1.5 bg-secondary/50 px-3 py-1.5 rounded-full border border-border mr-1">
-                      <span className="text-sm font-bold text-foreground flex items-center gap-1">
-                        🪙 <SlidingNumber value={user.balance || 0} />
-                      </span>
-                    </div>
+                    {/* Theme Toggle */}
+                    <button onClick={toggleTheme} className="hidden sm:flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors mr-1">
+                      {theme === 'dark' ? '☀️' : '🌙'}
+                    </button>
 
                     {/* Notifications */}
                     <button onClick={() => navigate("/notifications")}

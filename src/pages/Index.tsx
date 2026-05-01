@@ -7,6 +7,7 @@ import OpinionCard from "@/components/OpinionCard";
 import { ActivityFeed } from "@/components/ActivityFeed";
 import { MobileStakeSheet } from "@/components/MobileStakeSheet";
 import { QuestionIcon } from "@/components/QuestionIcon";
+import { FloatingComments } from "@/components/FloatingComments";
 import { Zap, ChevronLeft, ChevronRight, Timer, Users, Plus, TrendingUp, Swords, Radio } from "lucide-react";
 import { supabase } from "@/supabaseClient";
 import { useApp } from "@/context/AppContext";
@@ -373,7 +374,16 @@ const Index = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {opinions.map((op, i) => <OpinionCard key={op.id} data={mapToCard(op)} index={i} />)}
+                {opinions.map((op, i) => (
+                  <div key={op.id} className="contents">
+                    <OpinionCard data={mapToCard(op)} index={i} />
+                    {i % 2 === 1 && (
+                      <div className="col-span-1 sm:col-span-2">
+                        <FloatingComments delayOffset={i * 1.5} />
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
